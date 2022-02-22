@@ -75,3 +75,8 @@ H5/package-lock.json
 
 # mac file system
 .DS_Store
+
+## pod file
+Podfile.lock
+Pods/
+#*.xcworkspace

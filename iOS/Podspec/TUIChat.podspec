@@ -17,7 +17,9 @@ Pod::Spec.new do |spec|
 
   spec.requires_arc = true
 
-  spec.source = { :http => 'https://sdk-im-1252463788.cos.ap-hongkong.myqcloud.com/download/tuikit/6.0.1992/ios/TUIChat.zip'}
+  # spec.source = { :http => 'https://sdk-im-1252463788.cos.ap-hongkong.myqcloud.com/download/tuikit/6.0.1992/ios/TUIChat.zip'}
+  # 使用本地源代码
+  spec.source = { :git => ''}
   spec.dependency 'TUICore','6.0.1992'
 
   spec.subspec 'VoiceConvert' do |voiceConvert|
