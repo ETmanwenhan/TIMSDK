@@ -43,6 +43,9 @@
 + (NSString *)getDisplayString:(V2TIMMessage *)message {
     // 处理表情的国际化
     NSString *content = message.textElem.text;
+    if (content == nil) {
+        return @"";
+    }
     return content.getLocalizableStringWithFaceContent;
 }
 
