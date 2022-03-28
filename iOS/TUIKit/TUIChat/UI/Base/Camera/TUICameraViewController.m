@@ -305,7 +305,11 @@
             UIGraphicsEndImageContext();
             [strongSelf.delegate cameraViewController:strongSelf didFinishPickingMediaWithImage:convertToUpImage];
             
-            [strongSelf popViewControllerAnimated:YES];
+            if (self.isLive == YES) {
+                [strongSelf.navigationController popToRootViewControllerAnimated:YES];
+            } else {
+                [strongSelf popViewControllerAnimated:YES];
+            }
         };
         vc.cancelBlock = ^{
             __strong __typeof(weakSelf) strongSelf = weakSelf;

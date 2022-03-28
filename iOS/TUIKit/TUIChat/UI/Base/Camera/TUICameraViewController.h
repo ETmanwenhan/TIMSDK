@@ -26,4 +26,7 @@
 /// default 3s
 @property (nonatomic) NSTimeInterval videoMinimumDuration;
 
+/// 是否直播间里的im聊天
+@property (nonatomic, assign) BOOL isLive;
+
 @end
