@@ -20,7 +20,7 @@ static NSString *g_faceUrl = nil;
     }
     g_sdkAppID = sdkAppID;
     V2TIMSDKConfig *config = [[V2TIMSDKConfig alloc] init];
-    config.logLevel = V2TIM_LOG_ERROR;
+    config.logLevel = V2TIM_LOG_NONE;
     [[V2TIMManager sharedInstance] initSDK:sdkAppID config:config listener:nil];
 }
 
