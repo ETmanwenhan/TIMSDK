@@ -149,6 +149,16 @@ static NSArray *customMessageInfo = nil;
         if (!cellData) {
             cellData = [TUIMessageDataProvider getCellData:msg];
         }
+        
+        // 过滤不需要显示的消息
+        if (msg.customElem.data) {
+            NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:msg.customElem.data options:NSJSONReadingMutableLeaves error:nil];
+            NSNumber *type = jsonDict[@"type"];
+            if (type.intValue == 22) { //开播提醒
+                cellData = nil;
+            }
+        }
+
         if (cellData) {
             TUISystemMessageCellData *dateMsg = [self getSystemMsgFromDate:msg.timestamp];
             if (dateMsg) {
