@@ -153,9 +153,11 @@ static NSArray *customMessageInfo = nil;
         // 过滤不需要显示的消息
         if (msg.customElem.data) {
             NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:msg.customElem.data options:NSJSONReadingMutableLeaves error:nil];
-            NSNumber *type = jsonDict[@"type"];
-            if (type.intValue == 22) { //开播提醒
-                cellData = nil;
+            if (jsonDict != nil && [jsonDict isKindOfClass:[NSDictionary class]]) {
+                NSNumber *type = jsonDict[@"type"];
+                if (type != nil && type.intValue == 22) { //开播提醒
+                    cellData = nil;
+                }
             }
         }
 
