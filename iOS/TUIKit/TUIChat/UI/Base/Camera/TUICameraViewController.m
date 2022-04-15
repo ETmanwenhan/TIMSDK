@@ -305,7 +305,7 @@
             UIGraphicsEndImageContext();
             [strongSelf.delegate cameraViewController:strongSelf didFinishPickingMediaWithImage:convertToUpImage];
             
-            if (self.isLive == YES) {
+            if (strongSelf.isLive == YES) {
                 [strongSelf.navigationController popToRootViewControllerAnimated:YES];
             } else {
                 [strongSelf popViewControllerAnimated:YES];
