@@ -59,9 +59,9 @@ static CGFloat progressLayerLineWidth = 5.0;
         };
         timer.progressFinishBlock = ^(CGFloat ratio, CGFloat recordTime) {
             weakSelf.progress = 1;
-            self.longPress.enabled = NO;
+            weakSelf.longPress.enabled = NO;
             [weakSelf endVideoRecordWithCaptureDuration:recordTime];
-            self.longPress.enabled = YES;
+            weakSelf.longPress.enabled = YES;
         };
         timer.progressCancelBlock = ^{
             weakSelf.progress = 0;

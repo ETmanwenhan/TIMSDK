@@ -287,9 +287,10 @@
     if (connection.isVideoOrientationSupported) {
         connection.videoOrientation = [self currentVideoOrientation];
     }
+    __weak __typeof(self) weakSelf = self;
     [_imageOutput captureStillImageAsynchronouslyFromConnection:connection completionHandler:^(CMSampleBufferRef _Nullable imageDataSampleBuffer, NSError * _Nullable error) {
         if (error) {
-            [self showErrorStr:error.localizedDescription];
+            [weakSelf showErrorStr:error.localizedDescription];
             return;
         }
         NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
