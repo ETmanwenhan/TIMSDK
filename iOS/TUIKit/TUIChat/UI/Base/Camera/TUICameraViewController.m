@@ -296,7 +296,7 @@
         NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
         UIImage *image = [[UIImage alloc]initWithData:imageData];
         TUICaptureImagePreviewController *vc = [[TUICaptureImagePreviewController alloc]initWithImage:image];
-        [self.navigationController pushViewController:vc animated:YES];
+        [weakSelf.navigationController pushViewController:vc animated:YES];
         __weak __typeof(self) weakSelf = self;
         vc.commitBlock = ^{
             __strong __typeof(weakSelf) strongSelf = weakSelf;
