@@ -491,6 +491,18 @@ static NSArray *customMessageInfo = nil;
     @weakify(self);
     [TUIMessageDataProvider deleteMessages:imMsgList succ:^{
         @strongify(self);
+        // 避免异步操作导致崩溃
+        NSMutableArray *uiMsgList = [NSMutableArray array];
+        for (TUIMessageCellData *uiMsg in uiMsgs) {
+            if ([self.uiMsgs containsObject:uiMsg]) {
+                [uiMsgList addObject:uiMsg];
+            }
+        }
+        
+        if (imMsgList.count == 0) {
+            return;
+        }
+        
         [self.dataSource dataProviderDataSourceWillChange:self];
         for (TUIMessageCellData *uiMsg in uiMsgList) {
             NSInteger index = [self.uiMsgs indexOfObject:uiMsg];
