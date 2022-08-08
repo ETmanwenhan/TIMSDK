@@ -14,6 +14,8 @@
 #import "TUICore.h"
 #import "NSDictionary+TUISafe.h"
 
+typedef void(^TUIConversationSelectCompletHandler)(BOOL);
+
 @interface TUIConversationSelectController () <UITableViewDelegate, UITableViewDataSource, TUINotificationProtocol>
 
 @property (nonatomic, strong) UITableView *tableView;
@@ -30,7 +32,6 @@
 @end
 
 @implementation TUIConversationSelectController
-@synthesize callback;
 
 static NSString *const Id = @"con";
 
@@ -59,6 +60,7 @@ static NSString *const Id = @"con";
 }
 
 - (void)dealloc {
+    NSLog(@"%s dealloc", __FUNCTION__);
     [TUICore unRegisterEventByObject:self];
 }
 
@@ -67,29 +69,37 @@ static NSString *const Id = @"con";
     if ([key isEqualToString:TUICore_TUIContactNotify]
         && [subKey isEqualToString:TUICore_TUIContactNotify_SelectedContactsSubKey]
         && anObject == self.showContactSelectVC) {
-        
-        __weak typeof(self) weakSelf = self;
-        
+
         NSArray<TUICommonContactSelectCellData *> *selectArray = [param tui_objectForKey:TUICore_TUIContactNotify_SelectedContactsSubKey_ListKey asClass:NSArray.class];
         if (![selectArray.firstObject isKindOfClass:TUICommonContactSelectCellData.class]) {
             NSAssert(NO, @"传值类型错误");
         }
-        if (weakSelf.enableMuliple) {
+        if (self.enableMuliple) {
             // 多选: 从通讯录中选择 -> 为每个联系人创建会话 -> pickerView显示每个联系人
             for (TUICommonContactSelectCellData *contact in selectArray) {
                 if ([self existInSelectedArray:contact.identifier]) {
                     continue;
                 }
-                TUIConversationCellData *conv = [[TUIConversationCellData alloc] init];
-                conv.conversationID = contact.identifier;
-                conv.userID = contact.identifier;
-                conv.groupID = @"";
-                conv.avatarImage = contact.avatarImage;
-                conv.faceUrl = contact.avatarUrl.absoluteString;
-                [weakSelf.currentSelectedList addObject:conv];
+                TUIConversationCellData *conv =  [self findItemInDataListArray:contact.identifier];
+                if (!conv) {
+                    conv = [[TUIConversationCellData alloc] init];
+                    conv.conversationID = contact.identifier;
+                    conv.userID = contact.identifier;
+                    conv.groupID = @"";
+                    conv.avatarImage = contact.avatarImage;
+                    conv.faceUrl = contact.avatarUrl.absoluteString;
+                }
+                else {
+                    conv.selected = !conv.selected;
+                }
+                
+                [self.currentSelectedList addObject:conv];
             }
-            [weakSelf updatePickerView];
-            [weakSelf.navigationController popViewControllerAnimated:YES];
+            
+         
+            [self updatePickerView];
+            [self.tableView reloadData];
+            [self.navigationController popViewControllerAnimated:YES];
         } else {
             // 单选: 创建新聊天(多人就是群聊) -> 为所选联系人创建群聊 -> 直接转发
             if (selectArray.count <= 1) {
@@ -102,26 +112,25 @@ static NSString *const Id = @"con";
                     conv.groupID = @"";
                     conv.avatarImage = contact.avatarImage;
                     conv.faceUrl = contact.avatarUrl.absoluteString;
-                    weakSelf.currentSelectedList = [NSMutableArray arrayWithArray:@[conv]];
-                    [weakSelf tryFinishSelected:^(BOOL finished) {
+                    self.currentSelectedList = [NSMutableArray arrayWithArray:@[conv]];
+                    [self tryFinishSelected:^(BOOL finished) {
                         if (finished) {
-                            [weakSelf dismissViewControllerAnimated:YES completion:nil];
+                            [self notifyFinishSelecting];
+                            [self dismissViewControllerAnimated:YES completion:nil];
                         }
                     }];
                 }
                 return;
             }
-            [weakSelf.dataProvider createMeetingGroupWithContacts:selectArray completion:^(BOOL success, TUIConversationCellData *convData) {
-                if (!success) {
-                    [TUITool makeToast:TUIKitLocalizableString(TUIKitRelayTargetCrateGroupError)];
-                    return;
+            // 新建聊天室并转发
+            [self tryFinishSelected:^(BOOL finished) {
+                if (finished) {
+                    [self createGroupWithContacts:selectArray completion:^(BOOL success) {
+                        if (success) {
+                            [self dismissViewControllerAnimated:YES completion:nil];
+                        }
+                    }];
                 }
-                weakSelf.currentSelectedList = [NSMutableArray arrayWithArray:@[convData]];
-                [weakSelf tryFinishSelected:^(BOOL finished) {
-                    if (finished) {
-                        [weakSelf dismissViewControllerAnimated:YES completion:nil];
-                    }
-                }];
             }];
         }
     }
@@ -241,6 +250,11 @@ static NSString *const Id = @"con";
     if (self.enableMuliple) {
         // 退出多选
         self.enableMuliple = NO;
+        
+        for (TUIConversationCellData *cellData in self.dataProvider.dataList) {
+            cellData.selected = NO;
+        }
+        
         [self.currentSelectedList removeAllObjects];
         self.pickerView.selectArray = @[];
         [self updatePickerView];
@@ -260,9 +274,22 @@ static NSString *const Id = @"con";
 
 - (void)onCreateSessionOrSelectContact
 {
+    
+    NSMutableArray *ids = NSMutableArray.new;
+    for (TUIConversationCellData *cd in self.currentSelectedList) {
+        if (![cd.userID isEqualToString:[[V2TIMManager sharedInstance] getLoginUser]]) {
+            if (cd.userID.length > 0) {
+                [ids addObject:cd.userID];
+            }
+        }
+    }
+    
     UIViewController *vc = [TUICore callService:TUICore_TUIContactService
                                          method:TUICore_TUIContactService_GetContactSelectControllerMethod
-                                          param:nil];
+                                          param:@{
+        TUICore_TUIContactService_GetContactSelectControllerMethod_DisableIdsKey : ids,
+    }];
+    
     [self.navigationController pushViewController:(UIViewController *)vc animated:YES];
     self.showContactSelectVC = vc;
 }
@@ -277,58 +304,98 @@ static NSString *const Id = @"con";
     return NO;
 }
 
+- (TUIConversationCellData *)findItemInDataListArray:(NSString *)identifier
+{
+    for (TUIConversationCellData *cellData in self.dataProvider.dataList) {
+        if (cellData.userID.length && [cellData.userID isEqualToString:identifier]) {
+            return cellData;
+        }
+    }
+    return nil;
+}
+
 - (void)doPickerDone
 {
     __weak typeof(self) weakSelf = self;
     [self tryFinishSelected:^(BOOL finished) {
         if (finished) {
+            [self notifyFinishSelecting];
             [weakSelf dismissViewControllerAnimated:YES completion:nil];
         }
     }];
 }
 
-// 试着转发消息
-- (void)tryFinishSelected:(TUIConversationSelectCompletHandler)handler
-{
-    if (self.currentSelectedList.count == 0) {
-        [TUITool makeToast:TUIKitLocalizableString(TUIKitRelayTargetNoneTips)];
-        return;
-    }
-    
-    UIAlertController *alertVc = [UIAlertController alertControllerWithTitle:TUIKitLocalizableString(TUIKitRelayConfirmForward) message:nil preferredStyle:UIAlertControllerStyleAlert];
-    [alertVc addAction:[UIAlertAction actionWithTitle:TUIKitLocalizableString(Cancel) style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+// confirm whether to forward or not
+- (void)tryFinishSelected:(TUIConversationSelectCompletHandler)handler {
+    UIAlertController *alertVc = [UIAlertController alertControllerWithTitle:TUIKitLocalizableString(TUIKitRelayConfirmForward)
+                                                                     message:nil
+                                                              preferredStyle:UIAlertControllerStyleAlert];
+    [alertVc addAction:[UIAlertAction actionWithTitle:TUIKitLocalizableString(Cancel)
+                                                style:UIAlertActionStyleDefault
+                                              handler:^(UIAlertAction * _Nonnull action) {
         if (handler) {
             handler(NO);
         }
     }]];
-    [alertVc addAction:[UIAlertAction actionWithTitle:TUIKitLocalizableString(Confirm) style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-        
-        NSMutableArray *temMArr = [NSMutableArray arrayWithCapacity:self.currentSelectedList.count];
-        for (TUIConversationCellData *cellData in self.currentSelectedList) {
-            [temMArr addObject:@{
-                TUICore_TUIConversationNotify_SelectConversationSubKey_ItemConversationIDKey : cellData.conversationID ?: @"",
-                TUICore_TUIConversationNotify_SelectConversationSubKey_ItemTitleKey : cellData.title ?: @"",
-                TUICore_TUIConversationNotify_SelectConversationSubKey_ItemUserIDKey : cellData.userID ?: @"",
-                TUICore_TUIConversationNotify_SelectConversationSubKey_ItemGroupIDKey : cellData.groupID ?: @"",
-            }];
-        }
-        [TUICore notifyEvent:TUICore_TUIConversationNotify
-                      subKey:TUICore_TUIConversationNotify_SelectConversationSubKey
-                      object:self
-                       param:@{
-                           TUICore_TUIConversationNotify_SelectConversationSubKey_ConversationListKey : temMArr,
-                       }];
-        
-        
-        if (self.callback) {
-            self.callback(self.currentSelectedList);
-        }
+    [alertVc addAction:[UIAlertAction actionWithTitle:TUIKitLocalizableString(Confirm)
+                                                style:UIAlertActionStyleDefault
+                                              handler:^(UIAlertAction * _Nonnull action) {
         if (handler) {
             handler(YES);
         }
     }]];
-    
     [self presentViewController:alertVc animated:YES completion:nil];
+}
+
+// notify others that the user has finished selecting conversations
+- (void)notifyFinishSelecting {
+    NSMutableArray *temMArr = [NSMutableArray arrayWithCapacity:self.currentSelectedList.count];
+    for (TUIConversationCellData *cellData in self.currentSelectedList) {
+        [temMArr addObject:@{
+            TUICore_TUIConversationNotify_SelectConversationSubKey_ItemConversationIDKey : cellData.conversationID ?: @"",
+            TUICore_TUIConversationNotify_SelectConversationSubKey_ItemTitleKey : cellData.title ?: @"",
+            TUICore_TUIConversationNotify_SelectConversationSubKey_ItemUserIDKey : cellData.userID ?: @"",
+            TUICore_TUIConversationNotify_SelectConversationSubKey_ItemGroupIDKey : cellData.groupID ?: @"",
+        }];
+    }
+    [TUICore notifyEvent:TUICore_TUIConversationNotify
+                  subKey:TUICore_TUIConversationNotify_SelectConversationSubKey
+                  object:self
+                   param:@{
+                       TUICore_TUIConversationNotify_SelectConversationSubKey_ConversationListKey : temMArr,
+                   }];
+}
+
+// create a new group to receive the forwarding messages
+- (void)createGroupWithContacts:(NSArray *)contacts completion:(void (^)(BOOL success))completion {
+    @weakify(self);
+    void (^createGroupCompletion)(BOOL, NSString *, NSString *) = ^(BOOL success, NSString *groupID, NSString *groupName) {
+        @strongify(self);
+        if (!success) {
+            [TUITool makeToast:TUIKitLocalizableString(TUIKitRelayTargetCrateGroupError)];
+            if (completion) {
+                completion(NO);
+            }
+            return;
+        }
+        TUIConversationCellData *cellData = [[TUIConversationCellData alloc] init];
+        cellData.groupID = groupID;
+        cellData.title = groupName;
+        self.currentSelectedList = [NSMutableArray arrayWithArray:@[cellData]];
+        [self notifyFinishSelecting];
+        if (completion) {
+            completion(YES);
+        }
+    };
+    NSDictionary *param = @{
+        TUICore_TUIGroupService_CreateGroupMethod_GroupTypeKey: GroupType_Meeting,
+        TUICore_TUIGroupService_CreateGroupMethod_OptionKey: @(V2TIM_GROUP_ADD_ANY),
+        TUICore_TUIGroupService_CreateGroupMethod_ContactsKey: contacts,
+        TUICore_TUIGroupService_CreateGroupMethod_CompletionKey: createGroupCompletion
+    };
+    [TUICore callService:TUICore_TUIGroupService
+                  method:TUICore_TUIGroupService_CreateGroupMethod
+                   param:param];
 }
 
 #pragma mark - UITableViewDelegate, UITableViewDataSource
@@ -360,6 +427,7 @@ static NSString *const Id = @"con";
         __weak typeof(self) weakSelf = self;
         [self tryFinishSelected:^(BOOL finished) {
             if (finished) {
+                [self notifyFinishSelecting];
                 [weakSelf dismissViewControllerAnimated:YES completion:nil];
             }
         }];

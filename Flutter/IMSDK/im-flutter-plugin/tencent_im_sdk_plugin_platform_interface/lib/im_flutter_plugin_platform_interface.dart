@@ -11,10 +11,11 @@ import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimAdvancedMsgLi
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimConversationListener.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimFriendshipListener.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimGroupListener.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/enum/get_group_message_read_member_list_filter.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/history_message_get_type.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimSimpleMsgListener.dart';
-import 'package:tencent_im_sdk_plugin_platform_interface/enum/offlinePushInfo.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/method_channel_im_flutter.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/V2_tim_topic_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_callback.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_conversation.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_conversation_result.dart';
@@ -28,17 +29,23 @@ import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_friend_se
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_application_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_info_result.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_full_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_info_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_operation_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_search_param.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_search_result.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_message_read_member_list.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_search_param.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message_change_info.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message_receipt.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message_search_param.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message_search_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_msg_create_info_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_receive_message_opt_info.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_topic_info_result.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_topic_operation_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_user_full_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_value_callback.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -111,11 +118,13 @@ abstract class ImFlutterPlatform extends PlatformInterface {
   /// true：成功；
   /// false：失败
   /// ```
-  Future<V2TimValueCallback<bool>> initSDK(
-      {required int sdkAppID,
-      required int loglevel,
-      String? listenerUuid,
-      V2TimSDKListener? listener}) {
+  Future<V2TimValueCallback<bool>> initSDK({
+    required int sdkAppID,
+    required int loglevel,
+    String? listenerUuid,
+    V2TimSDKListener? listener,
+    required String uiPlatform,
+  }) {
     throw UnimplementedError('initSDK() has not been implemented.');
   }
 
@@ -356,7 +365,8 @@ abstract class ImFlutterPlatform extends PlatformInterface {
     String? faceUrl,
     bool? isAllMuted,
     int? addOpt,
-    List<Map>? memberList,
+    List<V2TimGroupMember>? memberList,
+    bool? isSupportTopic,
   }) async {
     throw UnimplementedError('createGroup() has not been implemented.');
   }
@@ -460,7 +470,7 @@ abstract class ImFlutterPlatform extends PlatformInterface {
     throw UnimplementedError('setAPNSListener() has not been implemented');
   }
 
-  /*****************************-会话模块-***********************************/
+  /// ***************************-会话模块-***********************************/
   /*
 
                       :;J7, :,                        ::;7:
@@ -501,6 +511,19 @@ abstract class ImFlutterPlatform extends PlatformInterface {
     required int count,
   }) async {
     throw UnimplementedError("getConversationList() has not been implemented");
+  }
+
+  Future<void> removeConversationListener({
+    String? listenerUuid,
+  }) async {
+    throw UnimplementedError(
+        'removeConversationListener() has not been implemented');
+  }
+
+  Future<void> removeFriendListener({
+    String? listenerUuid,
+  }) async {
+    throw UnimplementedError('removeFriendListener() has not been implemented');
   }
 
   /// 通过会话ID获取指定会话列表
@@ -1224,7 +1247,6 @@ abstract class ImFlutterPlatform extends PlatformInterface {
   }
 
   /// 搜索群成员
-  /// TODO 这里安卓和ios有差异化，ios能根据组名返回key:list但 安卓但key是""为空，我设为default
   ///
   /// web 不支持搜索
   ///
@@ -1249,6 +1271,17 @@ abstract class ImFlutterPlatform extends PlatformInterface {
     throw UnimplementedError("createTextMessage() has not been implemented");
   }
 
+  ///  创建定向群消息
+  /// 如果您需要在群内给指定群成员列表发消息，可以创建一条定向群消息，定向群消息只有指定群成员才能收到。
+  /// 原始消息对象不支持群 @ 消息。
+  /// 社群（Community）和直播群（AVChatRoom）不支持发送定向群消息。
+  /// 定向群消息默认不计入群会话的未读计数。
+  Future<V2TimValueCallback<V2TimMsgCreateInfoResult>>
+      createTargetedGroupMessage(
+          {required String id, required List<String> receiverList}) async {
+    throw UnimplementedError("createTextMessage() has not been implemented");
+  }
+
   Future<V2TimValueCallback<V2TimMsgCreateInfoResult>> createImageMessage(
       {required String imagePath,
       Uint8List? fileContent, // web 必填
@@ -1264,7 +1297,9 @@ abstract class ImFlutterPlatform extends PlatformInterface {
       required String groupID,
       int priority = 0,
       bool onlineUserOnly = false,
+      bool needReadReceipt = false,
       bool isExcludedFromUnreadCount = false,
+      bool isExcludedFromLastMessage = false,
       Map<String, dynamic>? offlinePushInfo,
       String? cloudCustomData, // 云自定义消息字段，只能在消息发送前添加
       String? localCustomData // 本地自定义消息字段
@@ -1884,11 +1919,40 @@ abstract class ImFlutterPlatform extends PlatformInterface {
 
   /// 添加高级消息的事件监听器
   ///
-  Future<void> addAdvancedMsgListener(
-      {required V2TimAdvancedMsgListener listener,
-      String? listenerUuid}) async {
+  Future<void> addAdvancedMsgListener({
+    required V2TimAdvancedMsgListener listener,
+    String? listenerUuid,
+  }) async {
     throw UnimplementedError(
         'addAdvancedMsgListener() has not been implemented.');
+  }
+
+  Future<void> addConversationListener({
+    required V2TimConversationListener listener,
+    String? listenerUuid,
+  }) async {
+    throw UnimplementedError(
+        'addConversationListener() has not been implemented.');
+  }
+
+  Future<void> addGroupListener({
+    required V2TimGroupListener listener,
+    String? listenerUuid,
+  }) async {
+    throw UnimplementedError('addGroupListener() has not been implemented.');
+  }
+
+  Future<void> removeGroupListener({
+    String? listenerUuid,
+  }) async {
+    throw UnimplementedError('removeGroupListener() has not been implemented.');
+  }
+
+  Future<void> addFriendListener({
+    required V2TimFriendshipListener listener,
+    String? listenerUuid,
+  }) async {
+    throw UnimplementedError('addFriendListener() has not been implemented.');
   }
 
   /// 移除高级消息监听器
@@ -1896,5 +1960,76 @@ abstract class ImFlutterPlatform extends PlatformInterface {
   Future<void> removeAdvancedMsgListener({String? listenerUuid}) async {
     throw UnimplementedError(
         'removeAdvancedMsgListener() has not been implemented.');
+  }
+
+  Future<V2TimCallback> sendMessageReadReceipts({
+    required List<String> messageIDList,
+  }) async {
+    throw UnimplementedError(
+        'removeAdvancedMsgListener() has not been implemented.');
+  }
+
+  Future<V2TimValueCallback<List<V2TimMessageReceipt>>> getMessageReadReceipts({
+    required List<String> messageIDList,
+  }) async {
+    throw UnimplementedError(
+        'removeAdvancedMsgListener() has not been implemented.');
+  }
+
+  Future<V2TimValueCallback<V2TimGroupMessageReadMemberList>>
+      getGroupMessageReadMemberList({
+    required String messageID,
+    required GetGroupMessageReadMemberListFilter filter,
+    int nextSeq = 0,
+    int count = 100,
+  }) async {
+    throw UnimplementedError(
+        'removeAdvancedMsgListener() has not been implemented.');
+  }
+
+  Future<V2TimValueCallback<List<V2TimGroupInfo>>> getJoinedCommunityList() async{
+throw UnimplementedError(
+        'getJoinedCommunityList has not been implemented.');
+  }
+  Future<V2TimValueCallback<String>> createTopicInCommunity({
+    required String 	groupID,
+     required V2TimTopicInfo topicInfo,
+  }) async{
+    throw UnimplementedError(
+        'createTopicInCommunity has not been implemented.');
+  }
+    Future<V2TimValueCallback<List<V2TimTopicOperationResult>>> deleteTopicFromCommunity(
+    {
+      required String 	groupID,
+      required 	List< String > 	topicIDList,
+    }
+  ) async{
+    throw UnimplementedError(
+        'deleteTopicFromCommunity has not been implemented.');
+  }
+
+  Future<V2TimCallback> setTopicInfo(
+    {
+      required V2TimTopicInfo topicInfo,
+    }
+  ) async{
+    throw UnimplementedError(
+        'deleteTopicFromCommunity has not been implemented.');
+  }
+  Future<V2TimValueCallback<List<V2TimTopicInfoResult>>> getTopicInfoList(
+    {
+      required String 	groupID,
+      required 	List< String > 	topicIDList,
+    }
+  ) async{
+    throw UnimplementedError(
+        'deleteTopicFromCommunity has not been implemented.');
+  }
+
+  Future<V2TimValueCallback<V2TimMessageChangeInfo>> modifyMessage({
+    required V2TimMessage message,
+  }) async {
+    throw UnimplementedError(
+        'deleteTopicFromCommunity has not been implemented.');
   }
 }

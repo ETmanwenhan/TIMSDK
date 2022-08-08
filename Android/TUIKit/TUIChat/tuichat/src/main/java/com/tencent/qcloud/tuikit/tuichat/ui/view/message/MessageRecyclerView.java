@@ -1,6 +1,8 @@
 package com.tencent.qcloud.tuikit.tuichat.ui.view.message;
 
-import android.content.ClipData;
+import static com.tencent.qcloud.tuikit.tuichat.TUIChatConstants.CHAT_SETTINGS_SP_NAME;
+
+import android.app.Activity;
 import android.content.Context;
 
 import androidx.annotation.Nullable;
@@ -8,37 +10,50 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SimpleItemAnimator;
 
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.PopupWindow;
 
-import com.tencent.imsdk.v2.V2TIMMessage;
 import com.tencent.qcloud.tuicore.component.dialog.TUIKitDialog;
 import com.tencent.qcloud.tuicore.component.interfaces.IUIKitCallback;
 import com.tencent.qcloud.tuicore.util.ToastUtil;
 import com.tencent.qcloud.tuikit.tuichat.R;
 import com.tencent.qcloud.tuikit.tuichat.TUIChatConstants;
 import com.tencent.qcloud.tuikit.tuichat.bean.MessageProperties;
+import com.tencent.qcloud.tuikit.tuichat.bean.message.QuoteMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.ReplyMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.TUIMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.TextMessageBean;
+import com.tencent.qcloud.tuikit.tuichat.component.BeginnerGuidePage;
+import com.tencent.qcloud.tuikit.tuichat.component.face.Emoji;
+import com.tencent.qcloud.tuikit.tuichat.component.face.FaceManager;
 import com.tencent.qcloud.tuikit.tuichat.component.popmenu.ChatPopMenu;
+import com.tencent.qcloud.tuikit.tuichat.config.TUIChatConfigs;
 import com.tencent.qcloud.tuikit.tuichat.presenter.ChatPresenter;
 import com.tencent.qcloud.tuikit.tuichat.ui.interfaces.OnItemClickListener;
 import com.tencent.qcloud.tuicore.component.CustomLinearLayoutManager;
 import com.tencent.qcloud.tuikit.tuichat.ui.interfaces.IMessageLayout;
-import com.tencent.qcloud.tuikit.tuichat.ui.view.ChatView;
+import com.tencent.qcloud.tuikit.tuichat.ui.page.MessageReplyDetailActivity;
 import com.tencent.qcloud.tuikit.tuichat.util.TUIChatLog;
+import com.tencent.qcloud.tuikit.tuichat.util.TUIChatUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class MessageRecyclerView extends RecyclerView implements IMessageLayout {
     private static final String TAG = MessageRecyclerView.class.getSimpleName();
+
+    // 120s
+    public static final int REVOKE_TIME_OUT = 120;
 
     public static final int DATA_CHANGE_TYPE_REFRESH = 0;
     public static final int DATA_CHANGE_TYPE_LOAD = 1;
@@ -67,22 +82,12 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
     protected MessageRecyclerView.OnPopActionClickListener mOnPopActionClickListener;
     private final MessageProperties properties = MessageProperties.getInstance();
 
+    private OnMenuEmojiClickListener menuEmojiOnClickListener;
+
     private ChatPresenter presenter;
 
     private int mSelectedPosition = -1;
     private ChatPopMenu mChatPopMenu;
-    private Handler handler = new Handler();
-    Runnable runnable = new Runnable() {
-        @Override
-        public void run() {
-            if (mChatPopMenu != null) {
-                mChatPopMenu.hide();
-            }
-            if (mAdapter != null) {
-                mAdapter.resetSelectableText();
-            }
-        }
-    };
 
     public MessageRecyclerView(Context context) {
         super(context);
@@ -162,13 +167,22 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
         if (mChatPopMenu != null) {
             mChatPopMenu.hide();
             mChatPopMenu = null;
-            handler.removeCallbacks(runnable);
         }
         mChatPopMenu = new ChatPopMenu(getContext());
+        mChatPopMenu.setShowFaces(TUIChatConfigs.getConfigs().getGeneralConfig().isReactEnable());
         mChatPopMenu.setChatPopMenuActionList(mPopActions);
+        mChatPopMenu.setEmojiOnClickListener(new ChatPopMenu.EmojiOnClickListener() {
+
+            @Override
+            public void onClick(Emoji emoji) {
+                if (menuEmojiOnClickListener != null) {
+                    menuEmojiOnClickListener.onClick(emoji, messageInfo);
+                }
+            }
+        });
+
         int[] location = new int[2];
         getLocationOnScreen(location);
-        mChatPopMenu.show(view, location[1]);
         mChatPopMenu.setEmptySpaceClickListener(new MessageRecyclerView.OnEmptySpaceClickListener() {
             @Override
             public void onClick() {
@@ -177,20 +191,7 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
                 }
             }
         });
-
-        handler.postDelayed(runnable, 10000);
-
-        /*postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (mChatPopMenu != null) {
-                    mChatPopMenu.hide();
-                }
-                if (mAdapter != null) {
-                    mAdapter.resetSelectableText();
-                }
-            }
-        }, 10000); // 10s后无操作自动消失*/
+         mChatPopMenu.show(view, location[1]);
     }
 
     public void onMsgAddBack() {
@@ -234,76 +235,101 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
         }
 
         boolean textIsAllSelected = true;
-        if (msg instanceof TextMessageBean) {
-            String selectText = ((TextMessageBean) msg).getSelectText();
-            String text = ((TextMessageBean) msg).getText();
-            if (!text.equals(selectText)) {
-                textIsAllSelected = false;
+        if (msg instanceof TextMessageBean || msg instanceof QuoteMessageBean) {
+            String selectText = msg.getSelectText();
+            if (!TextUtils.isEmpty(selectText)) {
+                String text = msg.getExtra();
+                if (!text.equals(selectText)) {
+                    textIsAllSelected = false;
+                }
             }
         }
 
-        List<ChatPopMenu.ChatPopMenuAction> actions = new ArrayList<>();
-        actions.clear();
-        ChatPopMenu.ChatPopMenuAction action = new ChatPopMenu.ChatPopMenuAction();
-        if (msg instanceof TextMessageBean || msg instanceof ReplyMessageBean) {
-            action.setActionName(getContext().getString(R.string.copy_action));
-            action.setActionIcon(R.drawable.pop_menu_copy);
-            action.setActionClickListener(() -> mOnPopActionClickListener.onCopyClick(msg));
-            actions.add(action);
+        ChatPopMenu.ChatPopMenuAction copyAction = null;
+        ChatPopMenu.ChatPopMenuAction forwardAction = null;
+        ChatPopMenu.ChatPopMenuAction multiSelectAction = null;
+        ChatPopMenu.ChatPopMenuAction quoteAction = null;
+        ChatPopMenu.ChatPopMenuAction replyAction = null;
+        ChatPopMenu.ChatPopMenuAction revokeAction = null;
+        ChatPopMenu.ChatPopMenuAction deleteAction = null;
+
+        if (msg instanceof TextMessageBean || msg instanceof QuoteMessageBean) {
+            copyAction = new ChatPopMenu.ChatPopMenuAction();
+            copyAction.setActionName(getContext().getString(R.string.copy_action));
+            copyAction.setActionIcon(R.drawable.pop_menu_copy);
+            copyAction.setActionClickListener(() -> mOnPopActionClickListener.onCopyClick(msg));
         }
 
         if (textIsAllSelected) {
-            action = new ChatPopMenu.ChatPopMenuAction();
-            action.setActionName(getContext().getString(R.string.delete_action));
-            action.setActionIcon(R.drawable.pop_menu_delete);
-            action.setActionClickListener(() -> mOnPopActionClickListener.onDeleteMessageClick(msg));
-            actions.add(action);
+            deleteAction = new ChatPopMenu.ChatPopMenuAction();
+            deleteAction.setActionName(getContext().getString(R.string.delete_action));
+            deleteAction.setActionIcon(R.drawable.pop_menu_delete);
+            deleteAction.setActionClickListener(() -> mOnPopActionClickListener.onDeleteMessageClick(msg));
             if (msg.isSelf()) {
-                action = new ChatPopMenu.ChatPopMenuAction();
                 if (msg.getStatus() != TUIMessageBean.MSG_STATUS_SEND_FAIL) {
-                    action.setActionName(getContext().getString(R.string.revoke_action));
-                    action.setActionIcon(R.drawable.pop_menu_revoke);
-                    action.setActionClickListener(() -> mOnPopActionClickListener.onRevokeMessageClick(msg));
-                    actions.add(action);
+                    long timeInterval = TUIChatUtils.getServerTime() - msg.getMessageTime();
+                    if (timeInterval <= REVOKE_TIME_OUT) {
+                        revokeAction = new ChatPopMenu.ChatPopMenuAction();
+                        revokeAction.setActionName(getContext().getString(R.string.revoke_action));
+                        revokeAction.setActionIcon(R.drawable.pop_menu_revoke);
+                        revokeAction.setActionClickListener(() -> mOnPopActionClickListener.onRevokeMessageClick(msg));
+                    }
                 }
             }
 
             //多选
-            action = new ChatPopMenu.ChatPopMenuAction();
-            action.setActionName(getContext().getString(R.string.titlebar_mutiselect));
-            action.setActionIcon(R.drawable.pop_menu_multi_select);
-            action.setActionClickListener(() -> mOnPopActionClickListener.onMultiSelectMessageClick(msg));
-            actions.add(action);
+            multiSelectAction = new ChatPopMenu.ChatPopMenuAction();
+            multiSelectAction.setActionName(getContext().getString(R.string.titlebar_mutiselect));
+            multiSelectAction.setActionIcon(R.drawable.pop_menu_multi_select);
+            multiSelectAction.setActionClickListener(() -> mOnPopActionClickListener.onMultiSelectMessageClick(msg));
         }
 
         //转发
         if (msg.getStatus() != TUIMessageBean.MSG_STATUS_SEND_FAIL) {
-            action = new ChatPopMenu.ChatPopMenuAction();
-            action.setActionName(getContext().getString(R.string.forward_button));
-            action.setActionIcon(R.drawable.pop_menu_forward);
-            action.setActionClickListener(()-> mOnPopActionClickListener.onForwardMessageClick(msg));
-            actions.add(action);
+            forwardAction = new ChatPopMenu.ChatPopMenuAction();
+            forwardAction.setActionName(getContext().getString(R.string.forward_button));
+            forwardAction.setActionIcon(R.drawable.pop_menu_forward);
+            forwardAction.setActionClickListener(()-> mOnPopActionClickListener.onForwardMessageClick(msg));
         }
 
         if (textIsAllSelected) {
             // 回复
             if (msg.getStatus() != TUIMessageBean.MSG_STATUS_SEND_FAIL) {
-                action = new ChatPopMenu.ChatPopMenuAction();
-                action.setActionName(getContext().getString(R.string.reply_button));
-                action.setActionIcon(R.drawable.pop_menu_reply);
-                action.setActionClickListener(() -> mOnPopActionClickListener.onReplyMessageClick(msg));
-                actions.add(action);
+                replyAction = new ChatPopMenu.ChatPopMenuAction();
+                replyAction.setActionName(getContext().getString(R.string.reply_button));
+                replyAction.setActionIcon(R.drawable.pop_menu_reply);
+                replyAction.setActionClickListener(() -> mOnPopActionClickListener.onReplyMessageClick(msg));
+
+                quoteAction = new ChatPopMenu.ChatPopMenuAction();
+                quoteAction.setActionName(getContext().getString(R.string.quote_button));
+                quoteAction.setActionIcon(R.drawable.pop_menu_quote);
+                quoteAction.setActionClickListener(() -> mOnPopActionClickListener.onQuoteMessageClick(msg));
             }
         }
 
         mPopActions.clear();
-        mPopActions.addAll(actions);
+        if (copyAction != null) {
+            mPopActions.add(copyAction);
+        }
+        if (forwardAction != null) {
+            mPopActions.add(forwardAction);
+        }
+        if (multiSelectAction != null) {
+            mPopActions.add(multiSelectAction);
+        }
+        if (quoteAction != null && TUIChatConfigs.getConfigs().getGeneralConfig().isQuoteEnable()) {
+            mPopActions.add(quoteAction);
+        }
+        if (replyAction != null && TUIChatConfigs.getConfigs().getGeneralConfig().isReplyEnable()) {
+            mPopActions.add(replyAction);
+        }
+        if (revokeAction != null) {
+            mPopActions.add(revokeAction);
+        }
+        if (deleteAction != null) {
+            mPopActions.add(deleteAction);
+        }
         mPopActions.addAll(mMorePopActions);
-    }
-
-    @Override
-    protected void onScrollChanged(int l, int t, int oldl, int oldt) {
-        super.onScrollChanged(l, t, oldl, oldt);
     }
 
     @Override
@@ -402,12 +428,21 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
         mOnPopActionClickListener = listener;
     }
 
+    public void setMenuEmojiOnClickListener(OnMenuEmojiClickListener menuEmojiOnClickListener) {
+        this.menuEmojiOnClickListener = menuEmojiOnClickListener;
+    }
+
     public void setAdapterListener() {
         mAdapter.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onMessageLongClick(View view, int position, TUIMessageBean messageInfo) {
                 if (mOnItemClickListener != null) {
-                    mOnItemClickListener.onMessageLongClick(view, position, messageInfo);
+                    TUIChatUtils.showBeginnerGuideThen(view, new Runnable() {
+                        @Override
+                        public void run() {
+                            mOnItemClickListener.onMessageLongClick(view, position, messageInfo);
+                        }
+                    });
                 }
             }
 
@@ -440,9 +475,23 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
             }
 
             @Override
-            public void onReplyMessageClick(View view, int position, String originMsgId) {
+            public void onReplyMessageClick(View view, int position, QuoteMessageBean messageBean) {
                 // 点击转发消息进行跳转
-                locateOriginMessage(originMsgId);
+                if (messageBean instanceof ReplyMessageBean) {
+                    showRootMessageReplyDetail(((ReplyMessageBean) messageBean).getMsgRootId());
+                } else {
+                    locateOriginMessage(messageBean.getOriginMsgId());
+                }
+            }
+
+            @Override
+            public void onReplyDetailClick(TUIMessageBean messageBean) {
+                showRootMessageReplyDetail(messageBean);
+            }
+
+            @Override
+            public void onReactOnClick(String emojiId, TUIMessageBean messageBean) {
+                presenter.reactMessage(emojiId, messageBean);
             }
 
             @Override
@@ -474,6 +523,7 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
                     mOnItemClickListener.onTextSelected(view, position, messageInfo);
                 }
             }
+
         });
     }
 
@@ -493,6 +543,43 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
                 ToastUtil.toastShortMessage(getContext().getString(R.string.locate_origin_msg_failed_tip));
             }
         });
+    }
+
+    private void showRootMessageReplyDetail(TUIMessageBean messageBean) {
+        if (presenter.getChatInfo() == null) {
+            return;
+        }
+        Intent intent = new Intent(getContext(), MessageReplyDetailActivity.class);
+        intent.putExtra(TUIChatConstants.MESSAGE_BEAN, messageBean);
+        intent.putExtra(TUIChatConstants.CHAT_INFO, presenter.getChatInfo());
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+    }
+
+    private void showRootMessageReplyDetail(String rootMessageId) {
+        if (presenter.getChatInfo() == null) {
+            return;
+        }
+        presenter.findMessage(rootMessageId, new IUIKitCallback<TUIMessageBean>() {
+            @Override
+            public void onSuccess(TUIMessageBean data) {
+                if (data.getStatus() == TUIMessageBean.MSG_STATUS_REVOKE) {
+                    ToastUtil.toastShortMessage(getContext().getString(R.string.locate_origin_msg_failed_tip));
+                    return;
+                }
+                Intent intent = new Intent(getContext(), MessageReplyDetailActivity.class);
+                intent.putExtra(TUIChatConstants.MESSAGE_BEAN, data);
+                intent.putExtra(TUIChatConstants.CHAT_INFO, presenter.getChatInfo());
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+            }
+
+            @Override
+            public void onError(String module, int errCode, String errMsg) {
+                ToastUtil.toastShortMessage("showRootMessageReplyDetail failed code = " + errCode + " message = " + errMsg);
+            }
+        });
+
     }
 
     @Override
@@ -714,6 +801,11 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
         }
     }
 
+    public interface OnMenuEmojiClickListener {
+        void onClick(Emoji emoji, TUIMessageBean messageBean);
+    }
+
+
     public interface OnLoadMoreHandler {
         void loadMore(int type);
         boolean isListEnd(int position);
@@ -743,5 +835,7 @@ public class MessageRecyclerView extends RecyclerView implements IMessageLayout 
         void onForwardMessageClick(TUIMessageBean msg);
 
         void onReplyMessageClick(TUIMessageBean msg);
+
+        void onQuoteMessageClick(TUIMessageBean msg);
     }
 }

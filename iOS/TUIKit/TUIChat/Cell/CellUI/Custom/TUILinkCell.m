@@ -19,12 +19,10 @@
 {
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
     if (self) {
-        self.container.backgroundColor = TUIChatDynamicColor(@"chat_link_message_bg_color", @"#FFFFFF");
-        
         _myTextLabel = [[UILabel alloc] init];
         _myTextLabel.numberOfLines = 0;
         _myTextLabel.font = [UIFont systemFontOfSize:15];
-        _myTextLabel.textColor = TUIChatDynamicColor(@"chat_link_message_title_color", @"#888888");
+        _myTextLabel.textColor = TUIChatDynamicColor(@"chat_link_message_title_color", @"#000000");
         [self.container addSubview:_myTextLabel];
 
         _myLinkLabel = [[UILabel alloc] initWithFrame:CGRectZero];
@@ -32,11 +30,6 @@
         _myLinkLabel.font = [UIFont systemFontOfSize:15];
         _myLinkLabel.textColor = TUIChatDynamicColor(@"chat_link_message_subtitle_color", @"#0000FF");
         [self.container addSubview:_myLinkLabel];
-
-        [self.container.layer setMasksToBounds:YES];
-        [self.container.layer setBorderColor:[UIColor d_systemGrayColor].CGColor];
-        [self.container.layer setBorderWidth:1];
-        [self.container.layer setCornerRadius:5];
     }
     return self;
 }
@@ -48,10 +41,15 @@
     self.myTextLabel.text = data.text;
 }
 
-- (void)layoutSubviews
-{
+- (void)layoutSubviews {
     [super layoutSubviews];
-    self.myTextLabel.mm_top(10).mm_left(10).mm_flexToRight(10).mm_flexToBottom(50);
-    self.myLinkLabel.mm_sizeToFit().mm_left(10).mm_bottom(10);
+    
+    CGRect rect = [self.myTextLabel.text boundingRectWithSize:CGSizeMake(245, MAXFLOAT)
+                                                      options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                                                   attributes:@{ NSFontAttributeName : [UIFont systemFontOfSize:15] }
+                                                      context:nil];
+    self.myTextLabel.mm_top(10).mm_left(10).mm_width(245).mm_height(rect.size.height);
+    self.myLinkLabel.mm_sizeToFit().mm_left(10).mm_top(self.myTextLabel.mm_y + self.myTextLabel.mm_h +15);
 }
+
 @end

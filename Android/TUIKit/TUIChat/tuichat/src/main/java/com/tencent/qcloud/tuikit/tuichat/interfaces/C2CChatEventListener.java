@@ -6,13 +6,15 @@ import com.tencent.qcloud.tuikit.tuichat.bean.message.TUIMessageBean;
 import java.util.List;
 
 /**
- * 其他模块与 C2C 聊天模块的通信接口
+ * C2C Chat event listener
  */
-public interface C2CChatEventListener {
-    void onReadReport(List<MessageReceiptInfo> receiptList);
-    void handleRevoke(String msgId);
-    void onRecvNewMessage(TUIMessageBean message);
-    void exitC2CChat(String chatId);
-    void onFriendNameChanged(String userId, String newName);
+public abstract class C2CChatEventListener {
+    public void onReadReport(List<MessageReceiptInfo> receiptList) {}
+    public void handleRevoke(String msgId) {}
+    public void onRecvNewMessage(TUIMessageBean message) {}
+    public void exitC2CChat(String chatId) {}
+    public void onFriendNameChanged(String userId, String newName) {}
+    public void onRecvMessageModified(TUIMessageBean messageBean) {}
+    public void addMessage(TUIMessageBean messageBean, String chatId) {}
 
 }

@@ -87,6 +87,12 @@ typedef NS_ENUM(NSUInteger, InputStatus) {
  *  有 @xxx 字符删除
  */
 - (void)inputController:(TUIInputController *)inputController didDeleteAt:(NSString *)atText;
+
+
+- (void)inputControllerBeginTyping:(TUIInputController *)inputController;
+
+- (void)inputControllerEndTyping:(TUIInputController *)inputController;
+
 @end
 
 
@@ -109,10 +115,20 @@ typedef NS_ENUM(NSUInteger, InputStatus) {
  */
 @property (nonatomic, strong) TUIReplyPreviewBar *replyPreviewBar;
 
+
+/**
+ * 输入框下方的预览视图，拥有消息引用场景
+ * The preview view below the input box, with the message reference scene
+ *
+ */
+@property (nonatomic, strong) TUIReferencePreviewBar *referencePreviewBar;
+
 /**
  * 当前正在回复的消息
  */
-@property (nonatomic, strong, readonly) TUIReplyPreviewData *replyData;;
+@property (nonatomic, strong) TUIReplyPreviewData *replyData;
+
+@property (nonatomic, strong) TUIReferencePreviewData *referenceData;
 
 /**
  *  输入条
@@ -158,6 +174,8 @@ typedef NS_ENUM(NSUInteger, InputStatus) {
  * 显示/隐藏消息回复输入框的预览条
  */
 - (void)showReplyPreview:(TUIReplyPreviewData *)data;
+- (void)showReferencePreview:(TUIReferencePreviewData *)data;
+
 - (void)exitReply;
 
 /**

@@ -7,9 +7,11 @@ import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimAdvancedMsgLi
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimConversationListener.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimFriendshipListener.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimGroupListener.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/enum/get_group_message_read_member_list_filter.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/history_message_get_type.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/enum/V2TimSimpleMsgListener.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/im_flutter_plugin_platform_interface.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/V2_tim_topic_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_callback.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_conversation.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_conversation_result.dart';
@@ -23,15 +25,21 @@ import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_friend_se
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_application_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_info_result.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_info_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_operation_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_search_param.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_search_result.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_message_read_member_list.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_search_param.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message_change_info.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message_receipt.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message_search_param.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_message_search_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_receive_message_opt_info.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_topic_info_result.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_topic_operation_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_user_full_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_value_callback.dart';
 
@@ -71,11 +79,13 @@ class MethodChannelIm extends ImFlutterPlatform {
   *               只是为了区分不同模块
    */
   @override
-  Future<V2TimValueCallback<bool>> initSDK(
-      {required int sdkAppID,
-      required int loglevel,
-      String? listenerUuid,
-      V2TimSDKListener? listener}) async {
+  Future<V2TimValueCallback<bool>> initSDK({
+    required int sdkAppID,
+    required int loglevel,
+    String? listenerUuid,
+    V2TimSDKListener? listener,
+    required String uiPlatform,
+  }) async {
     return V2TimValueCallback<bool>.fromJson(
       formatJson(
         await _channel.invokeMethod(
@@ -84,7 +94,8 @@ class MethodChannelIm extends ImFlutterPlatform {
             {
               "sdkAppID": sdkAppID,
               "logLevel": loglevel,
-              "listenerUuid": listenerUuid
+              "listenerUuid": listenerUuid,
+              "uiPlatform": uiPlatform
             },
           ),
         ),
@@ -308,7 +319,8 @@ class MethodChannelIm extends ImFlutterPlatform {
     String? faceUrl,
     bool? isAllMuted,
     int? addOpt,
-    List<Map>? memberList,
+    List<V2TimGroupMember>? memberList,
+    bool? isSupportTopic,
   }) async {
     return V2TimValueCallback<String>.fromJson(
       formatJson(
@@ -324,7 +336,8 @@ class MethodChannelIm extends ImFlutterPlatform {
               "faceUrl": faceUrl,
               "isAllMuted": isAllMuted,
               "addOpt": addOpt,
-              "memberList": memberList,
+              "memberList": memberList?.map((e) => e.toJson()).toList(),
+              "isSupportTopic": isSupportTopic
             },
           ),
         ),
@@ -403,9 +416,12 @@ class MethodChannelIm extends ImFlutterPlatform {
               "nickName": userFullInfo.nickName,
               "faceUrl": userFullInfo.faceUrl,
               "selfSignature": userFullInfo.selfSignature,
+              "birthday": userFullInfo.birthday,
               "gender": userFullInfo.gender,
               "allowType": userFullInfo.allowType,
-              "customInfo": userFullInfo.customInfo
+              "customInfo": userFullInfo.customInfo,
+              "level": userFullInfo.level,
+              "role": userFullInfo.role,
             },
           ),
         ),
@@ -496,6 +512,68 @@ class MethodChannelIm extends ImFlutterPlatform {
         ),
       ),
     );
+  }
+
+  @override
+  Future<void> removeConversationListener({String? listenerUuid}) async {
+    return _channel.invokeMethod("removeConversationListener",
+        buildConversationManagerParam({"listenerUuid": listenerUuid}));
+  }
+
+  @override
+  Future<void> removeFriendListener({String? listenerUuid}) async {
+    return _channel.invokeMethod("removeFriendListener",
+        buildFriendManagerParam({"listenerUuid": listenerUuid}));
+  }
+
+  @override
+  Future<void> removeGroupListener({
+    String? listenerUuid,
+  }) async {
+    return _channel.invokeMethod("removeGroupListener",
+        buildTimManagerParam({"listenerUuid": listenerUuid}));
+  }
+
+  @override
+  Future<void> addConversationListener({
+    required V2TimConversationListener listener,
+    String? listenerUuid,
+  }) async {
+    return await _channel.invokeMethod(
+        "addConversationListener",
+        buildConversationManagerParam(
+          {
+            "listenerUuid": listenerUuid,
+          },
+        ));
+  }
+
+  @override
+  Future<void> addGroupListener({
+    required V2TimGroupListener listener,
+    String? listenerUuid,
+  }) async {
+    return await _channel.invokeMethod(
+        "addGroupListener",
+        buildTimManagerParam(
+          {
+            "listenerUuid": listenerUuid,
+          },
+        ));
+  }
+
+  @override
+  Future<void> addFriendListener({
+    required V2TimFriendshipListener listener,
+    String? listenerUuid,
+  }) async {
+    return await _channel.invokeMethod(
+        "addFriendListener",
+        buildFriendManagerParam(
+          {
+            "listenerUuid": listenerUuid,
+          },
+        ));
   }
 
   @override
@@ -1133,7 +1211,8 @@ class MethodChannelIm extends ImFlutterPlatform {
               "faceUrl": info.faceUrl,
               "isAllMuted": info.isAllMuted,
               "addOpt": info.groupAddOpt,
-              "customInfo": info.customInfo
+              "customInfo": info.customInfo,
+              "isSupportTopic": info.isSupportTopic
             },
           ),
         ),
@@ -1585,7 +1664,7 @@ class MethodChannelIm extends ImFlutterPlatform {
   *               只是为了区分不同模块
    */
 
-  // 创建文本消息
+  /// 创建文本消息
   @override
   Future<V2TimValueCallback<V2TimMsgCreateInfoResult>> createTextMessage(
       {required String text}) async {
@@ -1597,6 +1676,22 @@ class MethodChannelIm extends ImFlutterPlatform {
             {
               "text": text,
             },
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<V2TimValueCallback<V2TimMsgCreateInfoResult>>
+      createTargetedGroupMessage(
+          {required String id, required List<String> receiverList}) async {
+    return V2TimValueCallback<V2TimMsgCreateInfoResult>.fromJson(
+      formatJson(
+        await _channel.invokeMethod(
+          "createTargetedGroupMessage",
+          buildMessageMangerParam(
+            {"id": id, "receiverList": receiverList},
           ),
         ),
       ),
@@ -1699,6 +1794,8 @@ class MethodChannelIm extends ImFlutterPlatform {
       int priority = 0,
       bool onlineUserOnly = false,
       bool isExcludedFromUnreadCount = false,
+      bool isExcludedFromLastMessage = false,
+      bool needReadReceipt = false,
       Map<String, dynamic>? offlinePushInfo,
       // 自定义消息需要
       String? cloudCustomData, // 云自定义消息字段，只能在消息发送前添加
@@ -1715,9 +1812,11 @@ class MethodChannelIm extends ImFlutterPlatform {
               "priority": priority,
               "onlineUserOnly": onlineUserOnly,
               "isExcludedFromUnreadCount": isExcludedFromUnreadCount,
+              "isExcludedFromLastMessage": isExcludedFromLastMessage,
               "offlinePushInfo": offlinePushInfo,
               "cloudCustomData": cloudCustomData,
-              "localCustomData": localCustomData
+              "localCustomData": localCustomData,
+              "needReadReceipt": needReadReceipt,
             },
           ),
         ),
@@ -2689,6 +2788,147 @@ class MethodChannelIm extends ImFlutterPlatform {
         buildMessageMangerParam({"listenerUuid": listenerUuid}));
   }
 
+  @override
+  Future<V2TimCallback> sendMessageReadReceipts({
+    required List<String> messageIDList,
+  }) async {
+    return V2TimCallback.fromJson(formatJson(await _channel.invokeMethod(
+      "sendMessageReadReceipts",
+      buildMessageMangerParam(
+        {
+          "messageIDList": messageIDList,
+        },
+      ),
+    )));
+  }
+
+  @override
+  Future<V2TimValueCallback<List<V2TimMessageReceipt>>> getMessageReadReceipts({
+    required List<String> messageIDList,
+  }) async {
+    return V2TimValueCallback<List<V2TimMessageReceipt>>.fromJson(
+      formatJson(
+        await _channel.invokeMethod(
+          "getMessageReadReceipts",
+          buildMessageMangerParam(
+            {
+              "messageIDList": messageIDList,
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<V2TimValueCallback<V2TimGroupMessageReadMemberList>>
+      getGroupMessageReadMemberList({
+    required String messageID,
+    required GetGroupMessageReadMemberListFilter filter,
+    int nextSeq = 0,
+    int count = 100,
+  }) async {
+    return V2TimValueCallback<V2TimGroupMessageReadMemberList>.fromJson(
+      formatJson(
+        await _channel.invokeMethod(
+          "getGroupMessageReadMemberList",
+          buildMessageMangerParam(
+            {
+              "messageID": messageID,
+              "filter": filter.index,
+              "nextSeq": nextSeq,
+              "count": count,
+            },
+          ),
+        ),
+      ),
+    );
+  }
+  @override
+  Future<V2TimValueCallback<List<V2TimGroupInfo>>> getJoinedCommunityList() async{
+    return V2TimValueCallback<List<V2TimGroupInfo>>.fromJson(
+      formatJson(
+        await _channel.invokeMethod('getJoinedCommunityList',buildGroupManagerParam({
+
+        }))
+      )
+    );
+  }
+  @override
+  Future<V2TimValueCallback<String>> createTopicInCommunity({
+    required String 	groupID,
+     required V2TimTopicInfo topicInfo,
+  }) async{
+    return V2TimValueCallback<String>.fromJson(
+      formatJson(
+        await _channel.invokeMethod('createTopicInCommunity',buildGroupManagerParam({
+          "groupID":groupID,
+          "topicInfo": topicInfo.toJson()
+        }))
+      )
+    );
+  }
+
+  @override
+  Future<V2TimValueCallback<List<V2TimTopicOperationResult>>> deleteTopicFromCommunity(
+    {
+      required String 	groupID,
+      required 	List< String > 	topicIDList,
+    }
+  ) async{
+    return V2TimValueCallback<List<V2TimTopicOperationResult>>.fromJson(
+      formatJson(
+        await _channel.invokeMethod('deleteTopicFromCommunity',buildGroupManagerParam({
+          "groupID":groupID,
+          "topicInfo": topicIDList
+        }))
+      )
+    );
+  }
+
+  @override
+  Future<V2TimCallback> setTopicInfo(
+    {
+      required V2TimTopicInfo topicInfo,
+    }
+  ) async{
+    return V2TimCallback.fromJson(
+      formatJson(
+        await _channel.invokeMethod('deleteTopicFromCommunity',buildGroupManagerParam({
+          "topicInfo":topicInfo.toJson(),
+        }))
+      )
+    );
+  }
+
+  @override
+  Future<V2TimValueCallback<List<V2TimTopicInfoResult>>> getTopicInfoList(
+    {
+      required String 	groupID,
+      required 	List< String > 	topicIDList,
+    }
+  ) async{
+    return V2TimValueCallback<List<V2TimTopicInfoResult>>.fromJson(
+      formatJson(
+        await _channel.invokeMethod('getTopicInfoList',buildGroupManagerParam({
+          "groupID":groupID,
+          "topicInfo": topicIDList
+        }))
+      )
+    );
+  }
+  @override
+  Future<V2TimValueCallback<V2TimMessageChangeInfo>> modifyMessage({
+    required V2TimMessage message,
+  }) async {
+    return V2TimValueCallback<V2TimMessageChangeInfo>.fromJson(
+      formatJson(
+        await _channel.invokeMethod('modifyMessage',buildMessageMangerParam({
+          "message":message.toJson(),
+        }))
+      )
+    );
+  }
   Map buildGroupManagerParam(Map param) {
     param["TIMManagerName"] = "groupManager";
     return param;

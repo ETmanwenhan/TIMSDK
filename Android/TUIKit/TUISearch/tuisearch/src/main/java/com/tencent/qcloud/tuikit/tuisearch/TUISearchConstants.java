@@ -1,5 +1,7 @@
 package com.tencent.qcloud.tuikit.tuisearch;
 
+import com.tencent.imsdk.BaseConstants;
+
 public class TUISearchConstants {
     public static final String SEARCH_LIST_TYPE = "search_list_type";
     public static final String SEARCH_KEY_WORDS = "search_key_words";
@@ -11,5 +13,4 @@ public class TUISearchConstants {
     public static String covert2HTMLString(String original) {
         return "\"<font color=\"#5B6B92\">" + original + "</font>\"";
     }
-
 }

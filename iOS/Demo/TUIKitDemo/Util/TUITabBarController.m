@@ -30,6 +30,10 @@
     self.tabBar.tintColor = self.selectTextColor;
     self.tabBar.barTintColor = self.backgroudColor;
     self.tabBar.shadowImage = [UIImage new];
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{    
+        [NSNotificationCenter.defaultCenter postNotificationName:@"TUITabBarControllerViewDidLoad" object:nil];
+    });
 }
 
 - (void)setTabBarItems:(NSMutableArray *)tabBarItems

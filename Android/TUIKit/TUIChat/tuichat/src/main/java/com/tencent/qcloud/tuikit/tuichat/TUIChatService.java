@@ -10,40 +10,47 @@ import com.tencent.imsdk.v2.V2TIMManager;
 import com.tencent.imsdk.v2.V2TIMMessage;
 import com.tencent.imsdk.v2.V2TIMMessageReceipt;
 import com.tencent.imsdk.v2.V2TIMSDKListener;
+import com.tencent.qcloud.tuicore.ServiceInitializer;
 import com.tencent.qcloud.tuicore.TUIConstants;
+import com.tencent.qcloud.tuicore.TUICore;
 import com.tencent.qcloud.tuicore.TUILogin;
 import com.tencent.qcloud.tuikit.tuichat.bean.MessageReceiptInfo;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.CallingMessageBean;
+import com.tencent.qcloud.tuikit.tuichat.bean.message.CustomEvaluationMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.CustomLinkMessageBean;
+import com.tencent.qcloud.tuikit.tuichat.bean.message.CustomOrderMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.FaceMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.FileMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.ImageMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.LocationMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.MergeMessageBean;
+import com.tencent.qcloud.tuikit.tuichat.bean.message.QuoteMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.ReplyMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.SoundMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.TUIMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.TextAtMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.TextMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.TipsMessageBean;
+import com.tencent.qcloud.tuikit.tuichat.bean.message.MessageTypingBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.VideoMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.component.face.FaceManager;
 import com.tencent.qcloud.tuikit.tuichat.config.TUIChatConfigs;
-import com.tencent.qcloud.tuicore.ServiceInitializer;
-import com.tencent.qcloud.tuicore.TUICore;
 import com.tencent.qcloud.tuikit.tuichat.interfaces.C2CChatEventListener;
 import com.tencent.qcloud.tuikit.tuichat.interfaces.GroupChatEventListener;
 import com.tencent.qcloud.tuikit.tuichat.interfaces.IBaseMessageSender;
 import com.tencent.qcloud.tuikit.tuichat.interfaces.NetworkConnectionListener;
 import com.tencent.qcloud.tuikit.tuichat.interfaces.TotalUnreadCountListener;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.CallingMessageHolder;
+import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.CustomEvaluationMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.CustomLinkMessageHolder;
+import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.CustomOrderMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.FaceMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.FileMessageHolder;
-import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.MergeMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.ImageMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.LocationMessageHolder;
+import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.MergeMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.MessageBaseHolder;
+import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.QuoteMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.ReplyMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.SoundMessageHolder;
 import com.tencent.qcloud.tuikit.tuichat.ui.view.message.viewholder.TextMessageHolder;
@@ -57,6 +64,7 @@ import com.tencent.qcloud.tuikit.tuichat.util.TUIChatUtils;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -70,15 +78,13 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
 
     private static TUIChatConfigs chatConfig;
 
-    private static Context appContext;
+    private final List<WeakReference<GroupChatEventListener>> groupChatEventListenerList = new ArrayList<>();
 
-    private WeakReference<GroupChatEventListener> groupChatEventListener;
-
-    private WeakReference<C2CChatEventListener> c2CChatEventListener;
+    private final List<WeakReference<C2CChatEventListener>> c2CChatEventListenerList = new ArrayList<>();
 
     private WeakReference<IBaseMessageSender> messageSender;
 
-    private WeakReference<TotalUnreadCountListener> unreadCountListener;
+    private final List<WeakReference<TotalUnreadCountListener>> unreadCountListenerList = new ArrayList<>();
 
     private final Map<String, Class<? extends TUIMessageBean>> messageBusinessIdMap = new HashMap<>();
 
@@ -93,7 +99,6 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
     @Override
     public void init(Context context) {
         instance = this;
-        appContext = context;
         initDefaultMessageType();
         initMessageType();
         initService();
@@ -104,7 +109,10 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
 
     // 初始化自定义消息类型
     private void initMessageType() {
-        addCustomMessageType("text_link", CustomLinkMessageBean.class, CustomLinkMessageHolder.class);
+        addCustomMessageType(TUIChatConstants.BUSINESS_ID_CUSTOM_HELLO, CustomLinkMessageBean.class, CustomLinkMessageHolder.class);
+        addCustomMessageType(TUIChatConstants.BUSINESS_ID_CUSTOM_EVALUATION, CustomEvaluationMessageBean.class, CustomEvaluationMessageHolder.class);
+        addCustomMessageType(TUIChatConstants.BUSINESS_ID_CUSTOM_ORDER, CustomOrderMessageBean.class, CustomOrderMessageHolder.class);
+        addCustomMessageType(TUIChatConstants.BUSINESS_ID_CUSTOM_TYPING, MessageTypingBean.class, null);
     }
 
     /**
@@ -150,6 +158,7 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
         addDefaultMessageType(TipsMessageBean.class, TipsMessageHolder.class);
         addDefaultMessageType(VideoMessageBean.class, VideoMessageHolder.class);
         addDefaultMessageType(ReplyMessageBean.class, ReplyMessageHolder.class);
+        addDefaultMessageType(QuoteMessageBean.class, QuoteMessageHolder.class);
         addDefaultMessageType(CallingMessageBean.class, CallingMessageHolder.class);
     }
 
@@ -203,13 +212,13 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
             String chatId = (String) param.get(TUIConstants.TUIChat.CHAT_ID);
             boolean isGroupChat = (boolean) param.get(TUIConstants.TUIChat.IS_GROUP_CHAT);
             if (isGroupChat) {
-                GroupChatEventListener groupChatEventListener = getGroupChatEventListener();
-                if (groupChatEventListener != null) {
-                    groupChatEventListener.exitGroupChat(chatId);
+                List<GroupChatEventListener> groupChatEventListenerList = getGroupChatEventListenerList();
+                for (GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
+                        groupChatEventListener.exitGroupChat(chatId);
                 }
             } else {
-                C2CChatEventListener c2CChatEventListener = getC2CChatEventListener();
-                if (c2CChatEventListener != null) {
+                List<C2CChatEventListener> c2CChatEventListenerList = getC2CChatEventListenerList();
+                for (C2CChatEventListener c2CChatEventListener : c2CChatEventListenerList) {
                     c2CChatEventListener.exitC2CChat(chatId);
                 }
             }
@@ -218,6 +227,30 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
                 V2TIMMessage v2TIMMessage = (V2TIMMessage) param.get(TUIConstants.TUIChat.V2TIMMESSAGE);
                 if (v2TIMMessage != null) {
                     return ChatMessageParser.getDisplayString(v2TIMMessage);
+                }
+            }
+        } else if (TextUtils.equals(TUIConstants.TUIChat.METHOD_ADD_MESSAGE_TO_CHAT, method)) {
+            TUIMessageBean messageBean = (TUIMessageBean) param.get(TUIConstants.TUIChat.MESSAGE_BEAN);
+            String chatId = (String) param.get(TUIConstants.TUIChat.CHAT_ID);
+            boolean isGroupChat = (boolean) param.get(TUIConstants.TUIChat.IS_GROUP_CHAT);
+            if (isGroupChat) {
+                List<GroupChatEventListener> groupChatEventListenerList = getGroupChatEventListenerList();
+                for (GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
+                    groupChatEventListener.addMessage(messageBean, chatId);
+                }
+            } else {
+                List<C2CChatEventListener> c2CChatEventListenerList = getC2CChatEventListenerList();
+                for (C2CChatEventListener c2CChatEventListener : c2CChatEventListenerList) {
+                    c2CChatEventListener.addMessage(messageBean, chatId);
+                }
+            }
+        } else if (TextUtils.equals(TUIConstants.TUIChat.METHOD_GROUP_APPLICAITON_PROCESSED, method)) {
+            int number = (int) param.get(TUIConstants.TUIChat.GROUP_APPLY_NUM);
+            boolean isGroupChat = (boolean) param.get(TUIConstants.TUIChat.IS_GROUP_CHAT);
+            if (isGroupChat) {
+                List<GroupChatEventListener> groupChatEventListenerList = getGroupChatEventListenerList();
+                for (GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
+                    groupChatEventListener.onApplied(number);
                 }
             }
         }
@@ -230,12 +263,12 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
             if (TextUtils.equals(subKey, TUIConstants.TUIGroup.EVENT_SUB_KEY_EXIT_GROUP)
                     || TextUtils.equals(subKey, TUIConstants.TUIGroup.EVENT_SUB_KEY_GROUP_DISMISS)
                     || TextUtils.equals(subKey, TUIConstants.TUIGroup.EVENT_SUB_KEY_GROUP_RECYCLE)) {
-                GroupChatEventListener groupChatEventListener = getGroupChatEventListener();
+                List<GroupChatEventListener> groupChatEventListenerList = getGroupChatEventListenerList();
                 String groupId = null;
                 if (param != null) {
                     groupId = (String) getOrDefault(param.get(TUIConstants.TUIGroup.GROUP_ID), "");
                 }
-                if (groupChatEventListener != null) {
+                for(GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
                     groupChatEventListener.onGroupForceExit(groupId);
                 }
             } else if (TextUtils.equals(subKey, TUIConstants.TUIGroup.EVENT_SUB_KEY_GROUP_INFO_CHANGED)) {
@@ -248,8 +281,8 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
                 if (TextUtils.isEmpty(newGroupName) || TextUtils.isEmpty(groupId)) {
                     return;
                 }
-                GroupChatEventListener groupChatEventListener = getGroupChatEventListener();
-                if (groupChatEventListener != null) {
+                List<GroupChatEventListener> groupChatEventListenerList = getGroupChatEventListenerList();
+                for(GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
                     groupChatEventListener.onGroupNameChanged(groupId, newGroupName);
                 }
             } else if (TextUtils.equals(subKey, TUIConstants.TUIGroup.EVENT_SUB_KEY_MEMBER_KICKED_GROUP)) {
@@ -263,15 +296,15 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
                 }
                 String selfId = TUILogin.getLoginUser();
                 if (memberList.contains(selfId)) {
-                    GroupChatEventListener groupChatEventListener = getGroupChatEventListener();
-                    if (groupChatEventListener != null) {
+                    List<GroupChatEventListener> groupChatEventListenerList = getGroupChatEventListenerList();
+                    for(GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
                         groupChatEventListener.onGroupForceExit(groupId);
                     }
                 }
             } else if (TextUtils.equals(subKey, TUIConstants.TUIGroup.EVENT_SUB_KEY_CLEAR_MESSAGE)) {
                 String groupId = (String) getOrDefault(param.get(TUIConstants.TUIGroup.GROUP_ID), "");
-                GroupChatEventListener groupChatEventListener = getGroupChatEventListener();
-                if (groupChatEventListener != null) {
+                List<GroupChatEventListener> groupChatEventListenerList = getGroupChatEventListenerList();
+                for(GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
                     groupChatEventListener.clearGroupMessage(groupId);
                 }
             }
@@ -282,16 +315,16 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
                 }
                 String id = (String) param.get(TUIConstants.TUIContact.FRIEND_ID);
                 String remark = (String) param.get(TUIConstants.TUIContact.FRIEND_REMARK);
-                C2CChatEventListener c2CChatEventListener = getC2CChatEventListener();
-                if (c2CChatEventListener != null) {
+                List<C2CChatEventListener> c2CChatEventListenerList = getC2CChatEventListenerList();
+                for(C2CChatEventListener c2CChatEventListener : c2CChatEventListenerList) {
                     c2CChatEventListener.onFriendNameChanged(id, remark);
                 }
             }
         } else if (key.equals(TUIConstants.TUIConversation.EVENT_UNREAD)) {
             if (subKey.equals(TUIConstants.TUIConversation.EVENT_SUB_KEY_UNREAD_CHANGED)) {
                 long unreadCount = (long) param.get(TUIConstants.TUIConversation.TOTAL_UNREAD_COUNT);
-                TotalUnreadCountListener totalUnreadCountListener = getUnreadCountListener();
-                if (totalUnreadCountListener != null) {
+                List<TotalUnreadCountListener> totalUnreadCountListenerList = getUnreadCountListenerList();
+                for (TotalUnreadCountListener totalUnreadCountListener : totalUnreadCountListenerList) {
                     totalUnreadCountListener.onTotalUnreadCountChanged(unreadCount);
                 }
             }
@@ -315,46 +348,60 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
                     return;
                 }
                 if (TextUtils.isEmpty(msg.getGroupID())) {
-                    C2CChatEventListener c2CChatEventListener = getInstance().getC2CChatEventListener();
-                    if (c2CChatEventListener != null) {
+                    List<C2CChatEventListener> c2CChatEventListenerList = getInstance().getC2CChatEventListenerList();
+                    for (C2CChatEventListener c2CChatEventListener : c2CChatEventListenerList) {
                         c2CChatEventListener.onRecvNewMessage(message);
                     }
                 } else {
-                    GroupChatEventListener groupChatListener = getInstance().getGroupChatEventListener();
-                    if (groupChatListener != null) {
-                        groupChatListener.onRecvNewMessage(message);
+                    List<GroupChatEventListener> groupChatEventListenerList = getInstance().getGroupChatEventListenerList();
+                    for (GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
+                        groupChatEventListener.onRecvNewMessage(message);
                     }
                 }
             }
 
             @Override
-            public void onRecvC2CReadReceipt(List<V2TIMMessageReceipt> receiptList) {
-                C2CChatEventListener c2CChatManagerKit = getInstance().getC2CChatEventListener();
-                if (c2CChatManagerKit != null) {
-                    List<MessageReceiptInfo> messageReceiptInfoList = new ArrayList<>();
-                    for(V2TIMMessageReceipt messageReceipt : receiptList) {
-                        MessageReceiptInfo messageReceiptInfo = new MessageReceiptInfo();
-                        messageReceiptInfo.setMessageReceipt(messageReceipt);
-                        messageReceiptInfoList.add(messageReceiptInfo);
-                    }
-                    c2CChatManagerKit.onReadReport(messageReceiptInfoList);
+            public void onRecvMessageReadReceipts(List<V2TIMMessageReceipt> receiptList) {
+                List<C2CChatEventListener> c2CChatEventListenerList = getInstance().getC2CChatEventListenerList();
+                List<GroupChatEventListener> groupChatEventListenerList = getInstance().getGroupChatEventListenerList();
+
+                List<MessageReceiptInfo> messageReceiptInfos = new ArrayList<>();
+                for (V2TIMMessageReceipt messageReceipt : receiptList) {
+                    MessageReceiptInfo messageReceiptInfo = new MessageReceiptInfo();
+                    messageReceiptInfo.setMessageReceipt(messageReceipt);
+                    messageReceiptInfos.add(messageReceiptInfo);
+                }
+                for (GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
+                    groupChatEventListener.onReadReport(messageReceiptInfos);
+                }
+                for (C2CChatEventListener c2CChatEventListener : c2CChatEventListenerList) {
+                    c2CChatEventListener.onReadReport(messageReceiptInfos);
                 }
             }
 
             @Override
             public void onRecvMessageRevoked(String msgId) {
-                C2CChatEventListener c2CChatManagerKit = getInstance().getC2CChatEventListener();
-                if (c2CChatManagerKit != null) {
-                    c2CChatManagerKit.handleRevoke(msgId);
+                List<C2CChatEventListener> c2CChatEventListenerList = getInstance().getC2CChatEventListenerList();
+                for (C2CChatEventListener c2CChatEventListener : c2CChatEventListenerList) {
+                    c2CChatEventListener.handleRevoke(msgId);
                 }
-                GroupChatEventListener groupChatManagerKit = getInstance().getGroupChatEventListener();
-                if (groupChatManagerKit != null) {
-                    groupChatManagerKit.handleRevoke(msgId);
+                List<GroupChatEventListener> groupChatEventListenerList = getInstance().getGroupChatEventListenerList();
+                for (GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
+                    groupChatEventListener.handleRevoke(msgId);
                 }
             }
 
             @Override
             public void onRecvMessageModified(V2TIMMessage msg) {
+                TUIMessageBean message = ChatMessageParser.parseMessage(msg);
+                List<C2CChatEventListener> c2CChatEventListenerList = getInstance().getC2CChatEventListenerList();
+                for (C2CChatEventListener c2CChatEventListener : c2CChatEventListenerList) {
+                    c2CChatEventListener.onRecvMessageModified(message);
+                }
+                List<GroupChatEventListener> groupChatEventListenerList = getInstance().getGroupChatEventListenerList();
+                for (GroupChatEventListener groupChatEventListener : groupChatEventListenerList) {
+                    groupChatEventListener.onRecvMessageModified(message);
+                }
                 TUIChatLog.i(TAG, "onRecvMessageModified msgID:" + msg.getMsgID());
             }
         });
@@ -362,8 +409,8 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
         V2TIMManager.getFriendshipManager().addFriendListener(new V2TIMFriendshipListener() {
             @Override
             public void onFriendInfoChanged(List<V2TIMFriendInfo> infoList) {
-                C2CChatEventListener c2CChatEventListener = getInstance().getC2CChatEventListener();
-                if (c2CChatEventListener != null) {
+                List<C2CChatEventListener> c2CChatEventListenerList = getInstance().getC2CChatEventListenerList();
+                for (C2CChatEventListener c2CChatEventListener : c2CChatEventListenerList) {
                     for (V2TIMFriendInfo info : infoList) {
                         if (TextUtils.isEmpty(info.getFriendRemark())) {
                             String nickName = info.getUserProfile().getNickName();
@@ -416,43 +463,89 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
         return chatConfig;
     }
 
-
-    public GroupChatEventListener getGroupChatEventListener() {
-        if (groupChatEventListener != null) {
-            return groupChatEventListener.get();
+    public List<GroupChatEventListener> getGroupChatEventListenerList() {
+        List<GroupChatEventListener> listeners = new ArrayList<>();
+        Iterator<WeakReference<GroupChatEventListener>> iterator = groupChatEventListenerList.listIterator();
+        while(iterator.hasNext()) {
+            WeakReference<GroupChatEventListener> listenerWeakReference = iterator.next();
+            GroupChatEventListener listener = listenerWeakReference.get();
+            if (listener == null) {
+                iterator.remove();
+            } else {
+                listeners.add(listener);
+            }
         }
-        return null;
+        return listeners;
     }
 
-    public void setGroupChatEventListener(GroupChatEventListener groupChatListener) {
-        this.groupChatEventListener = new WeakReference<>(groupChatListener);
-    }
-
-    public C2CChatEventListener getC2CChatEventListener() {
-        if (c2CChatEventListener != null) {
-            return c2CChatEventListener.get();
+    public void addGroupChatEventListener(GroupChatEventListener groupChatListener) {
+        if (groupChatListener == null) {
+            return;
         }
-        return null;
+        for (WeakReference<GroupChatEventListener> listenerWeakReference : groupChatEventListenerList) {
+            if (listenerWeakReference.get() == groupChatListener) {
+                return;
+            }
+        }
+        groupChatEventListenerList.add(new WeakReference<>(groupChatListener));
     }
 
-    public void setChatEventListener(C2CChatEventListener c2CChatEventListener) {
-        this.c2CChatEventListener = new WeakReference<>(c2CChatEventListener);
+    public List<C2CChatEventListener> getC2CChatEventListenerList() {
+        List<C2CChatEventListener> listeners = new ArrayList<>();
+        Iterator<WeakReference<C2CChatEventListener>> iterator = c2CChatEventListenerList.listIterator();
+        while(iterator.hasNext()) {
+            WeakReference<C2CChatEventListener> listenerWeakReference = iterator.next();
+            C2CChatEventListener listener = listenerWeakReference.get();
+            if (listener == null) {
+                iterator.remove();
+            } else {
+                listeners.add(listener);
+            }
+        }
+        return listeners;
     }
+
+    public void addC2CChatEventListener(C2CChatEventListener c2cChatEventListener) {
+        if (c2cChatEventListener == null) {
+            return;
+        }
+        for (WeakReference<C2CChatEventListener> listenerWeakReference : c2CChatEventListenerList) {
+            if (listenerWeakReference.get() == c2cChatEventListener) {
+                return;
+            }
+        }
+        c2CChatEventListenerList.add(new WeakReference<>(c2cChatEventListener));    }
 
     public void setMessageSender(IBaseMessageSender baseMessageSender) {
         messageSender = new WeakReference<>(baseMessageSender);
     }
 
-    public void setUnreadCountListener(TotalUnreadCountListener unreadCountListener) {
-        this.unreadCountListener = new WeakReference<>(unreadCountListener);
+    public void addUnreadCountListener(TotalUnreadCountListener unreadCountListener) {
+        if (unreadCountListener == null) {
+            return;
+        }
+        for (WeakReference<TotalUnreadCountListener> listenerWeakReference : unreadCountListenerList) {
+            if (listenerWeakReference.get() == unreadCountListener) {
+                return;
+            }
+        }
+        unreadCountListenerList.add(new WeakReference<>(unreadCountListener));
     }
 
 
-    public TotalUnreadCountListener getUnreadCountListener() {
-        if (unreadCountListener != null) {
-            return unreadCountListener.get();
+    public List<TotalUnreadCountListener> getUnreadCountListenerList() {
+        List<TotalUnreadCountListener> listeners = new ArrayList<>();
+        Iterator<WeakReference<TotalUnreadCountListener>> iterator = unreadCountListenerList.listIterator();
+        while(iterator.hasNext()) {
+            WeakReference<TotalUnreadCountListener> listenerWeakReference = iterator.next();
+            TotalUnreadCountListener listener = listenerWeakReference.get();
+            if (listener == null) {
+                iterator.remove();
+            } else {
+                listeners.add(listener);
+            }
         }
-        return null;
+        return listeners;
     }
 
     public IBaseMessageSender getMessageSender() {
@@ -460,10 +553,6 @@ public class TUIChatService extends ServiceInitializer implements ITUIChatServic
             return messageSender.get();
         }
         return null;
-    }
-
-    public static Context getAppContext() {
-        return appContext;
     }
 
     @Override

@@ -39,7 +39,8 @@ typedef NS_ENUM(NSInteger, TUIKitAvatarType) {
 /**
  * 表情列表（需要注意的是， TUIKit 里面的表情包都是有版权限制的，购买的 IM 服务不包括表情包的使用权，请在上线的时候替换成自己的表情包，否则会面临法律风险）
  */
-@property (nonatomic, strong) NSArray<TUIFaceGroup *> *faceGroups;
+@property (nonatomic, strong) NSArray<TUIFaceGroup *> *faceGroups; //键盘表情
+@property (nonatomic, strong) NSArray<TUIFaceGroup *> *chatPopDetailGroups;//消息编辑 快捷贴表情,表情详情。
 /**
  *  头像类型
  */
@@ -71,6 +72,18 @@ typedef NS_ENUM(NSInteger, TUIKitAvatarType) {
  * 是否允许 SDK 内部默认弹框提示
  */
 @property(nonatomic, assign) BOOL enableToast;
+
+/**
+ * 是否开启自定义铃音（仅针对 Android 有效）
+ */
+@property(nonatomic, assign) BOOL enableCustomRing;
+
+/**
+ * 在会话、联系人中展示用户的在线状态图标， 默认是 NO
+ * Display users' online status in session and contact list. NO in default.
+ */
+@property(nonatomic, assign) BOOL displayOnlineStatusIcon;
+
 
 - (void)setSceneOptimizParams:(NSString *)path;
 @end

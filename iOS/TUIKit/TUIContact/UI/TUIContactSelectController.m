@@ -51,6 +51,7 @@ static NSString *kReuseIdentifier = @"ContactSelectCell";
 {
     self.maxSelectCount = INT_MAX;
     self.selectArray = @[].mutableCopy;
+    self.viewModel = [TUIContactSelectViewDataProvider new];
 }
 
 - (void)viewDidLoad {
@@ -86,10 +87,10 @@ static NSString *kReuseIdentifier = @"ContactSelectCell";
 
 
     _pickerView = [[TUIContactListPicker alloc] initWithFrame:CGRectZero];
+    [_pickerView setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
     [self.view addSubview:_pickerView];
     [_pickerView.accessoryBtn addTarget:self action:@selector(finishTask) forControlEvents:UIControlEventTouchUpInside];
 
-    self.viewModel = [TUIContactSelectViewDataProvider new];
     [self setupBinds];
     if (self.sourceIds) {
         [self.viewModel setSourceIds:self.sourceIds];

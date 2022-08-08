@@ -1,3 +1,5 @@
+[English](./README_EN.md) | 简体中文
+
 公告：TUIKit Android 与 iOS 端开放 Pull Request，merge 成功后会在 README.md 上留下您的大名并超链到您的 Github 主页！
 
 ## 镜像下载
@@ -57,17 +59,6 @@
   </tr>
 
   <tr>
-​    <td rowspan='2' style="text-align:center">快速搭建</td>
-​    <td style="text-align:center">iOS</td>
-​    <td style="text-align:center"><a href="https://cloud.tencent.com/document/product/269/37063">TUIKit-iOS快速搭建</a></td>
-  </tr>
-
-  <tr>
-​    <td style="text-align:center">Android</td>
-​    <td style="text-align:center"><a href="https://cloud.tencent.com/document/product/269/37062">TUIKit-Android快速搭建</a></td>
-  </tr>
-
-  <tr>
 ​    <td rowspan='2' style="text-align:center">修改界面样式</td>
 ​    <td style="text-align:center">iOS</td>
 ​    <td style="text-align:center"><a href="https://cloud.tencent.com/document/product/269/37065">TUIKit-iOS修改界面样式</a></td>
@@ -94,9 +85,9 @@
 
 ## 基础版与增强版差异对比
 - SDK 从 5.4 版本开始，原有精简版改名为增强版，原有标准版改名为基础版。
-- 增强版与基础版同时支持 [V2 API](https://cloud.tencent.com/document/product/269/44477)；但增强版不再支持旧版 API，基础版继续支持旧版 API。
-- 如果您没有接入过旧版 API，建议您直接使用 [V2 API](https://cloud.tencent.com/document/product/269/44477)，选择增强版 SDK。
-- 如果您已经接入了旧版 API，推荐您升级到 [V2 API](https://cloud.tencent.com/document/product/269/44477)，逐步切换到增强版 SDK。
+- 增强版与基础版同时支持 [V2 API](https://cloud.tencent.com/document/product/269/44498)；但增强版不再支持旧版 API，基础版继续支持旧版 API。
+- 如果您没有接入过旧版 API，建议您直接使用 [V2 API](https://cloud.tencent.com/document/product/269/44498)，选择增强版 SDK。
+- 如果您已经接入了旧版 API，推荐您升级到 [V2 API](https://cloud.tencent.com/document/product/269/44498)，逐步切换到增强版 SDK。
 - 在 SDK 体积和安装包增量上，增强版与基础版相比有大幅度缩减。
 - 在 SDK 功能支持上，增强版与基础版相比提供了更多新功能特性。
 - 后续新功能开发，只在增强版上提供支持；基础版后续只做例行维护与现有问题修复。
@@ -154,25 +145,17 @@
 
 [接口升级指引](https://docs.qq.com/sheet/DS3lMdHpoRmpWSEFW)
 
-## 最新增强版 6.0.1992 @2022.02.09
+## 最新增强版 6.5.2816 @2022.07.29
 
 ### SDK
 
-- 修复向已解散或不存在的群连续发送两次消息偶现 crash 问题 
+- 优化印度站选路策略
+- 优化富媒体消息上传/下载进度回调
+- 优化 Android 端获取设备进程信息的合规问题
+- 修复连续创建话题 crash 的问题
+- 修复 Windows 发包偶现 crash 的问题
+- 修复 Android v7a  架构下拉黑好友，再次添加被拉黑好友 crash 的问题 
 
-### TUIKit
-
-- 新增皮肤设置能力
-- 新增语言设置能力
-- 群资料卡新增群管理功能
-- 文件消息增加上传下载动画
-- 浏览历史消息时，增加“收到 X 条新消息”的小舌头跳转
-- 浏览历史消息时，增加“回到最新位置”的小舌头跳转
-- 增加一键跳转到群 @ 消息的小舌头跳转
-- 优化会话列表最后一条消息的展示样式
-- 文本消息增加选中状态
-- 优化 A2、D2错误提示描述
-- iOS15系统UI适配
 
 ## 最新基础版 5.1.66 @2021.09.22
 

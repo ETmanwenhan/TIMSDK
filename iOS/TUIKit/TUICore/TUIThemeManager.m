@@ -8,6 +8,114 @@
 #import "TUIThemeManager.h"
 #import "UIColor+TUIHexColor.h"
 
+@interface TUIDarkThemeRootVC:UIViewController
+
+@end
+@implementation TUIDarkThemeRootVC
+- (BOOL)shouldAutorotate {
+    return NO;
+}
+@end
+
+@interface TUIDarkWindow : UIWindow
+@property (nonatomic, readonly, class) TUIDarkWindow *sharedInstance;
+@property (nonatomic, strong) UIWindow *previousKeyWindow;
+@end
+@implementation TUIDarkWindow
+
++ (void)load {
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(windowDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
+}
+
++ (void)windowDidBecomeActive {
+    UIWindow *darkWindow = [self sharedInstance];
+    if (@available(iOS 13.0, *)) {
+        UIScene *scene = UIApplication.sharedApplication.connectedScenes.anyObject;
+        if (scene) {
+            darkWindow.windowScene = (UIWindowScene *)scene;
+        }
+    }
+    [darkWindow setRootViewController:[TUIDarkThemeRootVC new]];
+    darkWindow.hidden = NO;
+    [NSNotificationCenter.defaultCenter removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
+}
+
+- (void)becomeKeyWindow {
+    _previousKeyWindow = [self appKeyWindow];
+    [super becomeKeyWindow];
+}
+
+- (void)resignKeyWindow {
+    [super resignKeyWindow];
+    [_previousKeyWindow makeKeyWindow];
+    _previousKeyWindow = nil;
+}
+
+- (UIWindow *)appKeyWindow {
+    UIWindow *keywindow = UIApplication.sharedApplication.keyWindow;
+    if (keywindow == nil) {
+        if (@available(iOS 13.0, *)) {
+            for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {
+                if (scene.activationState == UISceneActivationStateForegroundActive) {
+                    UIWindow *tmpWindow = nil;
+                    if (@available(iOS 15.0, *)) {
+                        tmpWindow = scene.keyWindow;
+                    }
+                    if (tmpWindow == nil) {
+                        for (UIWindow *window in scene.windows) {
+                            if (window.windowLevel == UIWindowLevelNormal && window.hidden == NO && CGRectEqualToRect(window.bounds, UIScreen.mainScreen.bounds)) {
+                                tmpWindow = window;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (keywindow == nil) {
+        for (UIWindow *window in UIApplication.sharedApplication.windows) {
+            if (window.windowLevel == UIWindowLevelNormal && window.hidden == NO && CGRectEqualToRect(window.bounds, UIScreen.mainScreen.bounds)) {
+                keywindow = window;
+                break;
+            }
+        }
+    }
+    return keywindow;
+}
+
++ (instancetype)sharedInstance {
+    static TUIDarkWindow *shareWindow = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        shareWindow = [[self alloc] init];
+        shareWindow.frame = UIScreen.mainScreen.bounds;
+        shareWindow.userInteractionEnabled = YES;
+        shareWindow.windowLevel = UIWindowLevelNormal - 1;
+        shareWindow.hidden = YES;
+        shareWindow.opaque = NO;
+        shareWindow.backgroundColor = [UIColor clearColor];
+        shareWindow.layer.backgroundColor = [UIColor clearColor].CGColor;
+    });
+    return shareWindow;
+}
+/// 重写系统方法禁止设置该Window的模式状态。
+- (void)setOverrideUserInterfaceStyle:(UIUserInterfaceStyle)overrideUserInterfaceStyle {}
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    if (@available(iOS 13.0, *)) {
+        if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
+            [NSNotificationCenter.defaultCenter postNotificationName:TUIDidApplyingThemeChangedNotfication object:nil];
+            if ([TUIThemeManager.shareManager respondsToSelector:@selector(allListenerExcuteonApplyThemeMethod:module:)]) {
+                [TUIThemeManager.shareManager performSelector:@selector(allListenerExcuteonApplyThemeMethod:module:) withObject:nil withObject:nil];
+            }
+        }
+        
+    }
+}
+@end
+
+
 @implementation TUITheme
 
 // 获取动态颜色
@@ -114,6 +222,8 @@
 
 // 所有的监听者
 @property (nonatomic, strong) NSHashTable *listeners;
+
+- (void)allListenerExcuteonApplyThemeMethod:(TUITheme *)theme module:(TUIThemeModule)module;
 
 @end
 
@@ -292,6 +402,10 @@ static id _instance;
                 TUIThemeModule tmpModue = (TUIThemeModule)[moduleObject integerValue];
                 [weakSelf setCurrentTheme:nil forModule:tmpModue];
             }
+            //卸载所有主题，跟随系统变化时也应该触发主题变化通知.
+            [NSNotificationCenter.defaultCenter postNotificationName:TUIDidApplyingThemeChangedNotfication
+                                                                      object:nil
+                                                                    userInfo:nil];
         } else {
             for (NSNumber *moduleObject in allKeys) {
                 TUIThemeModule tmpModue = (TUIThemeModule)[moduleObject integerValue];
@@ -389,11 +503,7 @@ static id _instance;
         return;
     }
     
-    for (id<TUIThemeManagerListener> listener in self.listeners) {
-        if ([listener respondsToSelector:@selector(onApplyTheme:module:)]) {
-            [listener onApplyTheme:theme module:module];
-        }
-    }
+    [self allListenerExcuteonApplyThemeMethod:theme module:module];
     
     NSDictionary *userInfo = @{
         TUIDidApplyingThemeChangedNotficationModuleKey:@(module),
@@ -403,6 +513,15 @@ static id _instance;
                                                       object:nil
                                                     userInfo:userInfo];
 }
+
+- (void)allListenerExcuteonApplyThemeMethod:(TUITheme *)theme module:(TUIThemeModule)module {
+    for (id<TUIThemeManagerListener> listener in self.listeners) {
+        if ([listener respondsToSelector:@selector(onApplyTheme:module:)]) {
+            [listener onApplyTheme:theme module:module];
+        }
+    }
+}
+
 
 - (NSString *)themeResourcePathForModule:(TUIThemeModule)module
 {

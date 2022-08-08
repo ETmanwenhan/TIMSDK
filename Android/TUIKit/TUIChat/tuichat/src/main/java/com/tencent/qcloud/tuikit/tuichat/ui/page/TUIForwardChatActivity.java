@@ -10,9 +10,9 @@ import com.tencent.qcloud.tuicore.component.CustomLinearLayoutManager;
 import com.tencent.qcloud.tuicore.component.TitleBarLayout;
 import com.tencent.qcloud.tuicore.component.activities.BaseLightActivity;
 import com.tencent.qcloud.tuicore.component.interfaces.ITitleBarLayout;
-import com.tencent.qcloud.tuicore.interfaces.ITUIThemeChangeable;
 import com.tencent.qcloud.tuikit.tuichat.R;
 import com.tencent.qcloud.tuikit.tuichat.TUIChatConstants;
+import com.tencent.qcloud.tuikit.tuichat.bean.ChatInfo;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.MergeMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.bean.message.TUIMessageBean;
 import com.tencent.qcloud.tuikit.tuichat.presenter.ForwardPresenter;
@@ -30,6 +30,7 @@ public class TUIForwardChatActivity extends BaseLightActivity {
     private MessageAdapter mForwardChatAdapter;
 
     private MergeMessageBean mMessageInfo;
+    private ChatInfo chatInfo;
     private String mTitle;
 
     private ForwardPresenter presenter;
@@ -102,10 +103,12 @@ public class TUIForwardChatActivity extends BaseLightActivity {
             mTitleBar.getRightGroup().setVisibility(View.GONE);
 
             mMessageInfo = (MergeMessageBean) intent.getSerializableExtra(TUIChatConstants.FORWARD_MERGE_MESSAGE_KEY);
+            chatInfo = (ChatInfo) intent.getSerializableExtra(TUIChatConstants.CHAT_INFO);
             if (null == mMessageInfo) {
                 TUIChatLog.e(TAG, "mMessageInfo is null");
                 return;
             }
+            presenter.setChatInfo(chatInfo);
             presenter.downloadMergerMessage(mMessageInfo);
         }
     }

@@ -1,6 +1,5 @@
 package com.tencent.qcloud.tuikit.tuichat.component.camera;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -21,8 +20,6 @@ import com.tencent.qcloud.tuikit.tuichat.component.camera.listener.ClickListener
 import com.tencent.qcloud.tuikit.tuichat.component.camera.listener.ErrorListener;
 import com.tencent.qcloud.tuikit.tuichat.component.camera.listener.JCameraListener;
 import com.tencent.qcloud.tuikit.tuichat.component.camera.view.JCameraView;
-import com.tencent.qcloud.tuikit.tuichat.util.DeviceUtil;
-import com.tencent.qcloud.tuikit.tuichat.util.PermissionUtils;
 import com.tencent.qcloud.tuikit.tuichat.util.TUIChatLog;
 
 public class CameraActivity extends Activity {
@@ -120,22 +117,8 @@ public class CameraActivity extends Activity {
         TUIChatLog.i(TAG, TUIBuild.getDevice());
     }
 
-    private boolean checkPermission() {
-        if (!PermissionUtils.checkPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-            return false;
-        }
-        if (!PermissionUtils.checkPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)) {
-            return false;
-        }
-        return true;
-    }
-
     private void startSendPhoto() {
         TUIChatLog.i(TAG, "startSendPhoto");
-        if (!checkPermission()) {
-            TUIChatLog.i(TAG, "startSendPhoto checkPermission failed");
-            return;
-        }
 
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -200,6 +183,7 @@ public class CameraActivity extends Activity {
     protected void onDestroy() {
         TUIChatLog.i(TAG, "onDestroy");
         super.onDestroy();
+        jCameraView.onDestroy();
         mCallBack = null;
     }
 

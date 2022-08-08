@@ -3,6 +3,8 @@
 // To add platforms, run `flutter create -t plugin --platforms <platforms> .` under the same
 // directory. You can also find a detailed instruction on how to add platforms in the `pubspec.yaml` at https://flutter.dev/docs/development/packages-and-plugins/developing-packages#plugin-platforms.
 
+// ignore_for_file: unused_import
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
@@ -31,6 +33,7 @@ import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_friend_se
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_application_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_info_result.dart';
+import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_full_info.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_info_result.dart';
 import 'package:tencent_im_sdk_plugin_platform_interface/models/v2_tim_group_member_operation_result.dart';
@@ -67,6 +70,7 @@ class TencentImSDKPluginWeb extends ImFlutterPlatform {
       {required int sdkAppID,
       required int loglevel,
       String? listenerUuid,
+      required String uiPlatform,
       V2TimSDKListener? listener}) async {
     return _v2timManager.initSDK(sdkAppID: sdkAppID, listener: listener);
   }
@@ -202,6 +206,7 @@ class TencentImSDKPluginWeb extends ImFlutterPlatform {
       {
         "nickName": userFullInfo.nickName,
         "faceUrl": userFullInfo.faceUrl,
+        "birthday": userFullInfo.birthday,
         "selfSignature": userFullInfo.selfSignature,
         "gender": userFullInfo.gender,
         "allowType": userFullInfo.allowType,
@@ -511,7 +516,8 @@ class TencentImSDKPluginWeb extends ImFlutterPlatform {
     String? faceUrl,
     bool? isAllMuted,
     int? addOpt,
-    List<Map>? memberList,
+    List<V2TimGroupMember>? memberList,
+    bool? isSupportTopic = false,
   }) async {
     return await _v2timGroupManager.createGroup({
       "groupID": groupID,
@@ -522,7 +528,8 @@ class TencentImSDKPluginWeb extends ImFlutterPlatform {
       "faceUrl": faceUrl,
       "isAllMuted": isAllMuted,
       "addOpt": addOpt,
-      "memberList": memberList
+      "memberList": memberList?.map((member) => member.toJson()).toList(),
+      "isSupportTopic": isSupportTopic
     });
   }
 
@@ -872,6 +879,8 @@ class TencentImSDKPluginWeb extends ImFlutterPlatform {
       int priority = 0,
       bool onlineUserOnly = false,
       bool isExcludedFromUnreadCount = false,
+      bool isExcludedFromLastMessage = false,
+      bool needReadReceipt = false,
       Map<String, dynamic>? offlinePushInfo,
       String? cloudCustomData, // 云自定义消息字段，只能在消息发送前添加
       String? localCustomData // 本地自定义消息字段
@@ -884,7 +893,8 @@ class TencentImSDKPluginWeb extends ImFlutterPlatform {
           "groupID": groupID,
           "priority": priority,
           "onlineUserOnly": onlineUserOnly,
-          "isExcludedFromUnreadCount": isExcludedFromUnreadCount
+          "isExcludedFromUnreadCount": isExcludedFromUnreadCount,
+          "isExcludedFromLastMessage": isExcludedFromLastMessage,
         });
   }
 

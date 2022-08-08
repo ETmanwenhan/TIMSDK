@@ -1,6 +1,7 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#define IS_NOT_EMPTY_NSSTRING(__X__)            (__X__ && [__X__ isKindOfClass:[NSString class]] && ![__X__ isEqualToString:@""])
 
 typedef void (^TAsyncImageComplete)(NSString *path, UIImage *image);
 
@@ -37,10 +38,23 @@ typedef void (^TAsyncImageComplete)(NSString *path, UIImage *image);
 + (NSString *)genFileName:(NSString *)uuid;
 + (NSString *)genVoiceName:(NSString *)uuid withExtension:(NSString *)extent;
 + (void)asyncDecodeImage:(NSString *)path complete:(TAsyncImageComplete)complete;
-+ (NSString *)randAvatarUrl;
 
 // 设备
 + (NSString *)deviceModel;
 + (NSString *)deviceVersion;
 + (NSString *)deviceName;
+
+// 跳转浏览器打开
++ (void)openLinkWithURL:(NSURL *)url;
+
+// 套餐包不支持功能弹框
++ (void)showUnsupportAlertOfService:(NSString *)service onVC:(UIViewController *)vc;
+// 套餐包不支持通知
++ (void)postUnsupportNotificationOfService:(NSString *)service;
++ (void)postUnsupportNotificationOfService:(NSString *)service serviceDesc:(NSString *)serviceDesc debugOnly:(BOOL)debugOnly;
++ (void)addUnsupportNotificationInVC:(UIViewController *)vc;
++ (void)addUnsupportNotificationInVC:(UIViewController *)vc debugOnly:(BOOL)debugOnly;
+
++ (UIWindow *)applicationKeywindow;
+
 @end

@@ -143,10 +143,6 @@
     });
 }
 
-+ (NSString *)randAvatarUrl
-{
-    return [NSString stringWithFormat:@"https://picsum.photos/id/%d/200/200", rand()%999];
-}
 
 + (void)makeToast:(NSString *)str
 {
@@ -202,7 +198,7 @@
     }
 }
 
-+ (NSString *)convertDateToStr:(NSDate *)date;
++ (NSString *)convertDateToStr:(NSDate *)date
 {
     if (!date) {
         return nil;
@@ -212,35 +208,40 @@
         return @"";
     }
     
-    NSCalendar *calendar = [ NSCalendar currentCalendar ];
-    int unit = NSCalendarUnitDay | NSCalendarUnitMonth |  NSCalendarUnitYear ;
-    NSDateComponents *nowCmps = [calendar components:unit fromDate:[ NSDate date ]];
-    NSDateComponents *myCmps = [calendar components:unit fromDate:date];
-    NSDateFormatter *dateFmt = [[NSDateFormatter alloc ] init ];
-    BOOL isYesterday = NO;
-    if (nowCmps.year != myCmps.year) {
+    NSDateFormatter *dateFmt = [[NSDateFormatter alloc] init];
+
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    calendar.firstWeekday = 7;
+    NSDateComponents *nowComponent = [calendar components:NSCalendarUnitDay|NSCalendarUnitMonth|NSCalendarUnitYear|NSCalendarUnitWeekOfMonth fromDate:NSDate.new];
+    NSDateComponents *dateCompoent = [calendar components:NSCalendarUnitDay|NSCalendarUnitMonth|NSCalendarUnitYear|NSCalendarUnitWeekOfMonth fromDate:date];
+    
+    if (nowComponent.year == dateCompoent.year) {
+        // 在同一年
+        if (nowComponent.month == dateCompoent.month) {
+            // 在同一个月
+            if (nowComponent.weekOfMonth == dateCompoent.weekOfMonth) {
+                // 在同一个周
+                if (nowComponent.day == dateCompoent.day) {
+                    // 在同一天
+                    dateFmt.dateFormat = @"HH:mm";
+                } else {
+                    // 不在同一天
+                    dateFmt.dateFormat = @"EEEE";
+                }
+            } else {
+                // 不在同一个周
+                dateFmt.dateFormat = @"MM/dd";
+            }
+        } else {
+            // 不在同一个月
+            dateFmt.dateFormat = @"MM/dd";
+        }
+    } else {
+        // 不在同一年
         dateFmt.dateFormat = @"yyyy/MM/dd";
     }
-    else{
-        if (nowCmps.day==myCmps.day) {
-            dateFmt.dateFormat = @"HH:mm";
-        } else if((nowCmps.day-myCmps.day)==1) {
-            isYesterday = YES;
-            dateFmt.AMSymbol = TUIKitLocalizableString(am); //@"上午";
-            dateFmt.PMSymbol = TUIKitLocalizableString(pm); //@"下午";
-            dateFmt.dateFormat = TUIKitLocalizableString(YesterdayDateFormat);
-        } else {
-            if ((nowCmps.day-myCmps.day) <=7) {
-                dateFmt.dateFormat = @"EEEE";
-            }else {
-                dateFmt.dateFormat = @"yyyy/MM/dd";
-            }
-        }
-    }
+    
     NSString *str = [dateFmt stringFromDate:date];
-    if (isYesterday) {
-        str = [NSString stringWithFormat:@"%@ %@", TUIKitLocalizableString(Yesterday), str];
-    }
     return str;
 }
 
@@ -577,6 +578,8 @@
             return TUIKitLocalizableString(TUIKitErrorSVRAccountCountLimit); // @"创建帐号数量超过免费体验版数量限制，请升级为专业版。";
         case ERR_SVR_ACCOUNT_INTERNAL_ERROR:
             return TUIKitLocalizableString(TUIKitErrorSVRAccountInternalError); // @"服务端内部错误，请重试。";
+        case ERR_SVR_ACCOUNT_USER_STATUS_DISABLED:
+            return TUIKitLocalizableString(TUIKitErrorEnableUserStatusOnConsole);
 
             // 资料错误码
 
@@ -812,8 +815,6 @@
             return TUIKitLocalizableString(TUIKitErrorSVRNoSuccessResult); // @"批量操作无成功结果";
         case ERR_TO_USER_INVALID:
             return TUIKitLocalizableString(TUIKitErrorSVRToUserInvalid); // @"IM: 无效接收方";
-        case ERR_REQUEST_TIMEOUT:
-            return TUIKitLocalizableString(TUIKitErrorSVRRequestTimeout); // @"请求超时";
         case ERR_INIT_CORE_FAIL:
             return TUIKitLocalizableString(TUIKitErrorSVRInitCoreFail); // @"INIT CORE模块失败";
         case ERR_EXPIRED_SESSION_NODE:
@@ -1038,6 +1039,176 @@
         deviceName = [[UIDevice currentDevice] name];
     });
     return deviceName;
+}
+
++ (void)openLinkWithURL:(NSURL *)url {
+    if (@available(iOS 10.0, *)) {
+        [[UIApplication sharedApplication] openURL:url
+                                           options:@{}
+                                 completionHandler:^(BOOL success) {
+            if (success) {
+                NSLog(@"Opened url");
+            }
+        }];
+    } else {
+        [[UIApplication sharedApplication] openURL:url];
+    }
+}
+
++ (void)addUnsupportNotificationInVC:(UIViewController *)vc {
+    [self addUnsupportNotificationInVC:vc debugOnly:YES];
+}
+
++ (void)addUnsupportNotificationInVC:(UIViewController *)vc debugOnly:(BOOL)debugOnly {
+    BOOL enable = YES;
+    if (debugOnly) {
+#if DEBUG
+        enable = YES;
+#else
+        enable = NO;
+#endif
+    }
+    
+    if (!enable) {
+        return;
+    }
+    
+    @weakify(vc);
+    [[NSNotificationCenter defaultCenter] addObserverForName:TUIKitNotification_onReceivedUnsupportInterfaceError object:nil queue:nil usingBlock:^(NSNotification * _Nonnull note) {
+        @strongify(vc);
+        NSDictionary *userInfo = note.userInfo;
+        NSString *service = [userInfo objectForKey:@"service"];
+        NSString *serviceDesc = [userInfo objectForKey:@"serviceDesc"];
+        [TUITool showUnsupportAlertOfService:service serviceDesc:serviceDesc onVC:vc];
+    }];
+}
+
++ (void)postUnsupportNotificationOfService:(NSString *)service {
+    [self postUnsupportNotificationOfService:service serviceDesc:nil debugOnly:YES];
+}
+
++ (void)postUnsupportNotificationOfService:(NSString *)service serviceDesc:(NSString *)serviceDesc debugOnly:(BOOL)debugOnly {
+    BOOL enable = YES;
+    if (debugOnly) {
+#if DEBUG
+        enable = YES;
+#else
+        enable = NO;
+#endif
+    }
+    
+    if (!enable) {
+        return;
+    }
+
+    if (!service) {
+        NSLog(@"postNotificationOfService, service is nil");
+        return;
+    }
+    [[NSNotificationCenter defaultCenter] postNotificationName:TUIKitNotification_onReceivedUnsupportInterfaceError
+                                                        object:nil
+                                                      userInfo:@{@"service": service?:@"", @"serviceDesc":serviceDesc?:@""}];
+}
+
++ (void)showUnsupportAlertOfService:(NSString *)service serviceDesc:(NSString *)serviceDesc onVC:(UIViewController *)vc {
+    NSString *key = [NSString stringWithFormat:@"show_unsupport_alert_%@", service];
+    BOOL isShown = [[NSUserDefaults standardUserDefaults] boolForKey:key];
+    if (isShown) {
+        return;
+    }
+    NSString *desc = [NSString stringWithFormat:@"%@%@%@", service, TUIKitLocalizableString(TUIKitErrorUnsupportIntefaceDesc), serviceDesc?:@""];
+    NSArray *buttons = @[TUIKitLocalizableString(TUIKitErrorUnsupportIntefaceIGotIt), TUIKitLocalizableString(TUIKitErrorUnsupportIntefaceNoMoreAlert)];
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:TUIKitLocalizableString(TUIKitErrorUnsupportIntefaceTitle)
+                                                                             message:desc
+                                                                      preferredStyle:UIAlertControllerStyleAlert];
+    NSMutableAttributedString *attrStr = [[NSMutableAttributedString alloc] initWithString:desc];
+    [attrStr addAttribute:NSFontAttributeName value:[UIFont systemFontOfSize:14] range:NSMakeRange(0, desc.length)];
+    [attrStr addAttribute:NSLinkAttributeName value:@"https://" range:[desc rangeOfString:TUIKitLocalizableString(TUIKitErrorUnsupportIntefaceGuidelines)]];
+    [alertController setValue:attrStr forKey:@"attributedMessage"];
+    UILabel *msgLabel = [TUITool messageLabelInAlertController:alertController];
+    msgLabel.userInteractionEnabled = YES;
+    msgLabel.textAlignment = NSTextAlignmentLeft;
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:TUITool.class action:@selector(onTapLabel:)];
+    [msgLabel addGestureRecognizer:tap];
+
+    UIAlertAction *left = [UIAlertAction actionWithTitle:buttons[0] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+    }];
+    UIAlertAction *right = [UIAlertAction actionWithTitle:buttons[1] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:key];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }];
+    [alertController addAction:left];
+    [alertController addAction:right];
+    [vc presentViewController:alertController animated:NO completion:nil];
+}
+
++ (void)onTapLabel:(UIGestureRecognizer *)ges {
+    NSString *chinesePurchase = @"https://cloud.tencent.com/document/product/269/11673#.E5.9F.BA.E7.A1.80.E6.9C.8D.E5.8A.A1.E8.AF.A6.E6.83.85";
+    NSString *englishPurchase = @"https://intl.cloud.tencent.com/document/product/1047/36021?lang=en&pg=#changing-configuration";
+    NSString *language = [TUIGlobalization tk_localizableLanguageKey];
+    NSURL *url = [NSURL URLWithString:chinesePurchase];
+    if (![language containsString:@"zh-"]) {
+        url = [NSURL URLWithString:englishPurchase];
+    }
+    [TUITool openLinkWithURL:url];
+}
+
++ (UILabel *)messageLabelInAlertController:(UIAlertController *)alert {
+    UIView *target = [TUITool targetSubviewInAlertController:alert];
+    NSArray *subviews = [target subviews];
+    if (subviews.count == 0) {
+        return nil;
+    }
+    for (UIView *view in subviews) {
+        if ([view isKindOfClass:UILabel.class]) {
+            UILabel *label = (UILabel *)view;
+            if (label.text.length > 10) {
+                return label;
+            }
+        }
+    }
+    return nil;
+}
+
++ (UIView *)targetSubviewInAlertController:(UIAlertController *)alert {
+    UIView *view = alert.view;
+    for (int i = 0; i < 5; i++) {
+        view = view.subviews.firstObject;
+    }
+    return view;
+}
+
++ (UIWindow *)applicationKeywindow {
+    UIWindow *keywindow = UIApplication.sharedApplication.keyWindow;
+    if (keywindow == nil) {
+        if (@available(iOS 13.0, *)) {
+            for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {
+                if (scene.activationState == UISceneActivationStateForegroundActive) {
+                    UIWindow *tmpWindow = nil;
+                    if (@available(iOS 15.0, *)) {
+                        tmpWindow = scene.keyWindow;
+                    }
+                    if (tmpWindow == nil) {
+                        for (UIWindow *window in scene.windows) {
+                            if (window.windowLevel == UIWindowLevelNormal && window.hidden == NO && CGRectEqualToRect(window.bounds, UIScreen.mainScreen.bounds)) {
+                                tmpWindow = window;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (keywindow == nil) {
+        for (UIWindow *window in UIApplication.sharedApplication.windows) {
+            if (window.windowLevel == UIWindowLevelNormal && window.hidden == NO && CGRectEqualToRect(window.bounds, UIScreen.mainScreen.bounds)) {
+                keywindow = window;
+                break;
+            }
+        }
+    }
+    return keywindow;
 }
 
 @end

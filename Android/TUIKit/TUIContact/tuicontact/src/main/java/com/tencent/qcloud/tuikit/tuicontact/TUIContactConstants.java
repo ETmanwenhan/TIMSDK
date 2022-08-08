@@ -1,5 +1,6 @@
 package com.tencent.qcloud.tuikit.tuicontact;
 
+import com.tencent.imsdk.BaseConstants;
 import com.tencent.imsdk.v2.V2TIMGroupAtInfo;
 
 public class TUIContactConstants {
@@ -9,7 +10,7 @@ public class TUIContactConstants {
     public static final int FORWARD_CREATE_GROUP_CODE = 103;
 
     public static final String FORWARD_CREATE_NEW_CHAT = "forward_create_new_chat";
-
+    
     /**
      * 1: 仅仅是一个带链接的文本消息
      * 2: iOS支持的视频通话版本，后续已经不兼容

@@ -43,7 +43,6 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
     private final HashMap<String, Boolean> mSelectedPositions = new HashMap<>();
     private boolean isShowMultiSelectCheckBox = false;
     private boolean isForwardFragment = false;
-    private boolean isShowSearch = false;
 
     private boolean mIsLoading = false;
 
@@ -87,10 +86,6 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
 
     public void setSearchView(View searchView) {
         this.searchView = searchView;
-    }
-
-    public void setShowSearch(boolean showSearch) {
-        isShowSearch = showSearch;
     }
 
     //设置给定位置条目的选择状态
@@ -170,6 +165,10 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
         View view;
         // 根据ViewType来创建条目
         if (viewType == ITEM_TYPE_HEADER_SEARCH) {
+            // 如果 searchView 不显示，添加一个隐藏的 view，防止 recyclerview 自动滑到最底部
+            if (searchView == null) {
+                searchView = new View(parent.getContext());
+            }
             return new HeaderViewHolder(searchView);
         }else if (viewType == ConversationInfo.TYPE_CUSTOM) {
             view = inflater.inflate(R.layout.conversation_custom_adapter, parent, false);
@@ -213,15 +212,15 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
             case ConversationInfo.TYPE_FORWAR_SELECT : {
                 ForwardSelectHolder selectHolder = (ForwardSelectHolder) holder;
                 selectHolder.refreshTitle(!isShowMultiSelectCheckBox);
-                setOnClickListener(holder, position, conversationInfo);
+                setOnClickListener(holder, getItemViewType(position), conversationInfo);
                 break;
             }
             default:
-                setOnClickListener(holder, position, conversationInfo);
+                setOnClickListener(holder, getItemViewType(position), conversationInfo);
         }
         if (baseHolder != null) {
             baseHolder.layoutViews(conversationInfo, position);
-            setCheckBoxStatus(position, conversationInfo, baseHolder);
+            setCheckBoxStatus(conversationInfo, position, baseHolder);
         }
 
         if (getCurrentPosition() == position && isClick()){
@@ -239,8 +238,8 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
 
     }
 
-    private void setOnClickListener(RecyclerView.ViewHolder holder, int position, ConversationInfo conversationInfo) {
-        if (getItemViewType(position) == ITEM_TYPE_HEADER_SEARCH) {
+    private void setOnClickListener(RecyclerView.ViewHolder holder, int viewType, ConversationInfo conversationInfo) {
+        if (holder instanceof HeaderViewHolder) {
             return;
         }
         //设置点击和长按事件
@@ -248,7 +247,7 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
             holder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    mOnItemClickListener.onItemClick(view, position, conversationInfo);
+                    mOnItemClickListener.onItemClick(view, viewType, conversationInfo);
                 }
             });
         }
@@ -256,9 +255,12 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
             holder.itemView.setOnLongClickListener(new View.OnLongClickListener() {
                 @Override
                 public boolean onLongClick(View view) {
-                    mOnItemLongClickListener.OnItemLongClick(view, position, conversationInfo);
-                    setCurrentPosition(position, true);
-                    notifyItemChanged(position);
+                    mOnItemLongClickListener.OnItemLongClick(view, conversationInfo);
+                    int position = getIndexInAdapter(conversationInfo);
+                    if (position != -1) {
+                        setCurrentPosition(position, true);
+                        notifyItemChanged(position);
+                    }
                     return true;
                 }
             });
@@ -266,10 +268,11 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
     }
 
     // 设置多选框的选中状态和点击事件
-    private void setCheckBoxStatus(final int position, final ConversationInfo conversationInfo, ConversationBaseHolder baseHolder) {
+    private void setCheckBoxStatus(final ConversationInfo conversationInfo, int position, ConversationBaseHolder baseHolder) {
         if (!(baseHolder instanceof ConversationCommonHolder) || ((ConversationCommonHolder) baseHolder).multiSelectCheckBox == null) {
             return;
         }
+        int viewType = getItemViewType(position);
         String conversationId = conversationInfo.getConversationId();
         ConversationCommonHolder commonHolder = (ConversationCommonHolder) baseHolder;
         if (!isShowMultiSelectCheckBox) {
@@ -285,7 +288,7 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
                 public void onClick(View v) {
                     setItemChecked(conversationId, !isItemChecked(conversationId));
                     if (mOnItemClickListener != null) {
-                        mOnItemClickListener.onItemClick(v, position, conversationInfo);
+                        mOnItemClickListener.onItemClick(v, viewType, conversationInfo);
                     }
                 }
             });
@@ -295,13 +298,27 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
                 @Override
                 public void onClick(View v) {
                     setItemChecked(conversationId, !isItemChecked(conversationId));
-                    notifyItemChanged(position);
+                    int currentPosition = getIndexInAdapter(conversationInfo);
+                    if (currentPosition != -1) {
+                        notifyItemChanged(currentPosition);
+                    }
                     if (mOnItemClickListener != null) {
-                        mOnItemClickListener.onItemClick(v, position, conversationInfo);
+                        mOnItemClickListener.onItemClick(v, viewType, conversationInfo);
                     }
                 }
             });
         }
+    }
+
+    public int getIndexInAdapter(ConversationInfo conversationInfo) {
+        int position = -1;
+        if (mDataSource != null) {
+            int indexInData = mDataSource.indexOf(conversationInfo);
+            if (indexInData != -1) {
+                position = getItemIndexInAdapter(indexInData);
+            }
+        }
+        return position;
     }
 
     @Override
@@ -317,13 +334,11 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
             return null;
         }
 
-        int dataPosition = position;
+        int dataPosition;
         if (isForwardFragment) {
             dataPosition = position - SELECT_COUNT - SELECT_LABEL_COUNT;
         } else {
-            if (isShowSearch) {
-                dataPosition = position - HEADER_COUNT;
-            }
+            dataPosition = position - HEADER_COUNT;
         }
         if (dataPosition < mDataSource.size() && dataPosition >= 0) {
             return mDataSource.get(dataPosition);
@@ -338,10 +353,7 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
         if (isForwardFragment) {
             return listSize + SELECT_COUNT + SELECT_LABEL_COUNT + FOOTER_COUNT;
         }
-        if (isShowSearch) {
-            return listSize + HEADER_COUNT + FOOTER_COUNT;
-        }
-        return listSize + FOOTER_COUNT;
+        return listSize + HEADER_COUNT + FOOTER_COUNT;
     }
 
     @Override
@@ -353,10 +365,8 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
                 return ConversationInfo.TYPE_RECENT_LABEL;
             }
         } else {
-            if (isShowSearch) {
-                if (position == 0) {
-                    return ITEM_TYPE_HEADER_SEARCH;
-                }
+            if (position == 0) {
+                return ITEM_TYPE_HEADER_SEARCH;
             }
         }
         if (position == getItemCount() - 1) {
@@ -371,13 +381,11 @@ public class ConversationListAdapter extends RecyclerView.Adapter implements ICo
     }
 
     private int getItemIndexInAdapter(int index) {
-        int itemIndex = index;
+        int itemIndex;
         if (isForwardFragment) {
             itemIndex = index + SELECT_LABEL_COUNT + SELECT_COUNT;
         } else {
-            if (isShowSearch) {
-                itemIndex = index + HEADER_COUNT;
-            }
+            itemIndex = index + HEADER_COUNT;
         }
         return itemIndex;
     }

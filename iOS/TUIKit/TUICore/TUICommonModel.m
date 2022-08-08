@@ -300,6 +300,65 @@ static void *ScrollViewBoundsChangeNotificationContext = &ScrollViewBoundsChange
 
 /////////////////////////////////////////////////////////////////////////////////
 //
+//                           TUINaviBarIndicatorView
+//
+/////////////////////////////////////////////////////////////////////////////////
+@implementation TUINaviBarIndicatorView
+- (id)init
+{
+    self = [super init];
+    if(self){
+        [self setupViews];
+    }
+    return self;
+}
+
+- (void)setupViews
+{
+    _indicator = [[UIActivityIndicatorView alloc] initWithFrame:CGRectMake(0, 0, 20, 20)];
+    _indicator.center = CGPointMake(0, NavBar_Height * 0.5);
+    _indicator.activityIndicatorViewStyle = UIActivityIndicatorViewStyleGray;
+    [self addSubview:_indicator];
+
+    _label = [[UILabel alloc] init];
+    _label.backgroundColor = [UIColor clearColor];
+    _label.font = [UIFont boldSystemFontOfSize:17];
+    _label.textColor = TUICoreDynamicColor(@"nav_title_text_color", @"#000000");
+    [self addSubview:_label];
+}
+
+- (void)setTitle:(NSString *)title
+{
+    _label.textColor = TUICoreDynamicColor(@"nav_title_text_color", @"#000000");
+    _label.text = title;
+    [self updateLayout];
+}
+
+- (void)updateLayout
+{
+    [_label sizeToFit];
+    CGSize labelSize = _label.bounds.size; // [_label sizeThatFits:CGSizeMake(Screen_Width, NavBar_Height)];
+    CGFloat labelWidth = MIN(labelSize.width, 150);
+    CGFloat labelY = 0;
+    CGFloat labelX = _indicator.hidden ? 0 : (_indicator.frame.origin.x + _indicator.frame.size.width + TUINaviBarIndicatorView_Margin);
+    _label.frame = CGRectMake(labelX, labelY, labelWidth, NavBar_Height);
+    self.frame = CGRectMake(0, 0, labelX + labelWidth + TUINaviBarIndicatorView_Margin, NavBar_Height);
+//    self.center = CGPointMake(Screen_Width * 0.5, NavBar_Height * 0.5);
+}
+
+- (void)startAnimating
+{
+    [_indicator startAnimating];
+}
+
+- (void)stopAnimating
+{
+    [_indicator stopAnimating];
+}
+@end
+
+/////////////////////////////////////////////////////////////////////////////////
+//
 //                             TUICommonCell & data
 //
 /////////////////////////////////////////////////////////////////////////////////
@@ -307,7 +366,7 @@ static void *ScrollViewBoundsChangeNotificationContext = &ScrollViewBoundsChange
 
 - (CGFloat)heightOfWidth:(CGFloat)width
 {
-    return 44;
+    return 48;
 }
 @end
 
@@ -356,30 +415,313 @@ static void *ScrollViewBoundsChangeNotificationContext = &ScrollViewBoundsChange
         [self removeGestureRecognizer:self.tapRecognizer];
     }
 }
-//
-//-(void) touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
-//    if(self.changeColorWhenTouched){
-//        self.backgroundColor = self.colorWhenTouched;
-//    }
-//}
-//
-//-(void) touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
-//    if(self.changeColorWhenTouched){
-//        self.backgroundColor = [UIColor d_colorWithColorLight:TCell_Nomal dark:TCell_Nomal_Dark];
-//    }
-//}
-//
-//-(void) touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
-//    if(self.changeColorWhenTouched){
-//        self.backgroundColor = [UIColor d_colorWithColorLight:TCell_Nomal dark:TCell_Nomal_Dark];
-//    }
-//}
 
-//-(void) touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
-//    if(self.changeColorWhenTouched){
-//        self.backgroundColor = [UIColor d_colorWithColorLight:[UIColor whiteColor] dark:RGB(35, 35, 35)];
-//    }
-//}
+
+@end
+
+/////////////////////////////////////////////////////////////////////////////////
+//
+//                           TUIGroupPendencyCell & data
+//
+/////////////////////////////////////////////////////////////////////////////////
+@interface TUIGroupPendencyCellData ()
+@property V2TIMUserFullInfo *fromUserProfile;
+@property V2TIMGroupApplication *pendencyItem;
+@end
+
+@implementation TUIGroupPendencyCellData
+
+- (instancetype)initWithPendency:(V2TIMGroupApplication *)args {
+    self = [self init];
+
+    _pendencyItem = args;
+
+    _groupId = args.groupID;
+    _fromUser = args.fromUser;
+    if (args.fromUserNickName.length > 0) {
+        _title = args.fromUserNickName;
+    } else {
+        _title = args.fromUser;
+    }
+    _avatarUrl = [NSURL URLWithString:args.fromUserFaceUrl];
+    _requestMsg = args.requestMsg;
+    if (_requestMsg.length == 0) {
+        _requestMsg = [NSString stringWithFormat:TUIKitLocalizableString(TUIKitWhoRequestForJoinGroupFormat), _title];
+    }
+
+    return self;
+}
+
+- (void)accept
+{
+    [[V2TIMManager sharedInstance] acceptGroupApplication:_pendencyItem reason:TUIKitLocalizableString(TUIKitAgreedByAdministor) succ:^{
+        [TUITool makeToast:TUIKitLocalizableString(Have-been-sent)];
+        [[NSNotificationCenter defaultCenter] postNotificationName:TUIGroupPendencyCellData_onPendencyChanged object:nil];;
+    } fail:^(int code, NSString *msg) {
+        [TUITool makeToastError:code msg:msg];
+    }];
+    self.isAccepted = YES;
+}
+- (void)reject
+{
+    [[V2TIMManager sharedInstance] refuseGroupApplication:_pendencyItem reason:TUIKitLocalizableString(TUIkitDiscliedByAdministor) succ:^{
+        [TUITool makeToast:TUIKitLocalizableString(Have-been-sent)];
+        [[NSNotificationCenter defaultCenter] postNotificationName:TUIGroupPendencyCellData_onPendencyChanged object:nil];;
+    } fail:^(int code, NSString *msg) {
+        [TUITool makeToastError:code msg:msg];
+    }];
+    self.isRejectd = YES;
+}
+
+@end
+
+@implementation TUIGroupPendencyCell
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
+{
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+
+    self.avatarView = [[UIImageView alloc] initWithImage:DefaultAvatarImage];
+    [self.contentView addSubview:self.avatarView];
+    self.avatarView.mm_width(54).mm_height(54).mm__centerY(38).mm_left(12);
+
+    self.titleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    [self.contentView addSubview:self.titleLabel];
+    self.titleLabel.textColor = [UIColor darkTextColor];
+    self.titleLabel.mm_left(self.avatarView.mm_maxX+12).mm_top(14).mm_height(20).mm_width(120);
+
+    self.addWordingLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    [self.contentView addSubview:self.addWordingLabel];
+    self.addWordingLabel.textColor = [UIColor lightGrayColor];
+    self.addWordingLabel.font = [UIFont systemFontOfSize:15];
+    self.addWordingLabel.mm_left(self.titleLabel.mm_x).mm_top(self.titleLabel.mm_maxY+6).mm_height(15).mm_width(self.mm_w - self.titleLabel.mm_x - 80);
+
+    self.agreeButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.accessoryView = self.agreeButton;
+    [self.agreeButton addTarget:self action:@selector(agreeClick) forControlEvents:UIControlEventTouchUpInside];
+
+    return self;
+}
+
+- (void)awakeFromNib {
+    [super awakeFromNib];
+    // Initialization code
+}
+
+- (void)setSelected:(BOOL)selected animated:(BOOL)animated {
+    [super setSelected:selected animated:animated];
+
+    // Configure the view for the selected state
+}
+
+- (void)fillWithData:(TUIGroupPendencyCellData *)pendencyData
+{
+    [super fillWithData:pendencyData];
+
+    self.pendencyData = pendencyData;
+    self.titleLabel.text = pendencyData.title;
+    self.addWordingLabel.text = pendencyData.requestMsg;
+    self.avatarView.image = DefaultAvatarImage;
+    if (pendencyData.avatarUrl) {
+        [self.avatarView sd_setImageWithURL:pendencyData.avatarUrl placeholderImage:[UIImage imageNamed:TUICoreImagePath(@"default_c2c_head")]];
+    }
+
+    @weakify(self)
+    [[RACObserve(pendencyData, isAccepted) takeUntil:self.rac_prepareForReuseSignal] subscribeNext:^(NSNumber *isAccepted) {
+        @strongify(self)
+        if ([isAccepted boolValue]) {
+            [self.agreeButton setTitle:TUIKitLocalizableString(Agreed) forState:UIControlStateNormal];
+            self.agreeButton.enabled = NO;
+            [self.agreeButton setTitleColor:[UIColor lightGrayColor] forState:UIControlStateNormal];
+            self.agreeButton.layer.borderColor = [UIColor clearColor].CGColor;
+        }
+    }];
+    [[RACObserve(pendencyData, isRejectd) takeUntil:self.rac_prepareForReuseSignal] subscribeNext:^(NSNumber *isAccepted) {
+        @strongify(self)
+        if ([isAccepted boolValue]) {
+            [self.agreeButton setTitle:TUIKitLocalizableString(Disclined) forState:UIControlStateNormal];
+            self.agreeButton.enabled = NO;
+            [self.agreeButton setTitleColor:[UIColor lightGrayColor] forState:UIControlStateNormal];
+            self.agreeButton.layer.borderColor = [UIColor clearColor].CGColor;
+        }
+    }];
+
+    if (!(pendencyData.isAccepted || pendencyData.isRejectd)) {
+        [self.agreeButton setTitle:TUIKitLocalizableString(Agree) forState:UIControlStateNormal];
+        self.agreeButton.enabled = YES;
+        [self.agreeButton setTitleColor:[UIColor darkTextColor] forState:UIControlStateNormal];
+        self.agreeButton.layer.borderColor = [UIColor grayColor].CGColor;
+        self.agreeButton.layer.borderWidth = 1;
+    }
+    self.agreeButton.mm_sizeToFit().mm_width(self.agreeButton.mm_w+20);
+}
+
+- (void)agreeClick
+{
+    if (self.pendencyData.cbuttonSelector) {
+        UIViewController *vc = self.mm_viewController;
+        if ([vc respondsToSelector:self.pendencyData.cbuttonSelector]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            [vc performSelector:self.pendencyData.cbuttonSelector withObject:self];
+#pragma clang diagnostic pop
+        }
+    }
+
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
+{
+    if ((touch.view == self.agreeButton)) {
+        return NO;
+    }
+    return YES;
+}
+
+@end
+
+/////////////////////////////////////////////////////////////////////////////////
+//
+//                           TUIButtonCell & data
+//
+/////////////////////////////////////////////////////////////////////////////////
+@implementation TUIButtonCellData
+
+- (CGFloat)heightOfWidth:(CGFloat)width
+{
+    return TButtonCell_Height;
+}
+@end
+
+@implementation TUIButtonCell {
+    UIView *_line;
+}
+
+- (id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
+{
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if(self){
+        [self setupViews];
+        self.changeColorWhenTouched = YES;
+    }
+    return self;
+}
+
+- (void)setupViews
+{
+    self.backgroundColor = TUICoreDynamicColor(@"form_bg_color", @"#FFFFFF");
+    self.contentView.backgroundColor = TUICoreDynamicColor(@"form_bg_color", @"#FFFFFF");
+
+    _button = [UIButton buttonWithType:UIButtonTypeCustom];
+    [_button.titleLabel setFont:[UIFont systemFontOfSize:18]];
+    [_button addTarget:self action:@selector(onClick:) forControlEvents:UIControlEventTouchUpInside];
+
+    [self.contentView addSubview:_button];
+
+    [self setSeparatorInset:UIEdgeInsetsMake(0, Screen_Width, 0, 0)];
+    [self setSelectionStyle:UITableViewCellSelectionStyleNone];
+    self.changeColorWhenTouched = YES;
+    
+    _line = [[UIView alloc] initWithFrame:CGRectZero];
+    [self.contentView addSubview:_line];
+    _line.backgroundColor = TUICoreDynamicColor(@"separator_color", @"#DBDBDB");
+}
+
+
+- (void)fillWithData:(TUIButtonCellData *)data
+{
+    [super fillWithData:data];
+    self.buttonData = data;
+    [_button setTitle:data.title forState:UIControlStateNormal];
+    switch (data.style) {
+        case ButtonGreen: {
+            [_button setTitleColor:TUICoreDynamicColor(@"form_green_button_text_color", @"#FFFFFF") forState:UIControlStateNormal];
+            _button.backgroundColor = TUICoreDynamicColor(@"form_green_button_bg_color", @"#232323");
+            //对于背景色为绿色的按钮，高亮颜色比原本略深（原本的5/6）。由于无法直接设置高亮时的背景色，所以高亮背景色的变化通过生成并设置纯色图片来实现。
+            [_button setBackgroundImage:[self imageWithColor:TUICoreDynamicColor(@"form_green_button_highlight_bg_color", @"#179A1A")] forState:UIControlStateHighlighted];
+        }
+            break;
+        case ButtonWhite: {
+            [_button setTitleColor:TUICoreDynamicColor(@"form_white_button_text_color", @"#000000") forState:UIControlStateNormal];
+            _button.backgroundColor = TUICoreDynamicColor(@"form_white_button_bg_color", @"#FFFFFF");
+        }
+            break;
+        case ButtonRedText: {
+            [_button setTitleColor:TUICoreDynamicColor(@"form_redtext_button_text_color", @"#FF0000") forState:UIControlStateNormal];
+            _button.backgroundColor = TUICoreDynamicColor(@"form_redtext_button_bg_color", @"#FFFFFF");
+
+            break;
+        }
+        case ButtonBule:{
+            [_button.titleLabel setTextColor:TUICoreDynamicColor(@"form_blue_button_text_color", @"#FFFFFF")];
+            _button.backgroundColor = TUICoreDynamicColor(@"form_blue_button_bg_color", @"#1E90FF");
+            //对于背景色为蓝色的按钮，高亮颜色比原本略深（原本的5/6）。由于无法直接设置高亮时的背景色，所以高亮背景色的变化通过生成并设置纯色图片来实现。
+            [_button setBackgroundImage:[self imageWithColor:TUICoreDynamicColor(@"form_blue_button_highlight_bg_color", @"#1978D5")] forState:UIControlStateHighlighted];
+        }
+            break;
+        default:
+            break;
+    }
+    
+    if (data.textColor) {
+        [_button setTitleColor:data.textColor forState:UIControlStateNormal];
+    }
+    
+    _line.hidden = data.hideSeparatorLine;
+}
+
+- (void)layoutSubviews
+{
+    [super layoutSubviews];
+    _button.mm_width(Screen_Width - 2 * TButtonCell_Margin)
+    .mm_height(self.mm_h - TButtonCell_Margin)
+    .mm_left(TButtonCell_Margin);
+    
+    _line.mm_width(Screen_Width)
+    .mm_height(0.2)
+    .mm_left(20)
+    .mm_bottom(0);
+}
+
+- (void)onClick:(UIButton *)sender
+{
+    if (self.buttonData.cbuttonSelector) {
+        UIViewController *vc = self.mm_viewController;
+        if ([vc respondsToSelector:self.buttonData.cbuttonSelector]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            [vc performSelector:self.buttonData.cbuttonSelector withObject:self];
+#pragma clang diagnostic pop
+        }
+    }
+}
+
+- (void)didAddSubview:(UIView *)subview
+{
+    [super didAddSubview:subview];
+    if (subview != self.contentView) {
+        [subview removeFromSuperview];
+    }
+}
+
+//本函数实现了生成纯色背景的功能，从而配合 setBackgroundImage: forState: 来实现高亮时纯色按钮的点击反馈。
+- (UIImage *)imageWithColor:(UIColor *)color
+{
+    CGRect rect = CGRectMake(0.0f, 0.0f, 1.0f, 1.0f);
+    UIGraphicsBeginImageContext(rect.size);
+    CGContextRef context = UIGraphicsGetCurrentContext();
+
+    CGContextSetFillColorWithColor(context, [color CGColor]);
+    CGContextFillRect(context, rect);
+
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+
+    return image;
+}
+
+
+
 
 @end
 
@@ -717,11 +1059,20 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
         for (V2TIMGroupMemberFullInfo* member in memberList) {
             if (member.faceURL.length > 0) {
                 [groupMemberAvatars addObject:member.faceURL];
-                i++;
+            } else {
+                [groupMemberAvatars addObject:@"http://placeholder"];
             }
-            if (i == 9) {
+            if (++i == 9) {
                 break;
             }
+        }
+        
+        if (i <= 1) {
+            [self asyncClearCacheAvatarForGroup:groupID];
+            if (callback) {
+                callback(NO, placeholder, groupID);
+            }
+            return;
         }
         
         // 存储当前获取到的群组头像信息
@@ -783,17 +1134,17 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
 /// 获取缓存群组头像
 /// 缓存的维度是按照会议室ID & 会议室人数来定的，
 /// 人数变化要引起头像改变
-+ (void)getCacheGroupAvatar:(NSString *)groupID callback:(void(^)(UIImage *))imageCallBack {
++ (void)getCacheGroupAvatar:(NSString *)groupID callback:(void(^)(UIImage *, NSString *groupID))imageCallBack {
     if (groupID == nil || groupID.length == 0) {
         if (imageCallBack) {
-            imageCallBack(nil);
+            imageCallBack(nil, groupID);
         }
         return;
     }
     [[V2TIMManager sharedInstance] getGroupsInfo:@[groupID] succ:^(NSArray<V2TIMGroupInfoResult *> *groupResultList) {
         V2TIMGroupInfoResult *groupInfo = groupResultList.firstObject;
         if (!groupInfo) {
-            imageCallBack(nil);
+            imageCallBack(nil, groupID);
             return;
         }
         UInt32 memberNum = groupInfo.info.memberCount;
@@ -813,12 +1164,11 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
             [NSUserDefaults.standardUserDefaults setInteger:memberNum forKey:key];
             [NSUserDefaults.standardUserDefaults synchronize];
         }
-        imageCallBack(avatar);
+        imageCallBack(avatar, groupInfo.info.groupID);
     } fail:^(int code, NSString *msg) {
-        imageCallBack(nil);
+        imageCallBack(nil, groupID);
     }];
 }
-
 
 /// 同步获取本地缓存的群组头像
 /// @param groupId 群id
@@ -840,6 +1190,21 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
     }
     return avatar;
 }
+
++ (void)asyncClearCacheAvatarForGroup:(NSString *)groupID
+{
+    dispatch_async(dispatch_get_global_queue(0, 0), ^{
+        NSString* tempPath = NSTemporaryDirectory();
+        for (int i = 0; i < 9; i++) {
+            NSString *filePath = [NSString stringWithFormat:@"%@groupAvatar_%@_%d.png",tempPath,
+                                  groupID,(i+1)];
+            if ([NSFileManager.defaultManager fileExistsAtPath:filePath]) {
+                [NSFileManager.defaultManager removeItemAtPath:filePath error:nil];
+            }
+        }
+    });
+}
+
 @end
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -1008,9 +1373,12 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
     [self addSubview:_collectionView];
 
     self.accessoryBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.accessoryBtn setBackgroundImage:[UIImage d_imageNamed:@"icon_cell_blue_normal" bundle:TUICoreBundle] forState:UIControlStateNormal];
-    [self.accessoryBtn setBackgroundImage:[UIImage d_imageNamed:@"icon_cell_blue_normal" bundle:TUICoreBundle] forState:UIControlStateHighlighted];
+    [self.accessoryBtn setBackgroundImage:TUICoreCommonBundleImage(@"icon_cell_blue_normal")
+                                 forState:UIControlStateNormal];
+    [self.accessoryBtn setBackgroundImage:TUICoreCommonBundleImage(@"icon_cell_blue_normal")
+                                 forState:UIControlStateHighlighted];
     [self.accessoryBtn setTitle:[NSString stringWithFormat:@" %@ ", TUIKitLocalizableString(Confirm)] forState:UIControlStateNormal]; // @" 确定 "
+    self.accessoryBtn.enabled = NO;
     [self addSubview:self.accessoryBtn];
 }
 
@@ -1124,7 +1492,7 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
         self.navigationBar.backgroundColor = self.tintColor;
         self.navigationBar.barTintColor = self.tintColor;
         self.navigationBar.shadowImage = [UIImage new];
-        self.navigationBar.tintColor = [UIColor colorWithRed:102/255.0 green:102/255.0 blue:102/255.0 alpha:1.0];
+        [[UINavigationBar appearance] setTranslucent:NO];
     }
     
     self.delegate = self;
@@ -1133,6 +1501,9 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
 }
 
 - (void)back {
+    if ([self.uiNaviDelegate respondsToSelector:@selector(navigationControllerDidClickLeftButton:)]) {
+        [self.uiNaviDelegate navigationControllerDidClickLeftButton:self];
+    }
     [self popViewControllerAnimated:YES];
 }
 
@@ -1189,6 +1560,25 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
     }
 }
 
+- (void)navigationController:(UINavigationController *)navigationController willShowViewController:(UIViewController *)viewController animated:(BOOL)animated {
+    /**
+     * 监听侧边滑动返回的事件
+     * Listen to the event returned by the side slide
+     */
+    __weak typeof(self) weakSelf = self;
+    if (@available(iOS 10.0, *)) {
+        [viewController.transitionCoordinator notifyWhenInteractionChangesUsingBlock:^(id<UIViewControllerTransitionCoordinatorContext>  _Nonnull context) {
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            [strongSelf handleSideSlideReturnIfNeeded:context];
+        }];
+    } else {
+        [viewController.transitionCoordinator notifyWhenInteractionEndsUsingBlock:^(id<UIViewControllerTransitionCoordinatorContext>  _Nonnull context) {
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            [strongSelf handleSideSlideReturnIfNeeded:context];
+        }];
+    }
+}
+
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
 {
     if (gestureRecognizer == self.interactivePopGestureRecognizer) {
@@ -1199,6 +1589,16 @@ NSString *kTopConversationListChangedNotification = @"kTopConversationListChange
         return NO;
     }
     return YES;
+}
+
+- (void)handleSideSlideReturnIfNeeded:(id<UIViewControllerTransitionCoordinatorContext>)context {
+    if (context.isCancelled) {
+        return;
+    }
+    UIViewController *fromVc = [context viewControllerForKey:UITransitionContextFromViewControllerKey];
+    if ([self.uiNaviDelegate respondsToSelector:@selector(navigationControllerDidSideSlideReturn:fromViewController:)]) {
+        [self.uiNaviDelegate navigationControllerDidSideSlideReturn:self fromViewController:fromVc];
+    }
 }
 
 @end

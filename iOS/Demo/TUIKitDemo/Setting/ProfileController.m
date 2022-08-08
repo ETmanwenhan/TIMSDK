@@ -9,20 +9,17 @@
 #import "ProfileController.h"
 #import "LoginController.h"
 #import "AppDelegate.h"
-#import "TUIButtonCell.h"
 #import "TUITextEditController.h"
 #import "TUIDateEditController.h"
 #import "TUICommonModel.h"
 #import "TUICommonTextCell.h"
 #import "TUICommonModel.h"
-#import "ReactiveObjC/ReactiveObjC.h"
 #import "TUIKit.h"
 #import "TCUtil.h"
-#import "TUIDefine.h"
 #import "TUICommonAvatarCell.h"
 #import "TUIModifyView.h"
 #import "TUIThemeManager.h"
-#import "TUINaviBarIndicatorView.h"
+#import "TUISelectAvatarController.h"
 
 #define SHEET_COMMON 1
 #define SHEET_AGREE  2
@@ -60,6 +57,9 @@
     self.navigationItem.titleView = _titleView;
     self.navigationItem.title = @"";
 
+    if (@available(iOS 15.0, *)) {
+        self.tableView.sectionHeaderTopPadding = 0;
+    }
     self.tableView.backgroundColor = TUICoreDynamicColor(@"controller_bg_color", @"#F2F3F5");
 
     [self.tableView registerClass:[TUICommonTextCell class] forCellReuseIdentifier:@"textCell"];
@@ -99,7 +99,7 @@
 
     TUICommonTextCellData *signatureData = [TUICommonTextCellData new];
     signatureData.key = NSLocalizedString(@"ProfileSignature", nil); // @"个性签名";
-    signatureData.value = self.profile.selfSignature.length ? self.profile.selfSignature : NSLocalizedString(@"no_personal_signature", nil);
+    signatureData.value = self.profile.selfSignature.length ? self.profile.selfSignature : @"";
     signatureData.showAccessory = YES;
     signatureData.cselector = @selector(didSelectChangeSignature);
 
@@ -151,6 +151,10 @@
 {
     return section == 0 ? 0 : 10;
 }
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section
+{
+    return 0;
+}
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     NSMutableArray *array = _data[section];
@@ -194,7 +198,6 @@
             self.profile.nickName = content;
             [self setupData];
         } fail:nil];
-        [TCUtil report:Action_Modifyselfprofile actionSub:Action_Sub_Modifynick code:@(0) msg:@"modifynick"];
     } else if (modifyView.tag == 1) {
         // 文本校验
         if (![self validForSignatureAndNick:content]) {
@@ -207,7 +210,6 @@
             self.profile.selfSignature = content;
             [self setupData];
         } fail:nil];
-        [TCUtil report:Action_Modifyselfprofile actionSub:Action_Sub_Modifysignature code:@(0) msg:@"modifysignature"];
     }
     
 }
@@ -260,23 +262,26 @@
 
 - (void)didSelectAvatar
 {
-    //点击头像的响应函数，换头像，上传头像URL
-    UIAlertController *ac = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"choose_avatar_for_you", nil) message:nil preferredStyle:UIAlertControllerStyleAlert];
-    [ac addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-        NSString *url = [TUITool randAvatarUrl];
-        V2TIMUserFullInfo *info = [[V2TIMUserFullInfo alloc] init];
-        info.faceURL = url;
-        [[V2TIMManager sharedInstance] setSelfInfo:info succ:^{
-            [self.profile setFaceURL:url];
-            [self setupData];
-        } fail:^(int code, NSString *desc) {
-            
-        }];
-        [TCUtil report:Action_Modifyselfprofile actionSub:Action_Sub_Modifyfaceurl code:@(0) msg:@"modifyfaceurl"];
+    
+    TUISelectAvatarController * vc = [[TUISelectAvatarController alloc] init];
+    vc.selectAvatarType = TUISelectAvatarTypeUserAvatar;
+    vc.profilFaceURL = self.profile.faceURL;
+    [self.navigationController pushViewController:vc animated:YES];
 
-    }]];
-    [ac addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", nil) style:UIAlertActionStyleDefault handler:nil]];
-    [self presentViewController:ac animated:YES completion:nil];
+    __weak typeof(self)weakSelf = self;
+    vc.selectCallBack = ^(NSString * _Nonnull urlStr) {
+        __strong typeof(weakSelf)strongSelf = weakSelf;
+        if (urlStr.length > 0) {
+            V2TIMUserFullInfo *info = [[V2TIMUserFullInfo alloc] init];
+            info.faceURL = urlStr;
+            [[V2TIMManager sharedInstance] setSelfInfo:info succ:^{
+                [strongSelf.profile setFaceURL:urlStr];
+                [strongSelf setupData];
+            } fail:^(int code, NSString *desc) {
+                
+            }];
+        }
+    };
 }
 
 - (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex
@@ -295,7 +300,6 @@
             self.profile.gender = gender;
             [self setupData];
         } fail:nil];
-        [TCUtil report:Action_Modifyselfprofile actionSub:Action_Sub_Modifygender code:@(0) msg:@"modifygender"];
     }
 }
 

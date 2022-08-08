@@ -1,6 +1,5 @@
 // miniprogram/pages/TUI-Index/TUI-create.js
 import logger from '../../utils/logger';
-
 // eslint-disable-next-line no-undef
 const app = getApp();
 // eslint-disable-next-line no-undef
@@ -11,12 +10,11 @@ Page({
    */
   data: {
     sceneList: [
-      { name: '在线客服', url: '../TUI-Conversation/conversation/conversation', iconUrl: '../../static/assets/online-service.svg' },
-      { name: '实时通话', url: '../TUI-Calling/calling-index/index', iconUrl: '../../static/assets/calling.svg' },
+      { name: '在线客服', url: '../../TUI-CustomerService/pages/TUI-Conversation/conversation/conversation', iconUrl: '../../static/assets/online-service.svg' },
+      { name: '实时通话', url: '../../TUI-Calling/pages/TUI-Calling/calling-index/index', iconUrl: '../../static/assets/calling.svg' },
       { name: '互动直播', url: '', iconUrl: '../../static/assets/interactive-live.svg' },
     ],
   },
-
   /**
    * 生命周期函数--监听页面加载
    */
@@ -24,6 +22,7 @@ Page({
   },
   onShow() {
     logger.log(`| TUI-Index | onshow | login |userSig:${app.globalData.userInfo.userSig} userID:${app.globalData.userInfo.userID}`);
+
     wx.$TUIKit.login({
       userID: app.globalData.userInfo.userID,
       userSig: app.globalData.userInfo.userSig,
@@ -38,10 +37,16 @@ Page({
       wx.navigateToMiniProgram({
         appId: 'wx3b91b7aaa809ecf9',
       });
-    } else {
+    } else if (tab.name === '在线客服') {
       wx.navigateTo({
         url: tab.url,
       });
+    } else if (tab.name === '实时通话') {
+      {
+        wx.navigateTo({
+          url: tab.url,
+        });
+      }
     }
   },
   learnMore() {

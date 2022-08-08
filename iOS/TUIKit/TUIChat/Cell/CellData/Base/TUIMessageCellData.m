@@ -60,6 +60,12 @@
 
     if (self.showName)
         height += 20;
+    if (self.showMessageModifyReplies) {// x人回复
+        height += 22;
+    }
+    if (self.messageModifyReactsSize.height > 0) {
+        height += self.messageModifyReactsSize.height;
+    }
 
     CGSize containerSize = [self contentSize];
     height += containerSize.height;
