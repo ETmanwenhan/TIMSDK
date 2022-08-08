@@ -17,7 +17,8 @@ Pod::Spec.new do |spec|
 
   spec.requires_arc = true
 
-  spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/6.5.2816/ios/TUIChat.zip'}
+  #spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/6.5.2816/ios/TUIChat.zip'}
+  spec.source = { :git => ''}
   spec.dependency 'TUICore','6.5.2816'
 
   spec.subspec 'Header' do |header|

@@ -20,7 +20,8 @@ Pod::Spec.new do |spec|
   
   spec.requires_arc = true
 
-  spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/6.5.2816/ios/TUICore.zip'}
+  #spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/6.5.2816/ios/TUICore.zip'}
+  spec.source = { :git => ''}
   spec.source_files = '**/TUICore/*.{h,m,mm,c}'
   spec.resource = [
       '**/TUICore/Resources/*.bundle'

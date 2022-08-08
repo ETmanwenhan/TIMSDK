@@ -16,7 +16,8 @@ Pod::Spec.new do |spec|
 
   spec.requires_arc = true
 
-  spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/6.5.2816/ios/TUIContact.zip'}
+  #spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/6.5.2816/ios/TUIContact.zip'}
+  spec.source = { :git => ''}
   
   spec.subspec 'Header' do |header|
       header.source_files = '**/TUIContact/Header/*.{h,m,mm}'
