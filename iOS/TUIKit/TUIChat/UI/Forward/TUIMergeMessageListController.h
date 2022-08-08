@@ -7,15 +7,18 @@
 
 #import <UIKit/UIKit.h>
 #import "TUIDefine.h"
-#import "TUIMessageControllerDelegate.h"
-
+#import "TUIBaseMessageControllerDelegate.h"
+#import "TUIChatConversationModel.h"
+#import "TUIMessageDataProvider.h"
 NS_ASSUME_NONNULL_BEGIN
 
 @interface TUIMergeMessageListController : UITableViewController
 
-@property (nonatomic, weak) id<TUIMessageControllerDelegate> delegate;
+@property (nonatomic, weak) id<TUIBaseMessageControllerDelegate> delegate;
 @property (nonatomic, strong) V2TIMMergerElem *mergerElem;
 @property (nonatomic, copy) dispatch_block_t willCloseCallback;
+@property (nonatomic, strong) TUIChatConversationModel *conversationData;
+@property (nonatomic, strong) TUIMessageDataProvider *parentPageDataProvider;
 
 @end
 

@@ -91,6 +91,14 @@
                         android:textSize="@dimen/demo_profile_signature_text_size"
                         tools:text="相信光" />
 
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignTop="@id/self_account_tag"
+                    android:layout_alignParentEnd="true"
+                    android:layout_marginRight="10dp"
+                    android:background="@drawable/arrow_right" />
+
             </RelativeLayout>
 
             <LinearLayout
@@ -105,21 +113,7 @@
                     android:layout_marginTop="10dp"
                     app:name="@string/add_rule" />
 
-
-                <com.tencent.qcloud.tuicore.component.LineControllerView
-                    android:id="@+id/modify_theme"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/demo_profile_item_height"
-                    android:layout_marginTop="10dp"
-                    android:visibility="gone"
-                    app:name="@string/modify_theme" />
-                <com.tencent.qcloud.tuicore.component.LineControllerView
-                    android:id="@+id/modify_language"
-                    android:layout_width="match_parent"
-                    android:layout_height="@dimen/demo_profile_item_height"
-                    android:visibility="gone"
-                    app:isTop="true"
-                    app:name="@string/modify_language" />
+                <include layout= "@layout/profile_custom_layout"></include>
 
                 <com.tencent.qcloud.tuicore.component.LineControllerView
                     android:id="@+id/about_im"
@@ -140,7 +134,7 @@
                     android:lineHeight="24.96sp"
                     android:text="@string/exit"
                     android:textAllCaps="false"
-                    android:textColor="?attr/core_primary_color" />
+                    android:textColor="?attr/core_error_tip_color" />
 
             </LinearLayout>
 

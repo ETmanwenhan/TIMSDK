@@ -8,6 +8,7 @@
 #import "TUISelectGroupMemberCell.h"
 #import "TUIDarkModel.h"
 #import "TUIDefine.h"
+#import "TUIThemeManager.h"
 
 @implementation TUISelectGroupMemberCell
 {
@@ -21,7 +22,7 @@
 {
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
     if(self) {
-        self.backgroundColor = [UIColor d_colorWithColorLight:TCell_Nomal dark:TCell_Nomal_Dark];
+        self.backgroundColor = TUICoreDynamicColor(@"form_bg_color", @"#F2F3F5");
         _selectedMark = [[UIImageView alloc] initWithFrame:CGRectZero];
         [self addSubview:_selectedMark];
         _userImg = [[UIImageView alloc] initWithFrame:CGRectZero];
@@ -37,7 +38,7 @@
 {
     _userModel = model;
     _selectedMark.image = isSelect ? [UIImage imageNamed:TUIGroupImagePath(@"ic_selected")] : [UIImage imageNamed:TUIGroupImagePath(@"ic_unselect")];
-    [_userImg sd_setImageWithURL:[NSURL URLWithString:model.avatar] placeholderImage:[UIImage imageNamed:TUICoreImagePath(@"default_c2c_head")]];
+    [_userImg sd_setImageWithURL:[NSURL URLWithString:model.avatar] placeholderImage:TUIConfig.defaultConfig.defaultAvatarImage];
     _nameLabel.text = model.name;
 }
 

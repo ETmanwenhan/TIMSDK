@@ -11,14 +11,14 @@
 #import <AssetsLibrary/AssetsLibrary.h>
 #import <Photos/Photos.h>
 #import "ReactiveObjC/ReactiveObjC.h"
-#import "TUIMessageController.h"
+#import "TUIBaseMessageController.h"
 #import "TUIImageMessageCellData.h"
 #import "TUIVideoMessageCellData.h"
 #import "TUIFileMessageCellData.h"
 #import "TUIVoiceMessageCellData.h"
 #import "TUIDefine.h"
 #import "TUIMessageMultiChooseView.h"
-#import "TUIMessageSearchController.h"
+#import "TUIMessageController.h"
 #import "TUIChatDataProvider.h"
 #import "TUIMessageDataProvider.h"
 #import "TUICameraViewController.h"
@@ -28,8 +28,16 @@
 #import "NSDictionary+TUISafe.h"
 #import "NSString+emoji.h"
 #import "TUIThemeManager.h"
+#import "TUIBaseChatViewController+AuthControl.h"
+#import "TUIMessageReadViewController.h"
+#import "TUIJoinGroupMessageCell.h"
+#import "TUICloudCustomDataTypeCenter.h"
+#import "TUILogin.h"
+#import "TUIChatConfig.h"
+#import "TUIChatModifyMessageHelper.h"
 
-@interface TUIBaseChatViewController () <TUIMessageControllerDelegate, TInputControllerDelegate, UIImagePickerControllerDelegate, UIDocumentPickerDelegate, UINavigationControllerDelegate, TUIMessageMultiChooseViewDelegate, TUIChatDataProviderForwardDelegate, TUICameraViewControllerDelegate, TUINotificationProtocol>
+@interface TUIBaseChatViewController () <TUIBaseMessageControllerDelegate, TInputControllerDelegate, UIImagePickerControllerDelegate, UIDocumentPickerDelegate, UINavigationControllerDelegate, TUIMessageMultiChooseViewDelegate, TUIChatDataProviderForwardDelegate, TUINotificationProtocol, TUIJoinGroupMessageCellDelegate, V2TIMConversationListener, TUINavigationControllerDelegate>
+@property (nonatomic, strong) TUINaviBarIndicatorView *titleView;
 @property (nonatomic, strong) TUIMessageMultiChooseView *multiChooseView;
 @property (nonatomic, assign) BOOL responseKeyboard;
 // @{@"serviceID" : serviceID, @"title" : @"视频通话", @"image" : image}
@@ -53,13 +61,6 @@
     self = [super init];
     if (self) {
         [TUIBaseChatViewController createCachePath];
-
-        if (NSClassFromString(@"TUIKitLive")) {
-            self.isEnableLive = YES;
-        }
-        self.isEnableVideoCall= YES;
-        self.isEnableAudioCall= YES;
-        self.isEnableLink = YES;
     }
     return self;
 }
@@ -74,28 +75,27 @@
     
     self.firstAppear = YES;
     self.view.backgroundColor = TUICoreDynamicColor(@"controller_bg_color", @"#FFFFFF");
-    UILabel *titleLabel = [[UILabel alloc] init];
-    titleLabel.text = self.mainTitle;
-    titleLabel.font = [UIFont boldSystemFontOfSize:17.0];
-    titleLabel.textColor = TUICoreDynamicColor(@"nav_title_text_color", @"#000000");
-    [titleLabel sizeToFit];
-    self.navigationItem.titleView = titleLabel;
+    self.edgesForExtendedLayout = UIRectEdgeNone;
+    // 导航栏
+    [self setupNavigator];
 
     //message
 //    if (self.locateMessage) {
-        TUIMessageSearchController *vc = [[TUIMessageSearchController alloc] init];
+        TUIMessageController *vc = [[TUIMessageController alloc] init];
         vc.hightlightKeyword = self.highlightKeyword;
         vc.locateMessage = self.locateMessage;
+        vc.isMsgNeedReadReceipt = [TUIChatConfig defaultConfig].msgNeedReadReceipt;
         _messageController = vc;
         
 //    }else {
-//        _messageController = [[TUIMessageController alloc] init];
+//        _messageController = [[TUIBaseMessageController alloc] init];
 //    }
     _messageController.delegate = self;
     [_messageController setConversation:self.conversationData];
     _messageController.view.frame = CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height - TTextView_Height - Bottom_SafeHeight);
     [self addChildViewController:_messageController];
     [self.view addSubview:_messageController.view];
+    [_messageController didMoveToParentViewController:self];
 
     //input
     _inputController = [[TUIInputController alloc] init];
@@ -114,16 +114,30 @@
     self.dataProvider = [[TUIChatDataProvider alloc] init];
     self.dataProvider.forwardDelegate = self;
     
-    // 注册会话选择完成监听
+    // 监听会话变化
+    [[V2TIMManager sharedInstance] addConversationListener:self];
+    
+    // 监听会话列表选择事件
     [TUICore registerEvent:TUICore_TUIConversationNotify subKey:TUICore_TUIConversationNotify_SelectConversationSubKey object:self];
+    
+    // 监听好友信息变更通知
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(onFriendInfoChanged:) name:@"FriendInfoChangedNotification" object:nil];
 }
 
-- (void)dealloc {    
+- (void)dealloc {
     [TUICore unRegisterEventByObject:self];
+}
+
+- (void)willMoveToParentViewController:(UIViewController *)parent
+{
+    if (parent == nil) {
+        [self saveDraft];
+    }
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    
     self.responseKeyboard = YES;
     if (self.firstAppear) {
         [self loadDraft];
@@ -147,19 +161,57 @@
         CGPoint offset = self.messageController.tableView.contentOffset;
         __weak typeof(self) weakSelf = self;
         dispatch_async(dispatch_get_main_queue(), ^{
-            weakSelf.responseKeyboard = YES;
+            __strong typeof(weakSelf)strongSelf = weakSelf;
+            strongSelf.responseKeyboard = YES;
             [UIApplication.sharedApplication.keyWindow endEditing:YES];
-            [weakSelf inputController:weakSelf.inputController didChangeHeight:CGRectGetMaxY(weakSelf.inputController.inputBar.frame) + Bottom_SafeHeight];
-            [weakSelf.messageController.tableView setContentOffset:offset];
+            [strongSelf inputController:strongSelf.inputController didChangeHeight:CGRectGetMaxY(strongSelf.inputController.inputBar.frame) + Bottom_SafeHeight];
+            [strongSelf.messageController.tableView setContentOffset:offset];
         });
     }
 }
 
-- (void)willMoveToParentViewController:(UIViewController *)parent
+- (void)setupNavigator
 {
-    if (parent == nil) {
-        [self saveDraft];
-    }
+    TUINavigationController *naviController = (TUINavigationController *)self.navigationController;
+    naviController.uiNaviDelegate = self;
+    _titleView = [[TUINaviBarIndicatorView alloc] init];
+    self.navigationItem.titleView = _titleView;
+    self.navigationItem.title = @"";
+    __weak typeof (self)weakSelf = self;
+    [[RACObserve(_conversationData, title) distinctUntilChanged] subscribeNext:^(NSString *title) {
+        [weakSelf.titleView setTitle:title];
+    }];
+    
+    [[RACObserve(_conversationData, otherSideTyping) distinctUntilChanged] subscribeNext:^(id otherSideTyping) {
+        BOOL otherSideTypingFlag =  [otherSideTyping boolValue];
+        if (!otherSideTypingFlag) {
+            [weakSelf checkTitle:YES];
+        }
+    }];
+    
+    [self checkTitle:NO];
+    // 刷新未读数
+    [TUIChatDataProvider getTotalUnreadMessageCountWithSuccBlock:^(UInt64 totalCount) {
+        [weakSelf onChangeUnReadCount:totalCount];
+    } fail:nil];
+    
+    //left
+    _unRead = [[TUIUnReadView alloc] init];
+
+//    _unRead.backgroundColor = [UIColor colorWithRed:170/255.0 green:188/255.0 blue:209/255.0 alpha:1/1.0];   // 默认使用红色未读视图
+//    UIBarButtonItem *urBtn = [[UIBarButtonItem alloc] initWithCustomView:_unRead];
+//    self.navigationItem.leftBarButtonItems = @[urBtn];
+//    //既显示返回按钮，又显示未读视图
+//    self.navigationItem.leftItemsSupplementBackButton = YES;
+
+    //right，根据当前聊天页类型设置右侧按钮格式
+    UIButton *rightButton = [[UIButton alloc]initWithFrame:CGRectMake(0, 0, 30, 30)];
+    [rightButton addTarget:self action:@selector(rightBarButtonClick) forControlEvents:UIControlEventTouchUpInside];
+    [rightButton setImage:TUIChatBundleThemeImage(@"chat_nav_more_menu_img", @"chat_nav_more_menu") forState:UIControlStateNormal];
+    [rightButton setTitleColor:[UIColor colorWithRed:102/255.0 green:102/255.0 blue:102/255.0 alpha:1.0] forState:UIControlStateNormal];
+    rightButton.titleLabel.font = [UIFont boldSystemFontOfSize:16.0];
+    UIBarButtonItem *rightItem = [[UIBarButtonItem alloc] initWithCustomView:rightButton];
+    self.navigationItem.rightBarButtonItems = @[rightItem];
 }
 
 #pragma mark - Public Methods
@@ -172,24 +224,41 @@
 - (void)saveDraft
 {
     NSString *content = self.inputController.inputBar.inputTextView.text;
-    if (self.inputController.replyData) {
+    
+    TUIReplyPreviewData * previewData = nil;
+    if (self.inputController.referenceData) {
+        previewData  = self.inputController.referenceData;
+    }
+    else if(self.inputController.replyData) {
+        previewData  = self.inputController.replyData;
+    }
+    if (previewData) {
+        
         NSDictionary *dict = @{
             @"content" : content?:@"",
             @"messageReply" : @{
-                    @"messageID"       : self.inputController.replyData.msgID?:@"",
-                    @"messageAbstract" : [self.inputController.replyData.msgAbstract?:@"" getInternationalStringWithfaceContent],
-                    @"messageSender"   : self.inputController.replyData.sender?:@"",
-                    @"messageType"     : @(self.inputController.replyData.type),
-                    @"version"         : @(kDraftMessageReplyVersion)
-            }
+                    @"messageID"       : previewData.msgID?:@"",
+                    @"messageAbstract" : [previewData.msgAbstract?:@"" getInternationalStringWithfaceContent],
+                    @"messageSender"   : previewData.sender?:@"",
+                    @"messageType"     : @(previewData.type),
+                    @"messageTime"     : @(previewData.originMessage.timestamp ? [previewData.originMessage.timestamp timeIntervalSince1970] : 0),  // 兼容 web
+                    @"messageSequence" : @(previewData.originMessage.seq),// 兼容 web
+                    @"version"         : @(kDraftMessageReplyVersion),
+            },
         };
+        NSMutableDictionary *mudic = [NSMutableDictionary dictionaryWithDictionary:dict];
+        
+        if (IS_NOT_EMPTY_NSSTRING(previewData.messageRootID)) {
+            [mudic setObject:previewData.messageRootID forKey:@"messageRootID"];
+        }
         NSError *error = nil;
-        NSData *data = [NSJSONSerialization dataWithJSONObject:dict options:0 error:&error];
+        NSData *data = [NSJSONSerialization dataWithJSONObject:mudic options:0 error:&error];
         if (error == nil) {
             content = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
         }
     }
     [TUIChatDataProvider saveDraftWithConversationID:self.conversationData.conversationID Text:content];
+
 }
 
 - (void)loadDraft
@@ -210,6 +279,9 @@
     NSString *draftContent = [jsonDict.allKeys containsObject:@"content"] ? jsonDict[@"content"] : @"";
     self.inputController.inputBar.inputTextView.text = draftContent;
     
+    NSString *messageRootID = [jsonDict.allKeys containsObject:@"messageRootID"] ? jsonDict[@"messageRootID"] : @"";
+
+    
     // 显示消息回复预览
     if ([jsonDict isKindOfClass:NSDictionary.class] && [jsonDict.allKeys containsObject:@"messageReply"]) {
         NSDictionary *reply = jsonDict[@"messageReply"];
@@ -221,12 +293,24 @@
             [reply.allKeys containsObject:@"version"]) {
             NSInteger version = [reply[@"version"] integerValue];
             if (version <= kDraftMessageReplyVersion) {
-                TUIReplyPreviewData *replyData = [[TUIReplyPreviewData alloc] init];
-                replyData.msgID       = reply[@"messageID"];
-                replyData.msgAbstract = reply[@"messageAbstract"];
-                replyData.sender      = reply[@"messageSender"];
-                replyData.type        = [reply[@"messageType"] integerValue];
-                [self.inputController showReplyPreview:replyData];
+
+                if (IS_NOT_EMPTY_NSSTRING(messageRootID)) {
+                    TUIReplyPreviewData *replyData = [[TUIReplyPreviewData alloc] init];
+                    replyData.msgID       = reply[@"messageID"];
+                    replyData.msgAbstract = reply[@"messageAbstract"];
+                    replyData.sender      = reply[@"messageSender"];
+                    replyData.type        = [reply[@"messageType"] integerValue];
+                    replyData.messageRootID = messageRootID;
+                    [self.inputController showReplyPreview:replyData];
+                }
+                else {
+                    TUIReferencePreviewData *replyData = [[TUIReferencePreviewData alloc] init];
+                    replyData.msgID       = reply[@"messageID"];
+                    replyData.msgAbstract = reply[@"messageAbstract"];
+                    replyData.sender      = reply[@"messageSender"];
+                    replyData.type        = [reply[@"messageType"] integerValue];
+                    [self.inputController showReferencePreview:replyData];
+                }
             }
         }
     }
@@ -239,40 +323,99 @@
     self.resgisterParam = [NSMutableArray array];
     _moreMenus = ({
         // TUIKit 组件内部自定义按钮
-        NSMutableArray<TUIInputMoreCellData *> *moreMenus = [TUIChatDataProvider moreMenuCellDataArray:conversationData.groupID userID:conversationData.userID isNeedVideoCall:self.isEnableVideoCall isNeedAudioCall:self.isEnableAudioCall isNeedGroupLive:self.isEnableLive isNeedLink:self.isEnableLink];
-        
-        NSMutableArray *highMenus = [NSMutableArray array];
-        NSMutableArray *nomalMenus = [NSMutableArray array];
-        NSMutableArray *lowMenus = [NSMutableArray array];
-        NSMutableArray *lowestMenus = [NSMutableArray array];
-        
-        // 获取 TUIKit 组件外部注册的 more cell
-        if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:onRegisterMoreCell:)]) {
-            MoreCellPriority priority;
-            NSArray <TUIInputMoreCellData *> *dataList = [self.delegate chatController:self onRegisterMoreCell:&priority];
-            if (dataList.count > 0) {
-                if (priority == MoreCellPriority_High) {
-                    [highMenus addObjectsFromArray:dataList];
-                } else if (priority == MoreCellPriority_Nomal) {
-                    [nomalMenus addObjectsFromArray:dataList];
-                } else if (priority == MoreCellPriority_Low) {
-                    [lowMenus addObjectsFromArray:dataList];
-                }  else if (priority == MoreCellPriority_Lowest) {
-                    [lowestMenus addObjectsFromArray:dataList];
-                }
-            }
-        }
-        
-        [moreMenus addObjectsFromArray:highMenus];
-        [moreMenus addObjectsFromArray:nomalMenus];
-        [moreMenus addObjectsFromArray:lowMenus];
-        [moreMenus addObjectsFromArray:lowestMenus];
+        NSMutableArray<TUIInputMoreCellData *> *moreMenus = [TUIChatDataProvider moreMenuCellDataArray:conversationData.groupID userID:conversationData.userID isNeedVideoCall:[TUIChatConfig defaultConfig].enableVideoCall isNeedAudioCall:[TUIChatConfig defaultConfig].enableAudioCall isNeedGroupLive:NO isNeedLink:[TUIChatConfig defaultConfig].enableLink];
         moreMenus;
     });
     
 }
 
-#pragma mark - TUICore
+#pragma mark - Event Response
+- (void)onChangeUnReadCount:(UInt64)totalCount {
+    
+    // 此处异步的原因：当前聊天页面连续频繁收到消息，可能还没标记已读，此时也会收到未读数变更。理论上此时未读数不会包括当前会话的。
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf.unRead setNum:totalCount];
+    });
+}
+
+- (void)checkTitle:(BOOL)force {
+    
+    if (force || self.conversationData.title.length == 0) {
+        if (self.conversationData.userID.length > 0) {
+            self.conversationData.title = self.conversationData.userID;
+            @weakify(self);
+            
+            [TUIChatDataProvider getFriendInfoWithUserId:self.conversationData.userID
+                                             SuccBlock:^(V2TIMFriendInfoResult * _Nonnull friendInfoResult) {
+                @strongify(self);
+                if (friendInfoResult.relation & V2TIM_FRIEND_RELATION_TYPE_IN_MY_FRIEND_LIST
+                    && friendInfoResult.friendInfo.friendRemark.length > 0) {
+                    self.conversationData.title = friendInfoResult.friendInfo.friendRemark;
+                } else {
+                    [TUIChatDataProvider getUserInfoWithUserId:self.conversationData.userID
+                                                   SuccBlock:^(V2TIMUserFullInfo * _Nonnull userInfo) {
+                        if (userInfo.nickName.length > 0) {
+                            self.conversationData.title = userInfo.nickName;
+                        }
+                    } failBlock:nil];
+                }
+            } failBlock:nil];
+        }
+        else if (self.conversationData.groupID.length > 0) {
+            [TUIChatDataProvider getGroupInfoWithGroupID:self.conversationData.groupID
+                                             SuccBlock:^(V2TIMGroupInfoResult * _Nonnull groupResult) {
+                if (groupResult.info.groupName.length > 0) {
+                    self.conversationData.title = groupResult.info.groupName;
+                }
+            } failBlock:nil];
+        }
+    }
+}
+
+-(void)leftBarButtonClick
+{
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+- (void)rightBarButtonClick
+{
+    //当前为用户和用户之间通信时，右侧按钮响应为用户信息视图入口
+    if (_conversationData.userID.length > 0) {
+        
+        [self getUserOrFriendProfileVCWithUserID:self.conversationData.userID
+                                       succBlock:^(UIViewController * _Nonnull vc) {
+            [self.navigationController pushViewController:vc animated:YES];
+        } failBlock:^(int code, NSString * _Nonnull desc) {
+            [TUITool makeToastError:code msg:desc];
+        }];
+
+    //当前为群组通信时，右侧按钮响应为群组信息入口
+    } else {
+        NSDictionary *param = @{
+            TUICore_TUIGroupService_GetGroupInfoControllerMethod_GroupIDKey: self.conversationData.groupID
+        };
+        UIViewController *vc = [TUICore callService:TUICore_TUIGroupService
+                                             method:TUICore_TUIGroupService_GetGroupInfoControllerMethod
+                                              param:param];
+        [self.navigationController pushViewController:vc animated:YES];
+    }
+}
+
+- (void)getUserOrFriendProfileVCWithUserID:(NSString *)userID
+                                 succBlock:(void(^)(UIViewController *vc))succ
+                                 failBlock:(nullable V2TIMFail)fail {
+    NSDictionary *param = @{
+        TUICore_TUIContactService_GetUserOrFriendProfileVCMethod_UserIDKey: userID ? : @"",
+        TUICore_TUIContactService_GetUserOrFriendProfileVCMethod_SuccKey: succ ? : ^(UIViewController *vc){},
+        TUICore_TUIContactService_GetUserOrFriendProfileVCMethod_FailKey: fail ? : ^(int code, NSString * desc){}
+    };
+    [TUICore callService:TUICore_TUIContactService
+                  method:TUICore_TUIContactService_GetUserOrFriendProfileVCMethod
+                   param:param];
+}
+
+#pragma mark - TUICore notify
 
 - (void)onNotifyEvent:(NSString *)key subKey:(NSString *)subKey object:(id)anObject param:(NSDictionary *)param {
     if ([key isEqualToString:TUICore_TUIConversationNotify]
@@ -317,9 +460,6 @@
 - (void)inputController:(TUIInputController *)inputController didSendMessage:(V2TIMMessage *)msg
 {
     [self.messageController sendMessage:msg];
-    if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:didSendMessage:)]) {
-        [self.delegate chatController:self didSendMessage:msg];
-    }
 }
 
 - (void)inputControllerDidInputAt:(TUIInputController *)inputController
@@ -332,38 +472,43 @@
     // 交给 GroupChatVC 去处理
 }
 
+- (void)inputControllerBeginTyping:(TUIInputController *)inputController {
+    
+    //for C2CChatVC
+}
+
+- (void)inputControllerEndTyping:(TUIInputController *)inputController {
+    //for C2CChatVC
+}
+
 - (void)inputController:(TUIInputController *)inputController didSelectMoreCell:(TUIInputMoreCell *)cell
 {
     cell.disableDefaultSelectAction = NO;
     
-    if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:onSelectMoreCell:)]) {
-        [self.delegate chatController:self onSelectMoreCell:cell];
-    }
-    
     if (cell.disableDefaultSelectAction) {
         return;
     }
-    if (cell.data == [TUIInputMoreCellData photoData]) {
-        [self selectPhotoForSend];
+    if ([cell.data.key isEqualToString:[TUIInputMoreCellData photoData].key]) {
+        [self selectPhotoForSendV2];
     }
-    else if (cell.data == [TUIInputMoreCellData videoData]) {
+    else if ([cell.data.key isEqualToString:[TUIInputMoreCellData videoData].key]) {
         [self takeVideoForSend];
     }
-    else if (cell.data == [TUIInputMoreCellData fileData]) {
+    else if ([cell.data.key isEqualToString:[TUIInputMoreCellData fileData].key]) {
         [self selectFileForSend];
     }
-    else if (cell.data == [TUIInputMoreCellData pictureData]) {
+    else if ([cell.data.key isEqualToString:[TUIInputMoreCellData pictureData].key]) {
         [self takePictureForSend];
     }
 }
 
-#pragma mark - TUIMessageControllerDelegate
-- (void)didTapInMessageController:(TUIMessageController *)controller
+#pragma mark - TUIBaseMessageControllerDelegate
+- (void)didTapInMessageController:(TUIBaseMessageController *)controller
 {
     [self.inputController reset];
 }
 
-- (BOOL)messageController:(TUIMessageController *)controller willShowMenuInCell:(TUIMessageCell *)cell
+- (BOOL)messageController:(TUIBaseMessageController *)controller willShowMenuInCell:(TUIMessageCell *)cell
 {
     if([self.inputController.inputBar.inputTextView isFirstResponder]){
         self.inputController.inputBar.inputTextView.overrideNextResponder = cell;
@@ -372,59 +517,54 @@
     return NO;
 }
 
-- (TUIMessageCellData *)messageController:(TUIMessageController *)controller onNewMessage:(V2TIMMessage *)message
+- (TUIMessageCellData *)messageController:(TUIBaseMessageController *)controller onNewMessage:(V2TIMMessage *)message
 {
-    if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:onNewMessage:)]) {
-        return [self.delegate chatController:self onNewMessage:message];
-    }
     return nil;
 }
 
-- (TUIMessageCell *)messageController:(TUIMessageController *)controller onShowMessageData:(TUIMessageCellData *)data
+- (TUIMessageCell *)messageController:(TUIBaseMessageController *)controller onShowMessageData:(TUIMessageCellData *)data
 {
-    if ([self.delegate respondsToSelector:@selector(chatController:onShowMessageData:)]) {
-        return [self.delegate chatController:self onShowMessageData:data];
-    }
     return nil;
 }
 
-- (void)messageController:(TUIMessageController *)controller willDisplayCell:(TUIMessageCell *)cell withData:(TUIMessageCellData *)cellData {
-    if ([self.delegate respondsToSelector:@selector(chatController:willDisplayCell:withData:)]) {
-        [self.delegate chatController:self willDisplayCell:cell withData:cellData];
+- (void)messageController:(TUIBaseMessageController *)controller willDisplayCell:(TUIMessageCell *)cell withData:(TUIMessageCellData *)cellData {
+    //对于入群小灰条，需要进一步设置其委托。
+    if([cell isKindOfClass:[TUIJoinGroupMessageCell class]]){
+        TUIJoinGroupMessageCell *joinCell = (TUIJoinGroupMessageCell *)cell;
+        joinCell.joinGroupDelegate = self;
     }
 }
 
-- (void)messageController:(TUIMessageController *)controller onSelectMessageAvatar:(TUIMessageCell *)cell
+- (void)messageController:(TUIBaseMessageController *)controller onSelectMessageAvatar:(TUIMessageCell *)cell
 {
-    if (cell.messageData.identifier == nil)
+    if (cell.messageData.identifier == nil) {
         return;
-    if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:onSelectMessageAvatar:)]) {
-        [self.delegate chatController:self onSelectMessageAvatar:cell];
     }
+    [self getUserOrFriendProfileVCWithUserID:cell.messageData.identifier
+                                   succBlock:^(UIViewController *vc) {
+        [self.navigationController pushViewController:vc animated:YES];
+    } failBlock:nil];
 }
 
-- (void)messageController:(TUIMessageController *)controller onSelectMessageContent:(TUIMessageCell *)cell
+- (void)messageController:(TUIBaseMessageController *)controller onSelectMessageContent:(TUIMessageCell *)cell
 {
     cell.disableDefaultSelectAction = NO;
-    if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:onSelectMessageContent:)]) {
-        [self.delegate chatController:self onSelectMessageContent:cell];
-    }
     if (cell.disableDefaultSelectAction) {
         return;
     }
 }
 
-- (void)messageController:(TUIMessageController *)controller onSelectMessageMenu:(NSInteger)menuType withData:(TUIMessageCellData *)data
+- (void)messageController:(TUIBaseMessageController *)controller onSelectMessageMenu:(NSInteger)menuType withData:(TUIMessageCellData *)data
 {
     [self onSelectMessageMenu:menuType withData:data];
 }
 
-- (void)didHideMenuInMessageController:(TUIMessageController *)controller
+- (void)didHideMenuInMessageController:(TUIBaseMessageController *)controller
 {
     self.inputController.inputBar.inputTextView.overrideNextResponder = nil;
 }
 
-- (void)messageController:(TUIMessageController *)controller onReEditMessage:(TUIMessageCellData *)data
+- (void)messageController:(TUIBaseMessageController *)controller onReEditMessage:(TUIMessageCellData *)data
 {
     V2TIMMessage *message = data.innerMessage;
     if (message.elemType == V2TIM_ELEM_TYPE_TEXT) {
@@ -434,356 +574,27 @@
     }
 }
 
-#pragma mark - UIImagePickerController & UIDocumentPickerViewController
-- (void)selectPhotoForSend
-{
-    if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypePhotoLibrary]) {
-        UIImagePickerController *picker = [[UIImagePickerController alloc] init];
-        picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
-        picker.mediaTypes = [UIImagePickerController availableMediaTypesForSourceType:UIImagePickerControllerSourceTypePhotoLibrary];
-        picker.delegate = self;
-        [self presentViewController:picker animated:YES completion:nil];
-    }
-}
-
-- (void)takePictureForSend
-{
-    TUICameraViewController *vc = [[TUICameraViewController alloc] init];
-    vc.type = TUICameraMediaTypePhoto;
-    vc.delegate = self;
-    [self.navigationController pushViewController:vc animated:YES];
-}
-
-- (void)takeVideoForSend
-{
-    TUICameraViewController *vc = [[TUICameraViewController alloc] init];
-    vc.type = TUICameraMediaTypeVideo;
-    vc.videoMinimumDuration = 1.5;
-    vc.delegate = self;
-    [self.navigationController pushViewController:vc animated:YES];
-}
-
-- (void)selectFileForSend
-{
-    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:@[(NSString *)kUTTypeData] inMode:UIDocumentPickerModeOpen];
-    picker.delegate = self;
-    [self presentViewController:picker animated:YES completion:nil];
-
-}
-
-- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<NSString *,id> *)info
-{
-    // 快速点的时候会回调多次
-    @weakify(self)
-    picker.delegate = nil;
-    [picker dismissViewControllerAnimated:YES completion:^{
-        @strongify(self)
-        NSString *mediaType = [info objectForKey:UIImagePickerControllerMediaType];
-        if([mediaType isEqualToString:(NSString *)kUTTypeImage]){
-            UIImage *image = [info objectForKey:UIImagePickerControllerOriginalImage];
-            UIImageOrientation imageOrientation = image.imageOrientation;
-            if(imageOrientation != UIImageOrientationUp)
-            {
-                CGFloat aspectRatio = MIN ( 1920 / image.size.width, 1920 / image.size.height );
-                CGFloat aspectWidth = image.size.width * aspectRatio;
-                CGFloat aspectHeight = image.size.height * aspectRatio;
-
-                UIGraphicsBeginImageContext(CGSizeMake(aspectWidth, aspectHeight));
-                [image drawInRect:CGRectMake(0, 0, aspectWidth, aspectHeight)];
-                image = UIGraphicsGetImageFromCurrentImageContext();
-                UIGraphicsEndImageContext();
-            }
-
-            NSData *data = UIImageJPEGRepresentation(image, 0.75);
-            NSString *path = [TUIKit_Image_Path stringByAppendingString:[TUITool genImageName:nil]];
-            [[NSFileManager defaultManager] createFileAtPath:path contents:data attributes:nil];
-            
-            V2TIMMessage *message = [[V2TIMManager sharedInstance] createImageMessage:path];
-            [self sendMessage:message];
-            if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:didSendMessage:)]) {
-                [self.delegate chatController:self didSendMessage:message];
-            }
-        }
-        else if([mediaType isEqualToString:(NSString *)kUTTypeMovie]){
-            NSURL *url = [info objectForKey:UIImagePickerControllerMediaURL];
-            if (url) {
-                [self transcodeIfNeed:url];
-                return;
-            }
-            
-            // 在某些情况下，UIImagePickerControllerMediaURL 可能为空，使用 UIImagePickerControllerPHAsset
-            PHAsset *asset = nil;
-            if (@available(iOS 11.0, *)) {
-                asset = [info objectForKey:UIImagePickerControllerPHAsset];
-            }
-            if (asset) {
-                [self originURLWithAsset:asset completion:^(BOOL success, NSURL *URL) {
-                    if (success) {
-                        [self transcodeIfNeed:URL];
-                        return;
-                    }
-                }];
-                return;
-            }
-            
-            // 在 ios 12 的情况下，UIImagePickerControllerMediaURL 及 UIImagePickerControllerPHAsset 可能为空，需要使用其他方式获取视频文件原始路径
-            url = [info objectForKey:UIImagePickerControllerReferenceURL];
-            if (url) {
-                [self originURLWithRefrenceURL:url completion:^(BOOL success, NSURL *URL) {
-                    if (success) {
-                        [self transcodeIfNeed:URL];
-                    }
-                }];
-                return;
-            }
-            
-            // 其他，不支持
-            [self.view makeToast:@"not support this video"];
-        }
-    }];
-}
-
-// 根据 UIImagePickerControllerReferenceURL 获取原始文件路径
-- (void)originURLWithRefrenceURL:(NSURL *)URL completion:(void(^)(BOOL success, NSURL *URL))completion
-{
-    if (completion == nil) {
-        return;
-    }
-    NSDictionary *queryInfo = [self dictionaryWithURLQuery:URL.query];
-    NSString *fileName = @"temp.mp4";
-    if ([queryInfo.allKeys containsObject:@"id"] && [queryInfo.allKeys containsObject:@"ext"]) {
-        fileName = [NSString stringWithFormat:@"%@.%@", queryInfo[@"id"], [queryInfo[@"ext"] lowercaseString]];
-    }
-    NSString* tempPath = NSTemporaryDirectory();
-    NSString *filePath = [tempPath stringByAppendingPathComponent:fileName];
-    if ([NSFileManager.defaultManager isDeletableFileAtPath:filePath]) {
-        [NSFileManager.defaultManager removeItemAtPath:filePath error:nil];
-    }
-    NSURL *newUrl = [NSURL fileURLWithPath:filePath];
-    ALAssetsLibrary *assetLibrary= [[ALAssetsLibrary alloc] init];
-    [assetLibrary assetForURL:URL resultBlock:^(ALAsset *asset) {
-        if (asset == nil) {
-            completion(NO, nil);
-            return;
-        }
-        ALAssetRepresentation *rep = [asset defaultRepresentation];
-        Byte *buffer = (Byte*)malloc(rep.size);
-        NSUInteger buffered = [rep getBytes:buffer fromOffset:0.0 length:rep.size error:nil];
-        NSData *data = [NSData dataWithBytesNoCopy:buffer length:buffered freeWhenDone:YES];//this is NSData may be what you want
-        BOOL flag = [NSFileManager.defaultManager createFileAtPath:filePath contents:data attributes:nil];
-        completion(flag, newUrl);
-    } failureBlock:^(NSError *err) {
-        completion(NO, nil);
-    }];
-}
-
-- (void)originURLWithAsset:(PHAsset *)asset completion:(void(^)(BOOL success, NSURL *URL))completion
-{
-    if (completion == nil) {
-        return;
-    }
-    [PHPhotoLibrary requestAuthorization:^(PHAuthorizationStatus status) {
-        if (status != PHAuthorizationStatusAuthorized) {
-            completion(NO, nil);
-            return;
-        }
-        
-        NSArray<PHAssetResource *> *resources = [PHAssetResource assetResourcesForAsset:asset];
-        if (resources.count == 0) {
-            completion(NO, nil);
-            return;
-        }
-        
-        PHAssetResourceRequestOptions *options = [[PHAssetResourceRequestOptions alloc] init];
-        options.networkAccessAllowed = NO;
-        __block BOOL invoked = NO;
-        [PHAssetResourceManager.defaultManager requestDataForAssetResource:resources.firstObject options:options dataReceivedHandler:^(NSData * _Nonnull data) {
-            // 此处会有重复回调的问题
-            if (invoked) {
-                return;
-            }
-            invoked = YES;
-            if (data == nil) {
-                completion(NO, nil);
-                return;
-            }
-            NSString *fileName = @"temp.mp4";
-            NSString* tempPath = NSTemporaryDirectory();
-            NSString *filePath = [tempPath stringByAppendingPathComponent:fileName];
-            if ([NSFileManager.defaultManager isDeletableFileAtPath:filePath]) {
-                [NSFileManager.defaultManager removeItemAtPath:filePath error:nil];
-            }
-            NSURL *newUrl = [NSURL fileURLWithPath:filePath];
-            BOOL flag = [NSFileManager.defaultManager createFileAtPath:filePath contents:data attributes:nil];
-            completion(flag, newUrl);
-        } completionHandler:^(NSError * _Nullable error) {
-            completion(NO, nil);
-        }];
-    }];
-}
-
-// 获取 NSURL 查询字符串信息
-- (NSDictionary *)dictionaryWithURLQuery:(NSString *)query
-{
-    NSArray *components = [query componentsSeparatedByString:@"&"];
-    NSMutableDictionary *dict = [NSMutableDictionary dictionary];
-    for (NSString *item in components) {
-        NSArray *subs = [item componentsSeparatedByString:@"="];
-        if (subs.count == 2) {
-            [dict setObject:subs.lastObject forKey:subs.firstObject];
-        }
-    }
-    return [NSDictionary dictionaryWithDictionary:dict];;
-}
-
-// 转码
-- (void)transcodeIfNeed:(NSURL *)url
-{
-    if ([url.pathExtension.lowercaseString isEqualToString:@"mp4"]) {
-        // mp4 直接发送
-        [self sendVideoWithUrl:url];
-    } else {
-        // 非 mp4 文件 => mp4 文件
-        NSString* tempPath = NSTemporaryDirectory();
-        NSURL *urlName = [url URLByDeletingPathExtension];
-        NSURL *newUrl = [NSURL URLWithString:[NSString stringWithFormat:@"file://%@%@.mp4", tempPath,[urlName.lastPathComponent stringByRemovingPercentEncoding]]];
-        
-        NSFileManager *fileManager = [NSFileManager defaultManager];
-        if ([fileManager fileExistsAtPath:newUrl.path]){
-            NSError *error;
-            BOOL success = [fileManager removeItemAtPath:newUrl.path error:&error];
-            if (!success || error) {
-                NSAssert1(NO, @"removeItemFail: %@", error.localizedDescription);
-                return;
-            }
-        }
-        // mov to mp4
-        AVURLAsset *avAsset = [AVURLAsset URLAssetWithURL:url options:nil];
-        AVAssetExportSession *exportSession = [[AVAssetExportSession alloc]initWithAsset:avAsset presetName:AVAssetExportPresetHighestQuality];
-        exportSession.outputURL = newUrl;
-        exportSession.outputFileType = AVFileTypeMPEG4;
-        exportSession.shouldOptimizeForNetworkUse = YES;
-        
-        [exportSession exportAsynchronouslyWithCompletionHandler:^{
-            switch ([exportSession status])
-            {
-                case AVAssetExportSessionStatusFailed:
-                    NSLog(@"Export session failed");
-                    break;
-                case AVAssetExportSessionStatusCancelled:
-                    NSLog(@"Export canceled");
-                    break;
-                case AVAssetExportSessionStatusCompleted:
-                {
-                    //Video conversion finished
-                    NSLog(@"Successful!");
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        [self sendVideoWithUrl:newUrl];
-                    });
-                }
-                    break;
-                default:
-                    break;
-            }
-        }];
-    }
-}
-
-- (void)sendVideoWithUrl:(NSURL*)url {
-    [TUITool dispatchMainAsync:^{
-        V2TIMMessage *message = [TUIMessageDataProvider getVideoMessageWithURL:url];
-        [self sendMessage:message];
-        if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:didSendMessage:)]) {
-            [self.delegate chatController:self didSendMessage:message];
-        }
-    }];
-}
-
-- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker
-{
-    [picker dismissViewControllerAnimated:YES completion:nil];
-}
-
-- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentAtURL:(NSURL *)url
-{
-    [url startAccessingSecurityScopedResource];
-    NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] init];
-    NSError *error;
-    @weakify(self)
-    [coordinator coordinateReadingItemAtURL:url options:0 error:&error byAccessor:^(NSURL *newURL) {
-        @strongify(self)
-        NSData *fileData = [NSData dataWithContentsOfURL:url];
-        NSString *fileName = [url lastPathComponent];
-        NSString *filePath = [TUIKit_File_Path stringByAppendingString:fileName];
-        if ([NSFileManager.defaultManager fileExistsAtPath:filePath]) {
-            // 存在同名文件，对文件名进行递增
-            int i = 0;
-            NSArray *arrayM = [NSFileManager.defaultManager subpathsAtPath:TUIKit_File_Path];
-            for (NSString *sub in arrayM) {
-                if ([sub.pathExtension isEqualToString:fileName.pathExtension] &&
-                    [sub.stringByDeletingPathExtension containsString:fileName.stringByDeletingPathExtension]) {
-                    i++;
-                }
-            }
-            if (i) {
-                fileName = [fileName stringByReplacingOccurrencesOfString:fileName.stringByDeletingPathExtension withString:[NSString stringWithFormat:@"%@(%d)", fileName.stringByDeletingPathExtension, i]];
-                filePath = [TUIKit_File_Path stringByAppendingString:fileName];
-            }
-        }
-        [[NSFileManager defaultManager] createFileAtPath:filePath contents:fileData attributes:nil];
-        if([[NSFileManager defaultManager] fileExistsAtPath:filePath]){
-            unsigned long long fileSize = [[[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil] fileSize];
-            
-            V2TIMMessage *message = [[V2TIMManager sharedInstance] createFileMessage:filePath fileName:fileName];
-            [self sendMessage:message];
-            if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:didSendMessage:)]) {
-                [self.delegate chatController:self didSendMessage:message];
-            }
-        }
-    }];
-    [url stopAccessingSecurityScopedResource];
-    [controller dismissViewControllerAnimated:YES completion:nil];
-}
-
-- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller
-{
-    [controller dismissViewControllerAnimated:YES completion:nil];
-}
-
-#pragma mark - TUICameraViewControllerDelegate
-- (void)cameraViewController:(TUICameraViewController *)controller didFinishPickingMediaWithVideoURL:(NSURL *)url {
-    [self transcodeIfNeed:url];
-}
-
-- (void)cameraViewController:(TUICameraViewController *)controller didFinishPickingMediaWithImage:(UIImage *)image {
-    NSData *data = UIImageJPEGRepresentation(image, 0.75);
-    NSString *path = [TUIKit_Image_Path stringByAppendingString:[TUITool genImageName:nil]];
-    [[NSFileManager defaultManager] createFileAtPath:path contents:data attributes:nil];
-    
-    V2TIMMessage *message = [[V2TIMManager sharedInstance] createImageMessage:path];
-    [self sendMessage:message];
-    if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:didSendMessage:)]) {
-        [self.delegate chatController:self didSendMessage:message];
-    }
-}
-
-- (void)cameraViewControllerDidCancel:(TUICameraViewController *)controller {
-}
-
-#pragma mark - UIImagePickerControllerDelegate
-
 #pragma mark - TUIChatDataProviderForwardDelegate
 - (NSString *)dataProvider:(TUIChatDataProvider *)dataProvider mergeForwardTitleWithMyName:(NSString *)name {
     return [self forwardTitleWithMyName:name];
 }
 
 - (NSString *)dataProvider:(TUIChatDataProvider *)dataProvider mergeForwardMsgAbstactForMessage:(V2TIMMessage *)message {
-    
-    NSString *display = @"";
-    if (self.delegate && [self.delegate respondsToSelector:@selector(chatController:onGetMessageAbstact:)]) {
-        return [self.delegate chatController:self onGetMessageAbstact:message];
+    return @"";
+}
+
+#pragma mark - TUINavigationControllerDelegate
+- (void)navigationControllerDidClickLeftButton:(TUINavigationController *)controller {
+    if (controller.currentShowVC == self) {
+        [self.messageController readReport];
     }
-    return display;
+}
+
+- (void)navigationControllerDidSideSlideReturn:(TUINavigationController *)controller
+                            fromViewController:(UIViewController *)fromViewController {
+    if ([fromViewController isEqual:self]) {
+        [self.messageController readReport];
+    }
 }
 
 #pragma mark - 消息菜单操作: 多选 & 转发
@@ -814,7 +625,7 @@
     
     if (open) {
         _multiChooseView = [[TUIMessageMultiChooseView alloc] init];
-        _multiChooseView.frame = self.view.bounds;
+        _multiChooseView.frame = UIScreen.mainScreen.bounds;
         _multiChooseView.delegate = self;
         _multiChooseView.titleLabel.text = self.conversationData.title;
         if (@available(iOS 12.0, *)) {
@@ -957,7 +768,7 @@
         
         // 发送到其他聊天
         for (V2TIMMessage *message in msgs) {
-            
+            message.needReadReceipt = [TUIChatConfig defaultConfig].msgNeedReadReceipt;
             [TUIMessageDataProvider sendMessage:message
                                  toConversation:convCellData
                                  isSendPushInfo:YES
@@ -986,8 +797,38 @@
 }
 
 #pragma mark - 消息回复
-- (void)messageController:(TUIMessageController *)controller onRelyMessage:(nonnull TUIMessageCellData *)data
+- (void)messageController:(TUIBaseMessageController *)controller onRelyMessage:(nonnull TUIMessageCellData *)data
 {
+    NSString *desc = @"";
+    desc = [self replyReferenceMessageDesc:data];
+    
+    TUIReplyPreviewData *replyData = [[TUIReplyPreviewData alloc] init];
+    replyData.msgID = data.msgID;
+    replyData.msgAbstract = desc;
+    replyData.sender = data.name;
+    replyData.type = (NSInteger)data.innerMessage.elemType;
+    replyData.originMessage = data.innerMessage;
+    
+    NSMutableDictionary *cloudResultDic = [[NSMutableDictionary alloc] initWithCapacity:5];
+    if (replyData.originMessage.cloudCustomData) {
+        NSDictionary * originDic = [TUITool jsonData2Dictionary:replyData.originMessage.cloudCustomData];
+        if (originDic && [originDic isKindOfClass:[NSDictionary class]]) {
+            [cloudResultDic addEntriesFromDictionary:originDic];
+        }
+    }
+    NSString * messageParentReply = cloudResultDic[@"messageReply"];
+    NSString * messageRootID = [messageParentReply valueForKey:@"messageRootID"];
+    if (!IS_NOT_EMPTY_NSSTRING(messageRootID)) {
+        //源消息没有messageRootID， 则需要将当前源消息的msgID作为root
+        if (IS_NOT_EMPTY_NSSTRING(replyData.originMessage.msgID)) {
+            messageRootID = replyData.originMessage.msgID;
+        }
+    }
+    
+    replyData.messageRootID =  messageRootID;
+    [self.inputController showReplyPreview:replyData];
+}
+- (NSString *)replyReferenceMessageDesc:(TUIMessageCellData *)data {
     NSString *desc = @"";
     if (data.innerMessage.elemType == V2TIM_ELEM_TYPE_FILE) {
         desc = data.innerMessage.fileElem.filename;
@@ -998,16 +839,42 @@
     } else if (data.innerMessage.elemType == V2TIM_ELEM_TYPE_TEXT) {
         desc = data.innerMessage.textElem.text;
     }
+    return desc;
+}
+#pragma mark - 消息引用
+- (void)messageController:(TUIBaseMessageController *)controller onReferenceMessage:(TUIMessageCellData *)data {
+    NSString *desc = @"";
+    desc = [self replyReferenceMessageDesc:data];
     
-    TUIReplyPreviewData *replyData = [[TUIReplyPreviewData alloc] init];
-    replyData.msgID = data.msgID;
-    replyData.msgAbstract = desc;
-    replyData.sender = data.name;
-    replyData.type = (NSInteger)data.innerMessage.elemType;
-    replyData.originMessage = data.innerMessage;
-    [self.inputController showReplyPreview:replyData];
+    TUIReferencePreviewData *referenceData = [[TUIReferencePreviewData alloc] init];
+    referenceData.msgID = data.msgID;
+    referenceData.msgAbstract = desc;
+    referenceData.sender = data.name;
+    referenceData.type = (NSInteger)data.innerMessage.elemType;
+    referenceData.originMessage = data.innerMessage;
+    [self.inputController showReferencePreview:referenceData];
 }
 
+#pragma mark -消息响应
+/*
+ "messageReact": {
+     "reacts": [
+         {
+             "emojiId1": ["userId1","userId2"]
+         },
+         {
+             "emojiId2": ["userId3","userId4"]
+         },
+     ],
+     "version": "1",
+ }
+ */
+- (void)messageController:(TUIBaseMessageController *)controller modifyMessage:(nonnull TUIMessageCellData *)cellData reactEmoji:(NSString *)emojiName{
+    
+    V2TIMMessage *rootMsg = cellData.innerMessage;
+
+    [[TUIChatModifyMessageHelper defaultHelper] modifyMessage:rootMsg reactEmoji:emojiName];
+}
 #pragma mark - Privete Methods
 + (void)createCachePath
 {
@@ -1029,4 +896,31 @@
     }
 }
 
+#pragma mark - TUIJoinGroupMessageCellDelegate
+- (void)didTapOnRestNameLabel:(TUIJoinGroupMessageCell *)cell withIndex:(NSInteger)index{
+    NSString *userId = cell.joinData.userIDList[index];
+    
+    [self getUserOrFriendProfileVCWithUserID:userId succBlock:^(UIViewController *vc) {
+        [self.navigationController pushViewController:vc animated:YES];
+    } failBlock:^(int code, NSString *desc) {
+        [TUITool makeToastError:code msg:desc];
+    }];
+}
+
+#pragma mark - V2TIMConversationListener
+- (void)onConversationChanged:(NSArray<V2TIMConversation*> *) conversationList {
+    // 聊天窗口标题由上层维护，需要自行设置标题
+    for (V2TIMConversation *conv in conversationList) {
+        if ([conv.conversationID isEqualToString:self.conversationData.conversationID]) {
+            self.conversationData.title = conv.showName;
+            break;
+        }
+    }
+}
+
+#pragma mark - FriendInfoChangedNotification
+- (void)onFriendInfoChanged:(NSNotification *)notice
+{
+    [self checkTitle:YES];
+}
 @end

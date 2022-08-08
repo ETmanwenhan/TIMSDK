@@ -1,3 +1,5 @@
+[English](./README_EN.md) | 简体中文
+
 本文介绍如何快速跑通即时通信 IM 的体验 Demo。
 
 ## 步骤1：创建应用
@@ -89,4 +91,5 @@ pod install
 pod repo update
 ```
 4. 进入 Mac/TUIKitDemo 文件夹，打开 `TUIKitDemo.xcworkspace` 编译运行。
+
 

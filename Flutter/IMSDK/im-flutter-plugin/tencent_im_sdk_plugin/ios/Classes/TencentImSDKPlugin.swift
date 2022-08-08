@@ -78,6 +78,18 @@ public class TencentImSDKPlugin: NSObject, FlutterPlugin, UNUserNotificationCent
 		case "setFriendListener":
 			sdkManager!.setFriendListener(call: call, result: result)
 			break
+		case "addConversationListener":
+			sdkManager!.addConversationListener(call: call, result: result)
+			break
+		case "addFriendListener":
+			sdkManager!.addFriendListener(call: call, result: result)
+			break
+		case "removeConversationListener":
+			sdkManager!.removeConversationListener(call: call, result: result)
+			break
+		case "removeFriendListener":
+			sdkManager!.removeFriendListener(call: call, result: result)
+			break
 		case "addAdvancedMsgListener":
 			sdkManager!.addAdvancedMsgListener(call: call, result: result)
 			break
@@ -95,6 +107,21 @@ public class TencentImSDKPlugin: NSObject, FlutterPlugin, UNUserNotificationCent
 			break
 		case "setGroupListener":
 			sdkManager!.setGroupListener(call: call, result: result)
+			break
+		case "addGroupListener":
+			sdkManager!.addGroupListener(call: call, result: result)
+			break
+		case "removeGroupListener":
+			sdkManager!.removeGroupListener(call: call, result: result)
+			break
+		case "sendMessageReadReceipts":
+			messageManager!.sendMessageReadReceipts(call: call, result: result)
+			break
+		case "getMessageReadReceipts":
+			messageManager!.getMessageReadReceipts(call: call, result: result)
+			break
+		case "getGroupMessageReadMemberList":
+            messageManager!.getGroupMessageReadMemberList(call: call, result: result)
 			break
 		case "addSimpleMsgListener":
 			sdkManager!.addSimpleMsgListener(call: call, result: result)
@@ -272,6 +299,8 @@ public class TencentImSDKPlugin: NSObject, FlutterPlugin, UNUserNotificationCent
 			break
         case "sendMessage":
             messageManager!.sendMessage(call: call, result: result)
+		case "createTargetedGroupMessage":
+			messageManager!.createTargetedGroupMessage(call: call, result: result)
 		case "createTextMessage":
 			messageManager!.createTextMessage(call: call, result: result, type: 1)
 			break
@@ -447,12 +476,30 @@ public class TencentImSDKPlugin: NSObject, FlutterPlugin, UNUserNotificationCent
 		case "searchLocalMessages":
 			messageManager!.searchLocalMessages(call: call, result: result)
 			break
+        case "modifyMessage":
+            messageManager!.modifyMessage(call: call, result: result)
+            break
 		case "findMessages":
 			messageManager!.findMessages(call: call, result: result)
 			break
 		case "searchGroups":
 			groupManager!.searchGroups(call: call, result: result)
 			break
+        case "getJoinedCommunityList":
+            groupManager!.getJoinedCommunityList(call: call, result: result)
+            break
+        case "createTopicInCommunity":
+            groupManager!.createTopicInCommunity(call: call, result: result)
+            break
+        case "deleteTopicFromCommunity":
+            groupManager!.deleteTopicFromCommunity(call: call, result: result)
+            break
+        case "setTopicInfo":
+            groupManager!.setTopicInfo(call: call, result: result)
+            break
+        case "getTopicInfoList":
+            groupManager!.getTopicInfoList(call: call, result: result)
+            break
 		case "searchGroupMembers":
 			groupManager!.searchGroupMembers(call: call, result: result)
 			break

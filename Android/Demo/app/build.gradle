@@ -1,5 +1,4 @@
 apply plugin: 'com.android.application'
-apply plugin: "com.tencent.android.tpns"
 
 android {
     compileSdkVersion rootProject.ext.compileSdkVersion
@@ -27,10 +26,14 @@ android {
             abiFilters.addAll(rootProject.ext.abiFilters)
         }
 
+        /*  集成组件 TUIOfflinePush 离线推送功能需要配置下厂商 vivo 的应用信息，不需要离线推送功能删除即可。
+         *
+         *  "VIVO_APPKEY" : 厂商推送平台注册应用的 AppKey
+         *  "VIVO_APPID" : 厂商推送平台注册应用的 AppID
+         */
         manifestPlaceholders = [
-                // TPNS 推送服务 accessId、accessKey
-                XG_ACCESS_ID : "",
-                XG_ACCESS_KEY: ""
+                "VIVO_APPKEY" : "",
+                "VIVO_APPID" : ""
         ]
     }
 
@@ -65,6 +68,7 @@ android {
             res.srcDirs += "src/main/res-light"
             res.srcDirs += "src/main/res-lively"
             res.srcDirs += "src/main/res-serious"
+            res.srcDirs += "src/main/self-res"
         }
     }
 }
@@ -83,25 +87,6 @@ dependencies {
     implementation 'com.google.android.material:material:1.4.0'
     // Optional, if you use support library fragments:
 
-    // google firebase
-    implementation('com.google.firebase:firebase-core:17.0.0')
-    // google 云消息传递
-    implementation ('com.google.firebase:firebase-messaging:19.0.1')
-    // tpns推送,最新版本号可参考 [Android SDK 发布动态](https://cloud.tencent.com/document/product/548/44520)
-    // 主包
-    implementation 'com.tencent.tpns:tpns:1.2.7.1-release'
-    // 小米
-    implementation "com.tencent.tpns:xiaomi:1.2.7.1-release"
-    // 魅族
-    implementation "com.tencent.tpns:meizu:1.2.7.1-release"
-    // OPPO
-    implementation "com.tencent.tpns:oppo:1.2.7.1-release"
-    // vivo
-    implementation "com.tencent.tpns:vivo:1.2.7.1-release"
-    // 华为
-    implementation 'com.tencent.tpns:huawei:1.2.7.1-release'
-    implementation 'com.huawei.hms:push:5.0.2.300'
-
     // bugly sdk
     implementation 'com.tencent.bugly:crashreport:latest.release'
     implementation 'com.tencent.bugly:nativecrashreport:latest.release'
@@ -114,4 +99,5 @@ dependencies {
     api project(':tuisearch')
     api project(':tuigroup')
     api project(':tuicalling')
+    api project(':tuiofflinepush')
 }

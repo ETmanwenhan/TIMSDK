@@ -12,6 +12,8 @@
 
 @interface TUIBlackListController ()<V2TIMFriendshipListener>
 
+@property (nonatomic, strong) UILabel *noDataTipsLabel;
+
 @end
 
 @implementation TUIBlackListController
@@ -24,7 +26,7 @@
 
     // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
     // self.navigationItem.rightBarButtonItem = self.editButtonItem;
-    self.view.backgroundColor = [UIColor d_colorWithColorLight:TController_Background_Color dark:TController_Background_Color_Dark];
+    self.view.backgroundColor = TUICoreDynamicColor(@"controller_bg_color", @"#F2F3F5");
 
     UILabel *titleLabel = [[UILabel alloc] init];
     titleLabel.text = TUIKitLocalizableString(TUIKitContactsBlackList);
@@ -50,6 +52,12 @@
     self.tableView.backgroundColor = self.view.backgroundColor;
     
     [[V2TIMManager sharedInstance] addFriendListener:self];
+    
+    [self.tableView addSubview:self.noDataTipsLabel];
+}
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    self.noDataTipsLabel.frame = CGRectMake(10, 60, self.view.bounds.size.width - 20, 40);
 }
 
 #pragma mark - V2TIMFriendshipListener
@@ -68,6 +76,7 @@
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    self.noDataTipsLabel.hidden = (self.viewModel.blackListData.count != 0);
     return self.viewModel.blackListData.count;
 }
 
@@ -89,6 +98,18 @@
     if (self.didSelectCellBlock) {
         self.didSelectCellBlock(cell);
     }
+}
+
+- (UILabel *)noDataTipsLabel
+{
+    if (_noDataTipsLabel == nil) {
+        _noDataTipsLabel = [[UILabel alloc] init];
+        _noDataTipsLabel.textColor = TUIContactDynamicColor(@"contact_add_contact_nodata_tips_text_color", @"#999999");
+        _noDataTipsLabel.font = [UIFont systemFontOfSize:14.0];
+        _noDataTipsLabel.textAlignment = NSTextAlignmentCenter;
+        _noDataTipsLabel.text = TUIKitLocalizableString(TUIKitContactNoBlockList);
+    }
+    return _noDataTipsLabel;
 }
 
 @end

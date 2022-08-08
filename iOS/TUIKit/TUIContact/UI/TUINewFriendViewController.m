@@ -15,6 +15,7 @@
 @property UITableView *tableView;
 @property UIButton  *moreBtn;
 @property TUINewFriendViewDataProvider *viewModel;
+@property (nonatomic, strong) UILabel *noDataTipsLabel;
 @end
 
 @implementation TUINewFriendViewController
@@ -31,7 +32,14 @@
     
     
     self.view.backgroundColor = TUICoreDynamicColor(@"controller_bg_color", @"#F2F3F5");
-    _tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
+    
+    //Fix  translucent = NO;
+    CGRect rect = self.view.bounds;
+    if (![UINavigationBar appearance].isTranslucent && [[[UIDevice currentDevice] systemVersion] doubleValue]<15.0) {
+        rect = CGRectMake(rect.origin.x, rect.origin.y, rect.size.width, rect.size.height - TabBar_Height - NavBar_Height );
+    }
+    
+    _tableView = [[UITableView alloc] initWithFrame:rect style:UITableViewStylePlain];
     if (@available(iOS 15.0, *)) {
         _tableView.sectionHeaderTopPadding = 0;
     }
@@ -55,6 +63,9 @@
        @strongify(self)
        [self.tableView reloadData];
     }];
+    
+    self.noDataTipsLabel.frame = CGRectMake(10, 60, self.view.bounds.size.width - 20, 40);
+    [self.tableView addSubview:self.noDataTipsLabel];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -70,6 +81,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
+    self.noDataTipsLabel.hidden = (self.viewModel.dataList.count != 0);
     return self.viewModel.dataList.count;
 }
 
@@ -134,6 +146,18 @@
     if (self.cellClickBlock) {
         self.cellClickBlock(cell);
     }
+}
+
+- (UILabel *)noDataTipsLabel
+{
+    if (_noDataTipsLabel == nil) {
+        _noDataTipsLabel = [[UILabel alloc] init];
+        _noDataTipsLabel.textColor = TUIContactDynamicColor(@"contact_add_contact_nodata_tips_text_color", @"#999999");
+        _noDataTipsLabel.font = [UIFont systemFontOfSize:14.0];
+        _noDataTipsLabel.textAlignment = NSTextAlignmentCenter;
+        _noDataTipsLabel.text = TUIKitLocalizableString(TUIKitContactNoNewApplicationRequest);
+    }
+    return _noDataTipsLabel;
 }
 
 @end

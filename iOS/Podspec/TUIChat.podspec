@@ -1,7 +1,7 @@
 Pod::Spec.new do |spec|
   spec.name         = 'TUIChat'
-  spec.version      = '6.0.1992'
-  spec.platform     = :ios 
+  spec.version      = '6.5.2816'
+  spec.platform     = :ios
   spec.ios.deployment_target = '9.0'
   spec.license      = { :type => 'Proprietary',
       :text => <<-LICENSE
@@ -17,13 +17,19 @@ Pod::Spec.new do |spec|
 
   spec.requires_arc = true
 
-  # spec.source = { :http => 'https://sdk-im-1252463788.cos.ap-hongkong.myqcloud.com/download/tuikit/6.0.1992/ios/TUIChat.zip'}
-  # 使用本地源代码
-  spec.source = { :git => ''}
-  spec.dependency 'TUICore','6.0.1992'
+  spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/6.5.2816/ios/TUIChat.zip'}
+  spec.dependency 'TUICore','6.5.2816'
+
+  spec.subspec 'Header' do |header|
+      header.source_files = '**/TUIChat/Header/*.{h,m,mm}'
+  end
+  
+  spec.subspec 'Common' do |common|
+    common.source_files = '**/TUIChat/Common/*.{h,m,mm}'
+  end
 
   spec.subspec 'VoiceConvert' do |voiceConvert|
-    voiceConvert.vendored_libraries = ['**/TUIChat/VoiceConvert/*.a']
+    voiceConvert.vendored_libraries = '**/TUIChat/VoiceConvert/*.a'
     voiceConvert.source_files = '**/TUIChat/VoiceConvert/*.{h,m,mm}'
   end
 
@@ -32,6 +38,7 @@ Pod::Spec.new do |spec|
       cellData.subspec 'Base' do |base|
         base.source_files = '**/TUIChat/Cell/CellData/Base/*.{h,m,mm}'
         base.dependency 'TUIChat/VoiceConvert'
+        base.dependency 'TUIChat/Common'
       end
       cellData.subspec 'Chat' do |chat|
         chat.source_files = '**/TUIChat/Cell/CellData/Chat/*.{h,m,mm}'
@@ -84,11 +91,13 @@ Pod::Spec.new do |spec|
       end
       base.subspec 'Pop' do |pop|
         pop.source_files = '**/TUIChat/UI/Base/Pop/*.{h,m,mm}'
+        pop.dependency 'TUIChat/DataProvider'
       end
     end
     ui.subspec 'Forward' do |forward|
       forward.source_files = '**/TUIChat/UI/Forward/*.{h,m,mm}'
       forward.dependency 'TUIChat/UI/Base'
+      forward.dependency 'TUIChat/UI/Input'
     end
     ui.subspec 'Input' do |input|
       input.source_files = '**/TUIChat/UI/Input/*.{h,m,mm}'
@@ -112,7 +121,7 @@ Pod::Spec.new do |spec|
   end
   
   spec.resource = [
-      '**/TUIChat/Resources/*.bundle'
+  '**/TUIChat/Resources/*.bundle'
   ]
 
   spec.pod_target_xcconfig = {

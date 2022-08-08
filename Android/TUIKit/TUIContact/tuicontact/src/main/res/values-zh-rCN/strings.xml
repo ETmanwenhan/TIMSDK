@@ -52,6 +52,8 @@
     <string name="profile_delete_friend">删除好友</string>
 
     <string name="contact_signature_tag">个性签名：</string>
+    <string name="contact_no_status">暂无个性签名</string>
+
     <string name="contact_account_tag">ID：</string>
     <string name="contact_group_type_tag">群类型：</string>
 
@@ -64,9 +66,6 @@
     <string name="refuse">拒绝</string>
     <string name="accepted">已同意</string>
     <string name="refused">已拒绝</string>
-
-    <string name="cancel">取消</string>
-    <string name="sure">确定</string>
 
     <string name="chat_to_top">置顶聊天</string>
 
@@ -103,5 +102,16 @@
     <string name="contact_no_such_user">该用户不存在</string>
 
     <string name="contact_my_user_id">我的用户ID：%s</string>
+
+    <string name="contact_community">社群</string>
+    <string name="contact_i_know">我知道了</string>
+    <string name="contact_no_more_reminders">不再提醒</string>
+    <string name="contact_im_flagship">旗舰版</string>
+    <string name="contact_buying_guidelines">价格说明</string>
+    <string name="contact_im_flagship_edition_update_tip">%s功能为IM旗舰版功能，购买旗舰版套餐包后可使用，详见价格说明。</string>
+
+    <string name="contact_no_new_friend_application">暂无新的联系人请求</string>
+    <string name="contact_no_group">暂无群聊</string>
+    <string name="contact_no_block_list">暂无黑名单好友</string>
 
 </resources>

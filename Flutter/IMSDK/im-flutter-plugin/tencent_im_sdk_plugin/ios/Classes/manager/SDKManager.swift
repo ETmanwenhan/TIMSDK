@@ -83,7 +83,7 @@ class SDKManager {
 	* 获取版本号
 	*/
 	public func getVersion(call: FlutterMethodCall, result: @escaping FlutterResult) {
-		CommonUtils.resultSuccess(call: call, result: result, data: V2TIMManager.sharedInstance().getVersion());
+        CommonUtils.resultSuccess(call: call, result: result, data: V2TIMManager.sharedInstance().getVersion() as Any);
 	}
 	
 	/**
@@ -97,7 +97,7 @@ class SDKManager {
 	* 获取登录用户
 	*/
 	public func getLoginUser(call: FlutterMethodCall, result: @escaping FlutterResult) {
-		CommonUtils.resultSuccess(call: call, result: result, data: V2TIMManager.sharedInstance().getLoginUser());
+        CommonUtils.resultSuccess(call: call, result: result, data: V2TIMManager.sharedInstance().getLoginUser() as Any);
 	}
 	
 	/**
@@ -115,16 +115,24 @@ class SDKManager {
 	*/
 	public func `initSDK`(call: FlutterMethodCall, result: @escaping FlutterResult) {
         let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
+		let uiPlatform = CommonUtils.getParam(call: call, result: result, param: "uiPlatform") as! String;
 		if let sdkAppID = CommonUtils.getParam(call: call, result: result, param: "sdkAppID") as? Int32,
 		   let logLevel = CommonUtils.getParam(call: call, result: result, param: "logLevel") as? Int {
-			let config = V2TIMSDKConfig()
-            let sdkListener = SDKListener(listenerUid: listenerUuid);
-            sdkListenerList[listenerUuid] = sdkListener;
-			    
-			config.logLevel = V2TIMLogLevel(rawValue: logLevel)!
-			let data = V2TIMManager.sharedInstance().initSDK(sdkAppID, config: config, listener: sdkListener)
+            V2TIMManager.sharedInstance().callExperimentalAPI("setUIPlatform",param: uiPlatform as NSObject,succ:{_ in
+				let config = V2TIMSDKConfig()
+				let sdkListener = SDKListener(listenerUid: listenerUuid);
+                self.sdkListenerList[listenerUuid] = sdkListener;
+					
+				config.logLevel = V2TIMLogLevel(rawValue: logLevel)!
+				let data = V2TIMManager.sharedInstance().initSDK(sdkAppID, config: config);
+				V2TIMManager.sharedInstance().add(sdkListener);
+				
+				CommonUtils.resultSuccess(call: call, result: result, data: data);
+            },fail:{_,_ in 
+				CommonUtils.resultSuccess(call: call, result: result, data: false);
+			});
 			
-            CommonUtils.resultSuccess(call: call, result: result, data: data);
+			
 		}
 	}
 	
@@ -133,10 +141,54 @@ class SDKManager {
         let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
         let conversationListener = ConversationListener(listenerUid: listenerUuid);
         conversationMsgListenerList[listenerUuid] = conversationListener;
-		V2TIMManager.sharedInstance().setConversationListener(conversationListener)
+        V2TIMManager.sharedInstance().addConversationListener(listener:conversationListener);
 		CommonUtils.resultSuccess(call: call, result: result, data: "setConversationListener is done");
 	}
+
+	public func addConversationListener(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
+        let conversationListener = ConversationListener(listenerUid: listenerUuid);
+        conversationMsgListenerList[listenerUuid] = conversationListener;
+        V2TIMManager.sharedInstance().addConversationListener(listener:conversationListener);
+		CommonUtils.resultSuccess(call: call, result: result, data: "addConversationListener is done");
+	}
 	
+	public func removeConversationListener(call: FlutterMethodCall, result: @escaping FlutterResult) {
+		let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
+        if listenerUuid != "" {
+            let listener = conversationMsgListenerList[listenerUuid];
+            V2TIMManager.sharedInstance().removeConversationListener(listener: listener);
+            conversationMsgListenerList.removeValue(forKey: listenerUuid);
+            CommonUtils.resultSuccess(call: call, result: result, data: "removeConversationListener is done");
+        } else {
+            for listener in conversationMsgListenerList {
+                let callback = listener.value;
+                V2TIMManager.sharedInstance().removeConversationListener(listener: callback);
+
+            }
+            conversationMsgListenerList = [:];
+            CommonUtils.resultSuccess(call: call, result: result, data: "removed all conversationListener");
+        }
+	}
+
+	public func removeGroupListener(call: FlutterMethodCall, result: @escaping FlutterResult) {
+		let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
+        if listenerUuid != "" {
+            let listener = groupListenerList[listenerUuid];
+            V2TIMManager.sharedInstance().removeGroupListener(listener: listener);
+            groupListenerList.removeValue(forKey: listenerUuid);
+            CommonUtils.resultSuccess(call: call, result: result, data: "removeGroupListener is done");
+        } else {
+            for listener in groupListenerList {
+                let callback = listener.value;
+                V2TIMManager.sharedInstance().removeGroupListener(listener: callback);
+
+            }
+            groupListenerList = [:];
+            CommonUtils.resultSuccess(call: call, result: result, data: "removed groupListener conversationListener");
+        }
+	}
+
 	public func addAdvancedMsgListener(call: FlutterMethodCall, result: @escaping FlutterResult) {
         let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
         let advancedMessageListener = AdvancedMsgListener(listenerUid: listenerUuid);
@@ -167,15 +219,49 @@ class SDKManager {
         let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
         let friendshipListener = FriendshipListener(listenerUid: listenerUuid);
         friendShipListenerList[listenerUuid] = friendshipListener;
-		V2TIMManager.sharedInstance().setFriendListener(friendshipListener)
+        V2TIMManager.sharedInstance().addFriendListener(listener:friendshipListener)
 		CommonUtils.resultSuccess(call: call, result: result, data: "setFriendListener is done");
 	}
+
+	public func addFriendListener(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
+        let friendshipListener = FriendshipListener(listenerUid: listenerUuid);
+        friendShipListenerList[listenerUuid] = friendshipListener;
+        V2TIMManager.sharedInstance().addFriendListener(listener:friendshipListener)
+		CommonUtils.resultSuccess(call: call, result: result, data: "addFriendListener is done");
+	}
+
+	public func addGroupListener(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
+        let groupListener = GroupListener(listenerUid: listenerUuid);
+        groupListenerList[listenerUuid] = groupListener;
+        V2TIMManager.sharedInstance().addGroupListener(listener:groupListener)
+		CommonUtils.resultSuccess(call: call, result: result, data: "addGroupListener is done");
+	}
 	
+	public func removeFriendListener(call: FlutterMethodCall, result: @escaping FlutterResult) {
+		let listenerUuid = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
+        if listenerUuid != "" {
+            let listener = friendShipListenerList[listenerUuid];
+            V2TIMManager.sharedInstance().removeFriendListener(listener: listener);
+            friendShipListenerList.removeValue(forKey: listenerUuid);
+            CommonUtils.resultSuccess(call: call, result: result, data: "removeFriendListener is done");
+        } else {
+            for listener in friendShipListenerList {
+                let callback = listener.value;
+                V2TIMManager.sharedInstance().removeFriendListener(listener: callback);
+
+            }
+            friendShipListenerList = [:];
+            CommonUtils.resultSuccess(call: call, result: result, data: "removed all removeFriendListener");
+        }
+	}
+
 	public func setGroupListener(call: FlutterMethodCall, result: @escaping FlutterResult) {
         let listenerUuid: String = CommonUtils.getParam(call: call, result: result, param: "listenerUuid") as! String;
         let groupListener = GroupListener(listenerUid: listenerUuid);
         groupListenerList[listenerUuid] = groupListener;
-        V2TIMManager.sharedInstance().setGroupListener(groupListener);
+        V2TIMManager.sharedInstance().addGroupListener(listener:groupListener);
 		CommonUtils.resultSuccess(call: call, result: result, data: "setGroupListener is done");
 	}
 	
@@ -238,11 +324,18 @@ class SDKManager {
 	
 	public func setAPNS(call: FlutterMethodCall, result: @escaping FlutterResult) {
 		if let businessID = CommonUtils.getParam(call: call, result: result, param: "businessID") as? Int32,
-			let token = CommonUtils.getParam(call: call, result: result, param: "token") as? String {
+			let token = CommonUtils.getParam(call: call, result: result, param: "token") as? String,
+			let isTPNSToken = CommonUtils.getParam(call: call, result: result, param: "isTPNSToken") as? Bool {
 			let config = V2TIMAPNSConfig()
 			
-			config.token = token.hexadecimal()
+			if(isTPNSToken){
+				config.token = token.data(using: String.Encoding.utf8, allowLossyConversion: true)
+			}else{
+				config.token = token.hexadecimal()
+			}
+			
 			config.businessID = businessID
+			config.isTPNSToken = isTPNSToken;
 			V2TIMManager.sharedInstance().setAPNS(config, succ: {
 				CommonUtils.resultSuccess(call: call, result: result);
 			}, fail: TencentImUtils.returnErrorClosures(call: call, result: result));
@@ -250,14 +343,14 @@ class SDKManager {
 	}
 
 	public func getUsersInfo(call: FlutterMethodCall, result: @escaping FlutterResult) { 
-		let userIDList = CommonUtils.getParam(call: call, result: result, param: "userIDList") as! Array<String>;
+		let userIDList = CommonUtils.getParam(call: call, result: result, param: "userIDList") as? Array<String>;
 		
 		V2TIMManager.sharedInstance()?.getUsersInfo(userIDList, succ: {
 			(array) -> Void in
 			
 			var res: [[String: Any]] = []
 			
-			for info in array! {
+			for info in array ?? [] {
 				let item = V2UserFullInfoEntity.getDict(info: info)
 				res.append(item)
 			}
@@ -270,8 +363,8 @@ class SDKManager {
 	public func callExperimentalAPI(call: FlutterMethodCall, result: @escaping FlutterResult) {
        if let api = CommonUtils.getParam(call: call, result: result, param: "api") as? String,
           let param = CommonUtils.getParam(call: call, result: result, param: "param") as? NSObject{
-        V2TIMManager.sharedInstance().callExperimentalAPI(api, param: param as! NSObject?, succ: {value in
-            CommonUtils.resultSuccess(call: call, result: result, data: value);
+           V2TIMManager.sharedInstance().callExperimentalAPI(api, param: param as NSObject?, succ: {value in
+            CommonUtils.resultSuccess(call: call, result: result, data: value as Any);
         }, fail: TencentImUtils.returnErrorClosures(call: call, result: result));
        }
        
@@ -289,10 +382,13 @@ class SDKManager {
 		let selfSignature = CommonUtils.getParam(call: call, result: result, param: "selfSignature") as? String;
 		let gender = CommonUtils.getParam(call: call, result: result, param: "gender") as? Int;
 		let allowType = CommonUtils.getParam(call: call, result: result, param: "allowType") as? Int;
+		let birthday = CommonUtils.getParam(call: call, result: result, param: "birthday") as? UInt32;
+		let level = CommonUtils.getParam(call: call, result: result, param: "level") as? UInt32;
+		let role = CommonUtils.getParam(call: call, result: result, param: "role") as? UInt32;
 		let customInfo = CommonUtils.getParam(call: call, result: result, param: "customInfo") as? Dictionary<String, String>;
 		var customInfoData: [String: Data] = [:]
 		
-		var info = V2TIMUserFullInfo();
+        let info = V2TIMUserFullInfo();
 		if nickName != nil {
 			info.nickName = nickName
 		}
@@ -308,8 +404,17 @@ class SDKManager {
 		if allowType != nil {
 			info.allowType = V2TIMFriendAllowType(rawValue: allowType!)!
 		}
+		if birthday != nil {
+            info.birthday = birthday!
+		}
+		if level != nil {
+            info.level = level!
+		}
+		if role != nil {
+            info.role = role!
+		}
 		if customInfo != nil {
-			for (key, value) in customInfo! {
+            for (key, value) in customInfo ?? [:] {
 				customInfoData[key] = value.data(using: String.Encoding.utf8, allowLossyConversion: true);
 			}
 			info.customInfo = customInfoData

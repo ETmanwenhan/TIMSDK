@@ -1,3 +1,5 @@
+// ignore_for_file: unused_element, deprecated_member_use_from_same_package, unused_field
+
 import 'dart:convert';
 
 import 'package:tencent_im_sdk_plugin/enum/V2TimAdvancedMsgListener.dart';
@@ -10,7 +12,6 @@ import 'package:tencent_im_sdk_plugin/enum/V2TimSimpleMsgListener.dart';
 import 'package:tencent_im_sdk_plugin/enum/listener_type.dart';
 import 'package:tencent_im_sdk_plugin/enum/log_level_enum.dart';
 import 'package:tencent_im_sdk_plugin/enum/message_priority_enum.dart';
-import 'package:tencent_im_sdk_plugin/enum/utils.dart';
 import 'package:tencent_im_sdk_plugin/manager/v2_tim_conversation_manager.dart';
 import 'package:tencent_im_sdk_plugin/manager/v2_tim_friendship_manager.dart';
 import 'package:tencent_im_sdk_plugin/manager/v2_tim_group_manager.dart';
@@ -444,6 +445,9 @@ class V2TIMManager {
               case 'onRecvNewMessage':
                 listener.onRecvNewMessage(V2TimMessage.fromJson(params));
                 break;
+              case 'onRecvMessageModified':
+                listener.onRecvMessageModified(V2TimMessage.fromJson(params));
+                break;
               case 'onRecvC2CReadReceipt':
                 List dataList = params;
                 List<V2TimMessageReceipt> receiptList =
@@ -468,7 +472,17 @@ class V2TIMManager {
                     params['progress'],
                   );
                 });
-
+                break;
+              case 'onRecvMessageReadReceipts':
+                List dataList = params;
+                List<V2TimMessageReceipt> receiptList =
+                    List.empty(growable: true);
+                dataList.forEach((element) {
+                  receiptList.add(V2TimMessageReceipt.fromJson(element));
+                });
+                _catchListenerError(() {
+                  listener.onRecvMessageReadReceipts(receiptList);
+                });
                 break;
             }
           }
@@ -679,19 +693,31 @@ class V2TIMManager {
   /// true：成功；
   /// false：失败
   /// ```
+  /// 本sdk封装与nativeSDk，也可以参考[native文档](https://im.sdk.qcloud.com/doc/zh-cn/classcom_1_1tencent_1_1imsdk_1_1v2_1_1V2TIMMessageManager.html#a28e01403acd422e53e999f21ec064795)
   Future<V2TimValueCallback<bool>> initSDK({
     required int sdkAppID,
     required LogLevelEnum loglevel,
     required V2TimSDKListener listener,
   }) {
+    String platform = _getUiPlatform(StackTrace.current.toString());
     final String uuid = Uuid().v4();
     this.initSDKListenerList[uuid] = listener;
     return ImFlutterPlatform.instance.initSDK(
       sdkAppID: sdkAppID,
-      loglevel: EnumUtils.convertLogLevelEnum(loglevel),
+      loglevel: loglevel.index,
       listenerUuid: uuid,
       listener: listener,
+      uiPlatform: platform,
     );
+  }
+
+  ///@nodoc
+  String _getUiPlatform(String trace) {
+    String platfrom = "flutter";
+    if (trace.contains("package:tim_ui_kit")) {
+      platfrom = "flutter_uikit";
+    }
+    return platfrom;
   }
 
   ///反初始化 SDK
@@ -890,13 +916,14 @@ class V2TIMManager {
   Future<V2TimValueCallback<V2TimMessage>> sendGroupCustomMessage({
     required String customData,
     required String groupID,
-    MessagePriorityEnum priority = MessagePriorityEnum.V2TIM_PRIORITY_NORMAL,
+    MessagePriorityEnum? priority = MessagePriorityEnum.V2TIM_PRIORITY_NORMAL,
   }) async {
     printWarning("简单消息自3.6.0开始弃用，请使用messageManager下的高级收发消息,此接口将在以后版本中被删除）");
     return ImFlutterPlatform.instance.sendGroupCustomMessage(
-        customData: customData,
-        groupID: groupID,
-        priority: EnumUtils.convertMessagePriorityEnum(priority));
+      customData: customData,
+      groupID: groupID,
+      priority: priority!.index,
+    );
   }
 
   /// 创建群组
@@ -922,6 +949,7 @@ class V2TIMManager {
   ///```
   /// 不支持在同一个 SDKAPPID 下创建两个相同 groupID 的群
   /// ```
+  @Deprecated('简单创建群组自3.6.0开始弃用，请使用groupManager下的高级创建群组,此接口将在以后版本中被删除')
   Future<V2TimValueCallback<String>> createGroup({
     required String groupType,
     required String groupName,
@@ -1006,7 +1034,7 @@ class V2TIMManager {
   /// 参数
   /// api	接口名称
   /// param	接口参数
-  // 注意
+  /// 注意
   /// 该接口提供一些实验性功能
   ///
   /// 注意：web不支持该接口
@@ -1132,6 +1160,40 @@ class V2TIMManager {
     this.groupListenerList[uuid] = listener;
     return ImFlutterPlatform.instance
         .setGroupListener(listener: listener, listenerUuid: uuid);
+  }
+
+  /// 添加群组监听器
+  ///
+  /// 在web端时，不支持onQuitFromGroup回调
+  ///
+  Future<void> addGroupListener({
+    required V2TimGroupListener listener,
+  }) {
+    final uuid = Uuid().v4();
+    this.groupListenerList[uuid] = listener;
+    return ImFlutterPlatform.instance
+        .addGroupListener(listener: listener, listenerUuid: uuid);
+  }
+
+  /// 移除群组监听器
+  ///
+  ///
+  Future<void> removeGroupListener({
+    V2TimGroupListener? listener,
+  }) {
+    var listenerUuid = "";
+    if (listener != null) {
+      listenerUuid = this.groupListenerList.keys.firstWhere(
+            (k) => this.groupListenerList[k] == listener,
+            orElse: () => "",
+          );
+      this.groupListenerList.remove(listenerUuid);
+    } else {
+      this.groupListenerList.clear();
+    }
+    return ImFlutterPlatform.instance.removeGroupListener(
+      listenerUuid: listenerUuid,
+    );
   }
 
   /// 设置apns监听

@@ -24,30 +24,38 @@ public class ServiceInitializer extends ContentProvider {
      * 获取轻量版主题资源 id
      */
     public int getLightThemeResId() {
-        return 0;
+        return R.style.TUIBaseLightTheme;
     }
 
     /**
      * 获取活泼版主题资源 id
      */
     public int getLivelyThemeResId() {
-        return 0;
+        return R.style.TUIBaseLivelyTheme;
     }
 
     /**
      * 获取严肃版主题资源 id
      */
     public int getSeriousThemeResId() {
-        return 0;
+        return R.style.TUIBaseSeriousTheme;
     }
 
 /////////////////////////////////////////////////////////////////////////////////
 //                               以下方法无需重写                                 //
 /////////////////////////////////////////////////////////////////////////////////
 
+    private static Context appContext;
+
+    public static Context getAppContext() {
+        return appContext;
+    }
+
     @Override
     public boolean onCreate() {
-        Context appContext = getContext().getApplicationContext();
+        if (appContext == null) {
+            appContext = getContext().getApplicationContext();
+        }
         // 路由初始化
         TUIRouter.init(appContext);
         // 公共配置初始化

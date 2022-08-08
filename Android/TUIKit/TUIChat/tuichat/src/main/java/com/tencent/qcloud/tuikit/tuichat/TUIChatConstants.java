@@ -2,7 +2,12 @@ package com.tencent.qcloud.tuikit.tuichat;
 
 import android.os.Environment;
 
+import com.tencent.imsdk.BaseConstants;
+
 public class TUIChatConstants {
+    public static final String CHAT_SETTINGS_SP_NAME = "chat_settings_sp";
+    public static final String CHAT_REPLY_GUIDE_SHOW_SP_KEY = "chat_reply_guide_show";
+
     public static final String CAMERA_IMAGE_PATH = "camera_image_path";
     public static final String IMAGE_WIDTH = "image_width";
     public static final String IMAGE_HEIGHT = "image_height";
@@ -13,6 +18,9 @@ public class TUIChatConstants {
     public static final String CAMERA_TYPE = "camera_type";
 
     public static final String BUSINESS_ID_CUSTOM_HELLO = "text_link";
+    public static final String BUSINESS_ID_CUSTOM_EVALUATION = "evaluation";
+    public static final String BUSINESS_ID_CUSTOM_ORDER = "order";
+    public static final String BUSINESS_ID_CUSTOM_TYPING = "user_typing_status";
 
     public static final String FORWARD_SELECT_CONVERSATION_KEY = "forward_select_conversation_key";
     public static final int FORWARD_SELECT_ACTIVTY_CODE = 101;
@@ -26,6 +34,8 @@ public class TUIChatConstants {
 
     public static final String CHAT_INFO = "chatInfo";
 
+    public static final String MESSAGE_BEAN = "messageBean";
+
     public static final String OPEN_MESSAGE_SCAN = "open_message_scan";
     public static final String OPEN_MESSAGES_SCAN_FORWARD = "open_messages_scan_forward";
 
@@ -36,6 +46,18 @@ public class TUIChatConstants {
     public static final String SELECT_FRIENDS = "select_friends";
     public static final String GROUP_ID = "group_id";
     public static final String SELECT_FOR_CALL = "isSelectForCall";
+
+    public static final String MESSAGE_REPLY_KEY = "messageReply";
+    public static final String MESSAGE_REPLIES_KEY = "messageReplies";
+    public static final String MESSAGE_REACT_KEY = "messageReact";
+    public static final String MESSAGE_FEATURE_KEY = "messageFeature";
+
+    public static final int TYPING_SEND_MESSAGE_INTERVAL = 4;
+    public static final int TYPING_PARSE_MESSAGE_INTERVAL = 5;
+    public static final int TYPING_TRIGGER_CHAT_TIME = 30; //second
+
+    public static final String EVENT_KEY_MESSAGE_STATUS_CHANGED = "eventKeyMessageStatusChanged";
+    public static final String EVENT_SUB_KEY_MESSAGE_SEND = "eventSubKeyMessageSend";
 
     /**
      * 1: 仅仅是一个带链接的文本消息

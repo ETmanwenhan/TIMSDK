@@ -12,6 +12,7 @@ class V2TimUserFullInfo {
   late Map<String, String>? customInfo;
   late int? role;
   late int? level;
+  late int? birthday;
 
   V2TimUserFullInfo({
     this.userID,
@@ -23,6 +24,7 @@ class V2TimUserFullInfo {
     this.customInfo,
     this.role,
     this.level,
+    this.birthday,
   });
 
   V2TimUserFullInfo.fromJson(Map<String, dynamic> json) {
@@ -33,23 +35,25 @@ class V2TimUserFullInfo {
     gender = json['gender'];
     allowType = json['allowType'];
     customInfo = json['customInfo'] == null
-        ? new Map<String, String>()
+        ? <String, String>{}
         : Map<String, String>.from(json['customInfo']);
     role = json['role'];
     level = json['level'];
+    birthday = json['birthday'];
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['userID'] = this.userID;
-    data['nickName'] = this.nickName;
-    data['faceUrl'] = this.faceUrl;
-    data['selfSignature'] = this.selfSignature;
-    data['gender'] = this.gender;
-    data['allowType'] = this.allowType;
-    data['customInfo'] = this.customInfo;
-    data['role'] = this.role;
-    data['level'] = this.level;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['userID'] = userID;
+    data['nickName'] = nickName;
+    data['faceUrl'] = faceUrl;
+    data['selfSignature'] = selfSignature;
+    data['gender'] = gender;
+    data['allowType'] = allowType;
+    data['customInfo'] = customInfo;
+    data['role'] = role;
+    data['level'] = level;
+    data['birthday'] = birthday;
     return data;
   }
 }

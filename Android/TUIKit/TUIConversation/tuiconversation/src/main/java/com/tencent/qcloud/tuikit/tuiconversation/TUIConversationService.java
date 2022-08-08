@@ -7,12 +7,14 @@ import android.text.TextUtils;
 import com.tencent.imsdk.v2.V2TIMConversation;
 import com.tencent.imsdk.v2.V2TIMConversationListener;
 import com.tencent.imsdk.v2.V2TIMManager;
+import com.tencent.imsdk.v2.V2TIMSDKListener;
+import com.tencent.imsdk.v2.V2TIMUserStatus;
+import com.tencent.qcloud.tuicore.ServiceInitializer;
 import com.tencent.qcloud.tuicore.TUIConstants;
+import com.tencent.qcloud.tuicore.TUICore;
 import com.tencent.qcloud.tuicore.TUILogin;
 import com.tencent.qcloud.tuicore.component.interfaces.IUIKitCallback;
 import com.tencent.qcloud.tuikit.tuiconversation.bean.ConversationInfo;
-import com.tencent.qcloud.tuicore.ServiceInitializer;
-import com.tencent.qcloud.tuicore.TUICore;
 import com.tencent.qcloud.tuikit.tuiconversation.interfaces.ConversationEventListener;
 import com.tencent.qcloud.tuikit.tuiconversation.util.ConversationUtils;
 import com.tencent.qcloud.tuikit.tuiconversation.util.TUIConversationLog;
@@ -23,7 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TUIConversationService extends ServiceInitializer  implements ITUIConversationService {
+public class TUIConversationService extends ServiceInitializer implements ITUIConversationService {
     public static final String TAG = TUIConversationService.class.getSimpleName();
     private static TUIConversationService instance;
 
@@ -31,14 +33,11 @@ public class TUIConversationService extends ServiceInitializer  implements ITUIC
         return instance;
     }
 
-    private static Context appContext;
-
     private WeakReference<ConversationEventListener> conversationEventListener;
 
     @Override
     public void init(Context context) {
         instance = this;
-        appContext = context;
         initService();
         initEvent();
         initIMListener();
@@ -211,6 +210,17 @@ public class TUIConversationService extends ServiceInitializer  implements ITUIC
                 TUICore.notifyEvent(TUIConstants.TUIConversation.EVENT_UNREAD, TUIConstants.TUIConversation.EVENT_SUB_KEY_UNREAD_CHANGED, param);
             }
         });
+
+        V2TIMSDKListener v2TIMSDKListener = new V2TIMSDKListener() {
+            @Override
+            public void onUserStatusChanged(List<V2TIMUserStatus> userStatusList) {
+                ConversationEventListener conversationEventListener = getInstance().getConversationEventListener();
+                if (conversationEventListener != null) {
+                    conversationEventListener.onUserStatusChanged(userStatusList);
+                }
+            }
+        };
+        V2TIMManager.getInstance().addIMSDKListener(v2TIMSDKListener);
     }
 
     public void setConversationEventListener(ConversationEventListener conversationManagerKit) {
@@ -222,9 +232,5 @@ public class TUIConversationService extends ServiceInitializer  implements ITUIC
             return conversationEventListener.get();
         }
         return null;
-    }
-
-    public static Context getAppContext() {
-        return appContext;
     }
 }

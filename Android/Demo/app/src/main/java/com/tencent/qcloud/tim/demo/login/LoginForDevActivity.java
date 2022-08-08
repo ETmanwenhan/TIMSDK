@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -18,21 +17,19 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
-import com.tencent.imsdk.v2.V2TIMCallback;
 import com.tencent.qcloud.tim.demo.DemoApplication;
 import com.tencent.qcloud.tim.demo.R;
 import com.tencent.qcloud.tim.demo.bean.UserInfo;
 import com.tencent.qcloud.tim.demo.main.MainActivity;
 import com.tencent.qcloud.tim.demo.signature.GenerateTestUserSig;
 import com.tencent.qcloud.tim.demo.utils.DemoLog;
-import com.tencent.qcloud.tim.demo.utils.PermissionUtils;
-import com.tencent.qcloud.tim.demo.utils.TUIUtils;
+import com.tencent.qcloud.tuicore.TUILogin;
 import com.tencent.qcloud.tuicore.TUIThemeManager;
 import com.tencent.qcloud.tuicore.component.activities.BaseLightActivity;
+import com.tencent.qcloud.tuicore.interfaces.TUICallback;
 import com.tencent.qcloud.tuicore.util.ToastUtil;
 
 /**
@@ -103,17 +100,16 @@ public class LoginForDevActivity extends BaseLightActivity {
         // https://github.com/tencentyun/TIMSDK/tree/master/Android
         mUserAccount = findViewById(R.id.login_user);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-        PermissionUtils.checkPermission(this);
         mLoginView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                DemoApplication.instance().init();
+                DemoApplication.instance().init(0);
 
                 UserInfo.getInstance().setUserId(mUserAccount.getText().toString());
                 // 获取userSig函数
                 String userSig = GenerateTestUserSig.genTestUserSig(mUserAccount.getText().toString());
                 UserInfo.getInstance().setUserSig(userSig);
-                TUIUtils.login(mUserAccount.getText().toString(), userSig, new V2TIMCallback() {
+                TUILogin.login(DemoApplication.instance(), DemoApplication.instance().getSdkAppId(), mUserAccount.getText().toString(), userSig, new TUICallback() {
                     @Override
                     public void onError(final int code, final String desc) {
                         runOnUiThread(new Runnable() {
@@ -127,6 +123,7 @@ public class LoginForDevActivity extends BaseLightActivity {
                     @Override
                     public void onSuccess() {
                         UserInfo.getInstance().setAutoLogin(true);
+                        UserInfo.getInstance().setDebugLogin(true);
                         Intent intent = new Intent(LoginForDevActivity.this, MainActivity.class);
                         startActivity(intent);
                         finish();
@@ -192,22 +189,6 @@ public class LoginForDevActivity extends BaseLightActivity {
             finish();
         }
         return super.onKeyDown(keyCode, event);
-    }
-
-    /**
-     * 系统请求权限回调
-     */
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode) {
-            case PermissionUtils.REQ_PERMISSION_CODE:
-                if (grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-                    ToastUtil.toastLongMessage(getString(R.string.permission_tip));
-                }
-                break;
-            default:
-                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
     }
 
     @Override

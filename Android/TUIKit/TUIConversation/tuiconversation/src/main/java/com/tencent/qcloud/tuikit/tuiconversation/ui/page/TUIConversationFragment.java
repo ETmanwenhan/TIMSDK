@@ -66,7 +66,7 @@ public class TUIConversationFragment extends BaseFragment {
 //        ConversationLayoutSetting.customizeConversation(mConversationLayout);
         mConversationLayout.getConversationList().setOnItemClickListener(new ConversationListLayout.OnItemClickListener() {
             @Override
-            public void onItemClick(View view, int position, ConversationInfo conversationInfo) {
+            public void onItemClick(View view, int viewType, ConversationInfo conversationInfo) {
                 //此处为demo的实现逻辑，更根据会话类型跳转到相关界面，开发者可根据自己的应用场景灵活实现
                 startChatActivity(conversationInfo);
             }
@@ -74,7 +74,7 @@ public class TUIConversationFragment extends BaseFragment {
 
         mConversationLayout.getConversationList().setOnItemLongClickListener(new ConversationListLayout.OnItemLongClickListener() {
             @Override
-            public void OnItemLongClick(View view, int position, ConversationInfo conversationInfo) {
+            public void OnItemLongClick(View view, ConversationInfo conversationInfo) {
                 showItemPopMenu(view, conversationInfo);
             }
         });
@@ -205,9 +205,8 @@ public class TUIConversationFragment extends BaseFragment {
             param.putLong(TUIConstants.TUIChat.DRAFT_TIME, conversationInfo.getDraft().getDraftTime());
         }
         param.putBoolean(TUIConstants.TUIChat.IS_TOP_CHAT, conversationInfo.isTop());
-
+        param.putString(TUIConstants.TUIChat.FACE_URL, conversationInfo.getIconPath());
         if (conversationInfo.isGroup()) {
-            param.putString(TUIConstants.TUIChat.FACE_URL, conversationInfo.getIconPath());
             param.putString(TUIConstants.TUIChat.GROUP_TYPE, conversationInfo.getGroupType());
             param.putSerializable(TUIConstants.TUIChat.AT_INFO_LIST, (Serializable) conversationInfo.getGroupAtInfoList());
         }

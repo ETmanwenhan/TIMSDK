@@ -58,9 +58,6 @@
     <string name="modify_group_name">修改群名称</string>
     <string name="group_join_type">加群方式</string>
 
-    <string name="sure">确定</string>
-    <string name="cancel">取消</string>
-
     <string name="accept">同意</string>
     <string name="refuse">拒绝</string>
     <string name="accepted">已同意</string>
@@ -100,4 +97,5 @@
     <string name="group_not_support_set_manager">当前类型群聊不支持设置管理员。</string>
     <string name="group_not_support_mute_member">当前类型群聊不支持禁言指定群成员。</string>
 
+    <string name="group_choose_avatar">选择头像</string>
 </resources>

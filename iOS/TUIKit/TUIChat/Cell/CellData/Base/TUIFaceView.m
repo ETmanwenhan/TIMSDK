@@ -12,7 +12,6 @@
 #import "TUIThemeManager.h"
 
 @interface TUIFaceView () <UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
-@property (nonatomic, strong) NSMutableArray *faceGroups;
 @property (nonatomic, strong) NSMutableArray *sectionIndexInGroup;
 @property (nonatomic, strong) NSMutableArray *pageCountInGroup;
 @property (nonatomic, strong) NSMutableArray *groupIndexInSection;
@@ -56,11 +55,12 @@
     [self addSubview:_faceCollectionView];
 
     _lineView = [[UIView alloc] init];
-    _lineView.backgroundColor = TUICoreDynamicColor(@"separtor_color", @"#FFFFFF");
+    _lineView.backgroundColor = TUICoreDynamicColor(@"separator_color", @"#DBDBDB");
 
     _pageControl = [[UIPageControl alloc] init];
     _pageControl.currentPageIndicatorTintColor = TUIChatDynamicColor(@"chat_face_page_control_current_color", @"#7D7D7D");
     _pageControl.pageIndicatorTintColor = TUIChatDynamicColor(@"chat_face_page_control_color", @"#DEDEDE");
+    _pageControl.userInteractionEnabled = NO;
     [self addSubview:_pageControl];
 }
 
@@ -192,6 +192,9 @@
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView
 {
     NSInteger curSection = round(scrollView.contentOffset.x / scrollView.frame.size.width);
+    if (curSection >= _groupIndexInSection.count) {
+        return;
+    }
     NSNumber *groupIndex = _groupIndexInSection[curSection];
     NSNumber *startSection = _sectionIndexInGroup[groupIndex.integerValue];
     NSNumber *pageCount = _pageCountInGroup[groupIndex.integerValue];

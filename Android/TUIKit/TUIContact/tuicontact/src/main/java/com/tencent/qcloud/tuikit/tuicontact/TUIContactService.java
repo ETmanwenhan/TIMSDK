@@ -7,6 +7,8 @@ import com.tencent.imsdk.v2.V2TIMFriendApplication;
 import com.tencent.imsdk.v2.V2TIMFriendInfo;
 import com.tencent.imsdk.v2.V2TIMFriendshipListener;
 import com.tencent.imsdk.v2.V2TIMManager;
+import com.tencent.imsdk.v2.V2TIMSDKListener;
+import com.tencent.imsdk.v2.V2TIMUserStatus;
 import com.tencent.qcloud.tuicore.ServiceInitializer;
 import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuicore.TUICore;
@@ -32,14 +34,11 @@ public class TUIContactService extends ServiceInitializer implements ITUIContact
         return instance;
     }
 
-    private static Context appContext;
-
     private final List<WeakReference<ContactEventListener>> contactEventListenerList = new ArrayList<>();
 
     @Override
     public void init(Context context) {
         instance = this;
-        appContext = context;
         initService();
         initEvent();
         initIMListener();
@@ -172,6 +171,17 @@ public class TUIContactService extends ServiceInitializer implements ITUIContact
                 }
             }
         });
+
+        V2TIMSDKListener v2TIMSDKListener = new V2TIMSDKListener() {
+            @Override
+            public void onUserStatusChanged(List<V2TIMUserStatus> userStatusList) {
+                List<ContactEventListener> contactEventListenerList = getInstance().getContactEventListenerList();
+                for (ContactEventListener contactEventListener : contactEventListenerList) {
+                    contactEventListener.onUserStatusChanged(userStatusList);
+                }
+            }
+        };
+        V2TIMManager.getInstance().addIMSDKListener(v2TIMSDKListener);
     }
 
     public List<ContactEventListener> getContactEventListenerList() {
@@ -202,10 +212,6 @@ public class TUIContactService extends ServiceInitializer implements ITUIContact
             }
         }
         contactEventListenerList.add(reference);
-    }
-
-    public static Context getAppContext() {
-        return appContext;
     }
 
     @Override

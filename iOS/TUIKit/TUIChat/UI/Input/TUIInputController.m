@@ -21,12 +21,15 @@
 #import "NSString+emoji.h"
 #import <AVFoundation/AVFoundation.h>
 #import "TUIThemeManager.h"
+#import "TUICloudCustomDataTypeCenter.h"
+#import "TUIChatDataProvider.h"
+#import "TUIChatModifyMessageHelper.h"
 
 @interface TUIInputController () <TTextViewDelegate, TMenuViewDelegate, TFaceViewDelegate, TMoreViewDelegate>
 @property (nonatomic, assign) InputStatus status;
 @property (nonatomic, assign) CGRect keyboardFrame;
-// 当前正在回复的消息
-@property (nonatomic, strong) TUIReplyPreviewData *replyData;
+
+@property (nonatomic, copy) void(^modifyRootReplyMsgBlock)(TUIMessageCellData *);
 @end
 
 @implementation TUIInputController
@@ -40,6 +43,8 @@
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillChangeFrame:) name:UIKeyboardWillChangeFrameNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(inputMessageStatusChanged:) name:@"kTUINotifyMessageStatusChanged" object:nil];
+    
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -71,7 +76,8 @@
 - (void)keyboardWillHide:(NSNotification *)notification
 {
     if (_delegate && [_delegate respondsToSelector:@selector(inputController:didChangeHeight:)]){
-        [_delegate inputController:self didChangeHeight:CGRectGetMaxY(_inputBar.frame) + Bottom_SafeHeight];
+        CGFloat inputContainerBottom = [self getInputContainerBottom];
+        [_delegate inputController:self didChangeHeight:inputContainerBottom + Bottom_SafeHeight];
     }
     if (_status == Input_Status_Input_Keyboard) {
         _status = Input_Status_Input;
@@ -97,7 +103,8 @@
 {
     CGRect keyboardFrame = [notification.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
     if (_delegate && [_delegate respondsToSelector:@selector(inputController:didChangeHeight:)]){
-        [_delegate inputController:self didChangeHeight:keyboardFrame.size.height + CGRectGetMaxY(_inputBar.frame)];
+        CGFloat inputContainerBottom = [self getInputContainerBottom];
+        [_delegate inputController:self didChangeHeight:keyboardFrame.size.height + inputContainerBottom];
     }
     self.keyboardFrame = keyboardFrame;
 }
@@ -189,7 +196,8 @@
     [self hideMoreAnimation];
     _status = Input_Status_Input_Talk;
     if (_delegate && [_delegate respondsToSelector:@selector(inputController:didChangeHeight:)]){
-        [_delegate inputController:self didChangeHeight:CGRectGetMaxY(_inputBar.frame) + Bottom_SafeHeight];
+        CGFloat inputContainerBottom = [self getInputContainerBottom];
+        [_delegate inputController:self didChangeHeight:inputContainerBottom + Bottom_SafeHeight];
     }
 }
 
@@ -247,6 +255,10 @@
     }
     if (_delegate && [_delegate respondsToSelector:@selector(inputController:didChangeHeight:)]){
         [_delegate inputController:self didChangeHeight:self.view.frame.size.height + offset];
+        if (_referencePreviewBar) {
+            CGRect referencePreviewBarFrame = _referencePreviewBar.frame;
+            _referencePreviewBar.frame = CGRectMake(referencePreviewBarFrame.origin.x, referencePreviewBarFrame.origin.y + offset, referencePreviewBarFrame.size.width, referencePreviewBarFrame.size.height);
+        }
     }
 }
 
@@ -256,20 +268,118 @@
     NSString *content = [text getInternationalStringWithfaceContent];
     V2TIMMessage *message = [[V2TIMManager sharedInstance] createTextMessage:content];
     [self appendReplyDataIfNeeded:message];
+    [self appendReferenceDataIfNeeded:message];
     if(_delegate && [_delegate respondsToSelector:@selector(inputController:didSendMessage:)]){
         [_delegate inputController:self didSendMessage:message];
+    }
+}
+
+- (void)inputMessageStatusChanged:(NSNotification *)noti {
+    NSDictionary *userInfo = noti.userInfo;
+    TUIMessageCellData *msg = userInfo[@"msg"];
+    long status = [userInfo[@"status"] intValue];
+    if ([msg isKindOfClass:TUIMessageCellData.class] && status == Msg_Status_Succ ) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.modifyRootReplyMsgBlock) {
+                self.modifyRootReplyMsgBlock(msg);
+            }
+        });
     }
 }
 
 - (void)appendReplyDataIfNeeded:(V2TIMMessage *)message
 {
     if (self.replyData) {
+        V2TIMMessage * parentMsg = self.replyData.originMessage;
+        NSMutableDictionary  * simpleReply = [NSMutableDictionary dictionary];
+        [simpleReply addEntriesFromDictionary:@{
+            @"messageID"       : self.replyData.msgID?:@"",
+            @"messageAbstract" : [self.replyData.msgAbstract?:@"" getInternationalStringWithfaceContent],
+            @"messageSender"   : self.replyData.sender?:@"",
+            @"messageType"     : @(self.replyData.type),
+            @"messageTime"     : @(self.replyData.originMessage.timestamp ? [self.replyData.originMessage.timestamp timeIntervalSince1970] : 0),  // 兼容 web
+            @"messageSequence" : @(self.replyData.originMessage.seq),                                                                             // 兼容 web
+//            @"messageRootID":@"",
+            @"version"         : @(kMessageReplyVersion),
+        }];
+        //拼接原始数据
+        NSMutableDictionary *cloudResultDic = [[NSMutableDictionary alloc] initWithCapacity:5];
+        if (parentMsg.cloudCustomData) {
+            NSDictionary * originDic = [TUITool jsonData2Dictionary:parentMsg.cloudCustomData];
+            if (originDic && [originDic isKindOfClass:[NSDictionary class]]) {
+                [cloudResultDic addEntriesFromDictionary:originDic];
+            }
+            //接受parent里的数据，但是不能保存messageReplies\messageReact，因为这个字段是根消息话题创建者才有
+            //当前发送的新消息里不能存messageReplies\messageReact
+            [cloudResultDic removeObjectForKey:@"messageReplies"];
+            [cloudResultDic removeObjectForKey:@"messageReact"];
+        }
+        NSString * messageParentReply = cloudResultDic[@"messageReply"];
+        NSString * messageRootID = [messageParentReply valueForKey:@"messageRootID"];
+        if (self.replyData.messageRootID.length > 0) {
+            messageRootID = self.replyData.messageRootID;
+        }
+        if (!IS_NOT_EMPTY_NSSTRING(messageRootID)) {
+            //源消息没有messageRootID， 则需要将当前源消息的msgID作为root
+            if (IS_NOT_EMPTY_NSSTRING(parentMsg.msgID)) {
+                messageRootID = parentMsg.msgID;
+            }
+        }
+        [simpleReply setObject:messageRootID forKey:@"messageRootID"];
+        [cloudResultDic setObject:simpleReply forKey:@"messageReply"];
+        NSData *data = [TUITool dictionary2JsonData:cloudResultDic];
+        if (data) {
+            message.cloudCustomData = data;
+        }
+
+        [self exitReply];
+        
+        __weak typeof(self) weakSelf = self;
+        self.modifyRootReplyMsgBlock = ^(TUIMessageCellData *cellData) {
+            __strong typeof(self) strongSelf = weakSelf;
+            [strongSelf modifyRootReplyMsgByID:messageRootID currentMsg:cellData];
+            strongSelf.modifyRootReplyMsgBlock = nil;
+        };
+
+    }
+}
+
+- (void)modifyRootReplyMsgByID:(NSString *)messageRootID  currentMsg:(TUIMessageCellData *)messageCellData{
+    
+    
+    NSDictionary *simpleCurrentContent = @{
+        @"messageID"       : messageCellData.innerMessage.msgID?:@"",
+        @"messageAbstract" : [messageCellData.innerMessage.textElem.text?:@"" getInternationalStringWithfaceContent],
+        @"messageSender"   : messageCellData.innerMessage.sender?:@"",
+        @"messageType"     : @(messageCellData.innerMessage.elemType),
+        @"messageTime"     : @(messageCellData.innerMessage.timestamp ? [messageCellData.innerMessage.timestamp timeIntervalSince1970] : 0),  // 兼容 web
+        @"messageSequence" : @(messageCellData.innerMessage.seq),                                                                             // 兼容 web
+        @"version"         : @(kMessageReplyVersion)
+    };
+    if (messageRootID) {
+        // 通过ID找根源消息
+        [TUIChatDataProvider findMessages:@[messageRootID] callback:^(BOOL succ, NSString * _Nonnull error_message, NSArray * _Nonnull msgs) {
+            if (succ) {
+                if (msgs.count >0) {
+                    V2TIMMessage *rootMsg = msgs.firstObject;
+                    [[TUIChatModifyMessageHelper defaultHelper] modifyMessage:rootMsg  simpleCurrentContent:simpleCurrentContent];
+                }
+            }
+        }];
+    }
+}
+
+- (void)appendReferenceDataIfNeeded:(V2TIMMessage *)message
+{
+    if (self.referenceData) {
         NSDictionary *dict = @{
             @"messageReply": @{
-                    @"messageID"       : self.replyData.msgID?:@"",
-                    @"messageAbstract" : [self.replyData.msgAbstract?:@"" getInternationalStringWithfaceContent],
-                    @"messageSender"   : self.replyData.sender?:@"",
-                    @"messageType"     : @(self.replyData.type),
+                    @"messageID"       : self.referenceData.msgID?:@"",
+                    @"messageAbstract" : [self.referenceData.msgAbstract?:@"" getInternationalStringWithfaceContent],
+                    @"messageSender"   : self.referenceData.sender?:@"",
+                    @"messageType"     : @(self.referenceData.type),
+                    @"messageTime"     : @(self.referenceData.originMessage.timestamp ? [self.referenceData.originMessage.timestamp timeIntervalSince1970] : 0),  // 兼容 web
+                    @"messageSequence" : @(self.referenceData.originMessage.seq),                                                                             // 兼容 web
                     @"version"         : @(kMessageReplyVersion)
             }
         };
@@ -288,7 +398,7 @@
     AVURLAsset *audioAsset = [AVURLAsset URLAssetWithURL:url options:nil];
     int duration = (int)CMTimeGetSeconds(audioAsset.duration);
     V2TIMMessage *message = [[V2TIMManager sharedInstance] createSoundMessage:path duration:duration];
-    if(_delegate && [_delegate respondsToSelector:@selector(inputController:didSendMessage:)]){
+    if (message && _delegate && [_delegate respondsToSelector:@selector(inputController:didSendMessage:)]){
         [_delegate inputController:self didSendMessage:message];
     }
 }
@@ -315,6 +425,25 @@
     }
 }
 
+
+- (void)inputTextViewShouldBeginTyping:(UITextView *)textView {
+    
+    if (_delegate && [_delegate respondsToSelector:@selector(inputControllerBeginTyping:)]) {
+        [_delegate inputControllerBeginTyping:self];
+    }
+}
+
+- (void)inputTextViewShouldEndTyping:(UITextView *)textView {
+    
+    if (_delegate && [_delegate respondsToSelector:@selector(inputControllerEndTyping:)]) {
+        [_delegate inputControllerEndTyping:self];
+    }
+    
+}
+
+
+
+
 - (void)reset
 {
     if(_status == Input_Status_Input){
@@ -329,10 +458,35 @@
     _status = Input_Status_Input;
     [_inputBar.inputTextView resignFirstResponder];
     if (_delegate && [_delegate respondsToSelector:@selector(inputController:didChangeHeight:)]){
-        [_delegate inputController:self didChangeHeight:CGRectGetMaxY(_inputBar.frame) + Bottom_SafeHeight];
+        CGFloat inputContainerBottom = [self getInputContainerBottom];
+        [_delegate inputController:self didChangeHeight:inputContainerBottom + Bottom_SafeHeight];
     }
 }
 
+- (void)showReferencePreview:(TUIReferencePreviewData *)data {
+    self.referenceData = data;
+    [self.referencePreviewBar removeFromSuperview];
+    [self.view addSubview:self.referencePreviewBar];
+    self.inputBar.lineView.hidden = YES;
+    
+    self.referencePreviewBar.previewReferenceData = data;
+    
+    self.inputBar.mm_y = 0 ;
+        
+    self.referencePreviewBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, TMenuView_Menu_Height);
+    self.referencePreviewBar.mm_y = CGRectGetMaxY(self.inputBar.frame);
+    if (self.status == Input_Status_Input_Keyboard) {
+        CGFloat keyboradHeight = self.keyboardFrame.size.height;
+        if (self.delegate && [self.delegate respondsToSelector:@selector(inputController:didChangeHeight:)]){
+            [self.delegate inputController:self didChangeHeight:CGRectGetMaxY(self.referencePreviewBar.frame) + keyboradHeight];
+        }
+    } else if (self.status == Input_Status_Input_Face ||
+               self.status == Input_Status_Input_Talk) {
+        [self.inputBar changeToKeyboard];
+    } else {
+        [self.inputBar.inputTextView becomeFirstResponder];
+    }
+}
 - (void)showReplyPreview:(TUIReplyPreviewData *)data
 {
     self.replyData = data;
@@ -359,13 +513,15 @@
 
 - (void)exitReply
 {
-    if (self.replyData == nil) {
+    if (self.replyData == nil && self.referenceData == nil) {
         return;
     }
     self.replyData = nil;
+    self.referenceData = nil;
     __weak typeof(self) weakSelf = self;
     [UIView animateWithDuration:0.25 animations:^{
         weakSelf.replyPreviewBar.hidden = YES;
+        weakSelf.referencePreviewBar.hidden = YES;
         weakSelf.inputBar.mm_y = 0;
         
         if (weakSelf.status == Input_Status_Input_Keyboard) {
@@ -381,8 +537,11 @@
         
     } completion:^(BOOL finished) {
         [weakSelf.replyPreviewBar removeFromSuperview];
+        [weakSelf.referencePreviewBar removeFromSuperview];
         weakSelf.replyPreviewBar = nil;
-        self.inputBar.lineView.hidden = NO;
+        weakSelf.referencePreviewBar = nil;
+        [weakSelf hideFaceAnimation];
+        weakSelf.inputBar.lineView.hidden = NO;
     }];
 }
 
@@ -402,6 +561,7 @@
     [_inputBar clearInput];
     V2TIMMessage *message = [[V2TIMManager sharedInstance] createTextMessage:content];
     [self appendReplyDataIfNeeded:message];
+    [self appendReferenceDataIfNeeded:message];
     if(_delegate && [_delegate respondsToSelector:@selector(inputController:didSendMessage:)]){
         [_delegate inputController:self didSendMessage:message];
     }
@@ -493,10 +653,31 @@
         _replyPreviewBar = [[TUIReplyPreviewBar alloc] init];
         __weak typeof(self) weakSelf = self;
         _replyPreviewBar.onClose = ^{
-            [weakSelf exitReply];
+            __strong typeof(weakSelf)strongSelf = weakSelf;
+            [strongSelf exitReply];
         };
     }
     return _replyPreviewBar;
+}
+
+- (TUIReferencePreviewBar *)referencePreviewBar {
+    if (_referencePreviewBar == nil) {
+        _referencePreviewBar = [[TUIReferencePreviewBar alloc] init];
+        __weak typeof(self) weakSelf = self;
+        _referencePreviewBar.onClose = ^{
+            __strong typeof(weakSelf)strongSelf = weakSelf;
+            [strongSelf exitReply];
+        };
+    }
+    return _referencePreviewBar;
+}
+
+- (CGFloat)getInputContainerBottom {
+    CGFloat inputHeight = CGRectGetMaxY(_inputBar.frame);
+    if (_referencePreviewBar) {
+        inputHeight = CGRectGetMaxY(_referencePreviewBar.frame) ;
+    }
+    return inputHeight;
 }
 
 @end

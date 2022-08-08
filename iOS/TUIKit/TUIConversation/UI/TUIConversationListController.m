@@ -46,8 +46,12 @@ static NSString *kConversationCell_ReuseId = @"TConversationCell";
             searchBar = [searchExtension tui_objectForKey:TUICore_TUIConversationExtension_SearchBar asClass:UIView.class];
         }
     }
-    
-    _tableView = [[UITableView alloc] initWithFrame:self.view.bounds];
+    //Fix  translucent = NO;
+    CGRect rect = self.view.bounds;
+    if (![UINavigationBar appearance].isTranslucent && [[[UIDevice currentDevice] systemVersion] doubleValue]<15.0) {
+        rect = CGRectMake(rect.origin.x, rect.origin.y, rect.size.width, rect.size.height - TabBar_Height - NavBar_Height );
+    }
+    _tableView = [[UITableView alloc] initWithFrame:rect];
     _tableView.tableFooterView = [[UIView alloc] init];
     _tableView.backgroundColor = self.view.backgroundColor;
     _tableView.contentInset = UIEdgeInsetsMake(0, 0, 8, 0);
@@ -63,7 +67,7 @@ static NSString *kConversationCell_ReuseId = @"TConversationCell";
     //如果不加这一行代码，依然可以实现点击反馈，但反馈会有轻微延迟，体验不好。
     _tableView.delaysContentTouches = NO;
     [self.view addSubview:_tableView];
-
+    [_tableView setSeparatorColor:TUICoreDynamicColor(@"separator_color", @"#DBDBDB")];
     @weakify(self)
     [RACObserve(self.dataProvider, dataList) subscribeNext:^(id  _Nullable x) {
         @strongify(self)
@@ -228,20 +232,23 @@ static NSString *kConversationCell_ReuseId = @"TConversationCell";
 
 -(void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath
 {
+    //通过开启或关闭这个开关，控制最后一行分割线的长度
+    //Turn on or off the length of the last line of dividers by controlling this switch
+    BOOL needLastLineFromZeroToMax = NO;
     if ([cell respondsToSelector:@selector(setSeparatorInset:)]) {
            [cell setSeparatorInset:UIEdgeInsetsMake(0, 75, 0, 0)];
-        if (indexPath.row == (self.dataProvider.dataList.count - 1)) {
+        if (needLastLineFromZeroToMax && indexPath.row == (self.dataProvider.dataList.count - 1)) {
             [cell setSeparatorInset:UIEdgeInsetsZero];
         }
     }
 
     // Prevent the cell from inheriting the Table View's margin settings
-    if ([cell respondsToSelector:@selector(setPreservesSuperviewLayoutMargins:)]) {
+    if (needLastLineFromZeroToMax && [cell respondsToSelector:@selector(setPreservesSuperviewLayoutMargins:)]) {
         [cell setPreservesSuperviewLayoutMargins:NO];
     }
 
     // Explictly set your cell's layout margins
-    if ([cell respondsToSelector:@selector(setLayoutMargins:)]) {
+    if (needLastLineFromZeroToMax && [cell respondsToSelector:@selector(setLayoutMargins:)]) {
         [cell setLayoutMargins:UIEdgeInsetsZero];
     }
 }

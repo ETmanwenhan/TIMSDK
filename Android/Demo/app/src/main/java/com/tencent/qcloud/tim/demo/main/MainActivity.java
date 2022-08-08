@@ -3,14 +3,13 @@ package com.tencent.qcloud.tim.demo.main;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.WindowManager;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -18,7 +17,6 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.viewpager2.widget.ViewPager2;
 
-import com.google.gson.Gson;
 import com.tencent.imsdk.v2.V2TIMCallback;
 import com.tencent.imsdk.v2.V2TIMConversationListener;
 import com.tencent.imsdk.v2.V2TIMFriendApplication;
@@ -26,16 +24,11 @@ import com.tencent.imsdk.v2.V2TIMFriendApplicationResult;
 import com.tencent.imsdk.v2.V2TIMFriendshipListener;
 import com.tencent.imsdk.v2.V2TIMManager;
 import com.tencent.imsdk.v2.V2TIMValueCallback;
-import com.tencent.qcloud.tim.demo.DemoApplication;
 import com.tencent.qcloud.tim.demo.R;
 import com.tencent.qcloud.tim.demo.SplashActivity;
-import com.tencent.qcloud.tim.demo.bean.CallModel;
-import com.tencent.qcloud.tim.demo.bean.OfflineMessageBean;
-import com.tencent.qcloud.tim.demo.bean.UserInfo;
 import com.tencent.qcloud.tim.demo.profile.ProfileFragment;
-import com.tencent.qcloud.tim.demo.thirdpush.OEMPush.HUAWEIHmsMessageService;
-import com.tencent.qcloud.tim.demo.thirdpush.OfflineMessageDispatcher;
-import com.tencent.qcloud.tim.demo.thirdpush.PushSetting;
+import com.tencent.qcloud.tim.demo.push.OfflineMessageBean;
+import com.tencent.qcloud.tim.demo.push.OfflineMessageDispatcher;
 import com.tencent.qcloud.tim.demo.utils.DemoLog;
 import com.tencent.qcloud.tim.demo.utils.TUIUtils;
 import com.tencent.qcloud.tuicore.TUIThemeManager;
@@ -44,7 +37,6 @@ import com.tencent.qcloud.tuicore.component.action.PopActionClickListener;
 import com.tencent.qcloud.tuicore.component.action.PopMenuAction;
 import com.tencent.qcloud.tuicore.component.activities.BaseLightActivity;
 import com.tencent.qcloud.tuicore.component.interfaces.ITitleBarLayout;
-import com.tencent.qcloud.tuicore.component.menu.Menu;
 import com.tencent.qcloud.tuicore.util.ErrorMessageConverter;
 import com.tencent.qcloud.tuicore.util.ToastUtil;
 import com.tencent.qcloud.tuikit.tuicontact.TUIContactConstants;
@@ -52,6 +44,7 @@ import com.tencent.qcloud.tuikit.tuicontact.ui.pages.TUIContactFragment;
 import com.tencent.qcloud.tuikit.tuiconversation.TUIConversationConstants;
 import com.tencent.qcloud.tuikit.tuiconversation.ui.page.TUIConversationFragment;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -80,12 +73,14 @@ public class MainActivity extends BaseLightActivity {
 
     private int count = 0;
     private long lastClickTime = 0;
+
+    private static WeakReference<MainActivity> instance;
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         DemoLog.i(TAG, "onCreate");
         super.onCreate(savedInstanceState);
-        DemoApplication.instance().initPush();
-        DemoApplication.instance().bindUserID(UserInfo.getInstance().getUserId());
+        instance = new WeakReference<>(this);
+
         initView();
     }
 
@@ -94,8 +89,6 @@ public class MainActivity extends BaseLightActivity {
         super.onNewIntent(intent);
         DemoLog.i(TAG, "onNewIntent");
         setIntent(intent);
-        DemoApplication.instance().initPush();
-        DemoApplication.instance().bindUserID(UserInfo.getInstance().getUserId());
     }
 
     private void initView() {
@@ -264,6 +257,11 @@ public class MainActivity extends BaseLightActivity {
         mainTitleBar.getLeftGroup().setVisibility(View.GONE);
         mainTitleBar.getRightGroup().setVisibility(View.VISIBLE);
         mainTitleBar.setRightIcon(TUIThemeManager.getAttrResId(this, R.attr.demo_title_bar_more));
+        int titleBarIconSize = getResources().getDimensionPixelSize(R.dimen.demo_title_bar_icon_size);
+        ViewGroup.LayoutParams params = mainTitleBar.getRightIcon().getLayoutParams();
+        params.width = titleBarIconSize;
+        params.height = titleBarIconSize;
+        mainTitleBar.getRightIcon().setLayoutParams(params);
         setConversationMenu();
     }
 
@@ -394,7 +392,6 @@ public class MainActivity extends BaseLightActivity {
         mProfileSelfBtnIcon.setBackground(getResources().getDrawable(TUIThemeManager.getAttrResId(this, R.attr.demo_main_tab_profile_normal_bg)));
     }
 
-
     private final V2TIMConversationListener unreadListener = new V2TIMConversationListener() {
         @Override
         public void onTotalUnreadMessageCountChanged(long totalUnreadCount) {
@@ -409,7 +406,7 @@ public class MainActivity extends BaseLightActivity {
             }
             mMsgUnread.setText(unreadStr);
             // 华为离线推送角标
-            HUAWEIHmsMessageService.updateBadge(MainActivity.this, (int) totalUnreadCount);
+            OfflineMessageDispatcher.updateBadge(MainActivity.this, (int) totalUnreadCount);
         }
     };
 
@@ -454,7 +451,6 @@ public class MainActivity extends BaseLightActivity {
         DemoLog.i(TAG, "onResume");
         super.onResume();
         registerUnreadListener();
-
         handleOfflinePush();
     }
 
@@ -509,11 +505,8 @@ public class MainActivity extends BaseLightActivity {
         if (V2TIMManager.getInstance().getLoginStatus() == V2TIMManager.V2TIM_STATUS_LOGOUT) {
             Intent intent = new Intent(MainActivity.this, SplashActivity.class);
             if (getIntent() != null) {
-                if (PushSetting.isTPNSChannel) {
-                    intent.setData(getIntent().getData());
-                } else {
-                    intent.putExtras(getIntent().getExtras());
-                }
+                intent.setData(getIntent().getData());
+                intent.putExtras(getIntent());
             }
             startActivity(intent);
             finish();
@@ -533,24 +526,6 @@ public class MainActivity extends BaseLightActivity {
                     return;
                 }
                 TUIUtils.startChat(bean.sender, bean.nickname, bean.chatType);
-            } else if (bean.action == OfflineMessageBean.REDIRECT_ACTION_CALL) {
-                handleOfflinePushCall(bean);
-            }
-        }
-    }
-
-    void handleOfflinePushCall(OfflineMessageBean bean) {
-        if (bean == null || bean.content == null) {
-            return;
-        }
-        final CallModel model = new Gson().fromJson(bean.content, CallModel.class);
-        DemoLog.i(TAG, "bean: " + bean + " model: " + model);
-        if (model != null) {
-            long timeout = V2TIMManager.getInstance().getServerTime() - bean.sendTime;
-            if (timeout >= model.timeout) {
-                ToastUtil.toastLongMessage(DemoApplication.instance().getString(R.string.call_time_out));
-            } else {
-                TUIUtils.startCall(bean.sender, bean.content);
             }
         }
     }
@@ -574,6 +549,12 @@ public class MainActivity extends BaseLightActivity {
         DemoLog.i(TAG, "onDestroy");
         mLastTab = null;
         super.onDestroy();
+    }
+
+    public static void finishMainActivity() {
+        if (instance != null && instance.get() != null) {
+            instance.get().finish();
+        }
     }
 
 }

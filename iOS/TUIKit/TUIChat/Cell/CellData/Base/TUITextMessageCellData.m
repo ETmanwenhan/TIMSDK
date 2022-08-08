@@ -108,19 +108,19 @@
             NSTextAttachment *attchment = [[NSTextAttachment alloc] init];
             UIImage *image = nil;
             if (self.isAudioCall) {
-                image = [UIImage d_imagePath:TUIChatImagePath(@"audio_call")];
+                image = TUIChatCommonBundleImage(@"audio_call");
             }
             if (self.isVideoCall) {
                 if (self.innerMessage.isSelf) {
-                    image = [UIImage d_imagePath:TUIChatImagePath(@"video_call_self")];
+                    image = TUIChatCommonBundleImage(@"video_call_self");
                 } else {
-                    image = [UIImage d_imagePath:TUIChatImagePath(@"video_call")];
+                    image = TUIChatCommonBundleImage(@"video_call");
                 }
             }
             attchment.image = image;
-            attchment.bounds = CGRectMake(0, -(self.textFont.lineHeight-self.textFont.pointSize)/2, self.textFont.pointSize, self.textFont.pointSize);
+            attchment.bounds = CGRectMake(0, -(self.textFont.lineHeight-self.textFont.pointSize)/2, 16, 16);
             NSAttributedString *imageString = [NSAttributedString attributedStringWithAttachment:(NSTextAttachment *)(attchment)];
-            NSAttributedString *spaceString = [[NSAttributedString alloc] initWithString:@" " attributes:@{NSFontAttributeName: self.textFont}];
+            NSAttributedString *spaceString = [[NSAttributedString alloc] initWithString:@"  " attributes:@{NSFontAttributeName: self.textFont}];
             if (self.innerMessage.isSelf) {
                 [_attributedString appendAttributedString:spaceString];
                 [_attributedString appendAttributedString:imageString];

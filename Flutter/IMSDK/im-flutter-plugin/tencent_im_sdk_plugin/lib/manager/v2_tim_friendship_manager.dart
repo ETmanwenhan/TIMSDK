@@ -1,4 +1,4 @@
-// ignore_for_file: unnecessary_cast
+// ignore_for_file: unnecessary_cast, unused_field
 
 import 'dart:convert';
 
@@ -7,7 +7,6 @@ import 'package:tencent_im_sdk_plugin/enum/V2TimFriendshipListener.dart';
 import 'package:tencent_im_sdk_plugin/enum/friend_application_type_enum.dart';
 import 'package:tencent_im_sdk_plugin/enum/friend_response_type_enum.dart';
 import 'package:tencent_im_sdk_plugin/enum/friend_type_enum.dart';
-import 'package:tencent_im_sdk_plugin/enum/utils.dart';
 import 'package:tencent_im_sdk_plugin/models/v2_tim_callback.dart';
 import 'package:tencent_im_sdk_plugin/models/v2_tim_friend_application_result.dart';
 import 'package:tencent_im_sdk_plugin/models/v2_tim_friend_check_result.dart';
@@ -89,6 +88,33 @@ class V2TIMFriendshipManager {
         .setFriendListener(listener: listener, listenerUuid: listenerUuid);
   }
 
+  Future<void> removeFriendListener({
+    V2TimFriendshipListener? listener,
+  }) {
+    var listenerUuid = "";
+    if (listener != null) {
+      listenerUuid = this.friendListenerList.keys.firstWhere(
+            (k) => this.friendListenerList[k] == listener,
+            orElse: () => "",
+          );
+      this.friendListenerList.remove(listenerUuid);
+    } else {
+      this.friendListenerList.clear();
+    }
+    return ImFlutterPlatform.instance.removeFriendListener(
+      listenerUuid: listenerUuid,
+    );
+  }
+
+  Future<void> addFriendListener({
+    required V2TimFriendshipListener listener,
+  }) {
+    final String uuid = Uuid().v4();
+    this.friendListenerList[uuid] = listener;
+    return ImFlutterPlatform.instance
+        .addFriendListener(listener: listener, listenerUuid: uuid);
+  }
+
   ///获取好友列表
   ///
   Future<V2TimValueCallback<List<V2TimFriendInfo>>> getFriendList() async {
@@ -134,12 +160,13 @@ class V2TIMFriendshipManager {
     required FriendTypeEnum addType,
   }) async {
     return ImFlutterPlatform.instance.addFriend(
-        userID: userID,
-        remark: remark,
-        friendGroup: friendGroup,
-        addWording: addWording,
-        addSource: addSource,
-        addType: EnumUtils.convertFriendTypeEnum(addType) as int);
+      userID: userID,
+      remark: remark,
+      friendGroup: friendGroup,
+      addWording: addWording,
+      addSource: addSource,
+      addType: addType.index,
+    );
   }
 
   ///   删除好友
@@ -153,8 +180,8 @@ class V2TIMFriendshipManager {
   /// ```
   ///
   /// ```
-  /// V2TIMFriendInfo.V2TIM_FRIEND_TYPE_SINGLE：单向好友
-  /// V2TIMFriendInfo.V2TIM_FRIEND_TYPE_BOTH：双向好友
+  /// FriendType.V2TIM_FRIEND_TYPE_SINGLE：单向好友
+  /// FriendType.V2TIM_FRIEND_TYPE_BOTH：双向好友
   /// ```
   ///
   Future<V2TimValueCallback<List<V2TimFriendOperationResult>>>
@@ -163,8 +190,9 @@ class V2TIMFriendshipManager {
     required FriendTypeEnum deleteType,
   }) async {
     return ImFlutterPlatform.instance.deleteFromFriendList(
-        userIDList: userIDList,
-        deleteType: EnumUtils.convertFriendTypeEnum(deleteType));
+      userIDList: userIDList,
+      deleteType: deleteType.index,
+    );
   }
 
   /// 检查指定用户的好友关系
@@ -176,8 +204,8 @@ class V2TIMFriendshipManager {
   /// ```
   ///
   /// ```
-  /// V2TIMFriendInfo.V2TIM_FRIEND_TYPE_SINGLE：单向好友
-  /// V2TIMFriendInfo.V2TIM_FRIEND_TYPE_BOTH：双向好友
+  /// FriendType.V2TIM_FRIEND_TYPE_SINGLE：单向好友
+  /// FriendType.V2TIM_FRIEND_TYPE_BOTH：双向好友
   /// ```
   ///
   Future<V2TimValueCallback<List<V2TimFriendCheckResult>>> checkFriend({
@@ -185,8 +213,9 @@ class V2TIMFriendshipManager {
     required FriendTypeEnum checkType,
   }) async {
     return ImFlutterPlatform.instance.checkFriend(
-        userIDList: userIDList,
-        checkType: EnumUtils.convertFriendTypeEnum(checkType));
+      userIDList: userIDList,
+      checkType: checkType.index,
+    );
   }
 
   ///获取好友申请列表
@@ -206,8 +235,8 @@ class V2TIMFriendshipManager {
   /// ```
   ///
   /// ```
-  /// V2TIMFriendApplication.V2TIM_FRIEND_ACCEPT_AGREE：同意添加单向好友
-  /// V2TIMFriendApplication.V2TIM_FRIEND_ACCEPT_AGREE_AND_ADD：同意并添加为双向好友
+  /// FriendApplicationType.V2TIM_FRIEND_ACCEPT_AGREE：同意添加单向好友
+  /// FriendApplicationType.V2TIM_FRIEND_ACCEPT_AGREE_AND_ADD：同意并添加为双向好友
   /// ```
   ///
   Future<V2TimValueCallback<V2TimFriendOperationResult>>
@@ -217,10 +246,7 @@ class V2TIMFriendshipManager {
     required String userID,
   }) async {
     return ImFlutterPlatform.instance.acceptFriendApplication(
-        responseType:
-            EnumUtils.convertFriendResponseTypeEnum(responseType) as int,
-        type: EnumUtils.convertFriendApplicationTypeEnum(type) as int,
-        userID: userID);
+        responseType: responseType.index, type: type.index, userID: userID);
   }
 
   /// 拒绝好友申请
@@ -236,9 +262,8 @@ class V2TIMFriendshipManager {
     required FriendApplicationTypeEnum type,
     required String userID,
   }) async {
-    return ImFlutterPlatform.instance.refuseFriendApplication(
-        type: EnumUtils.convertFriendApplicationTypeEnum(type) as int,
-        userID: userID);
+    return ImFlutterPlatform.instance
+        .refuseFriendApplication(type: type.index, userID: userID);
   }
 
   /// 删除好友申请
@@ -253,9 +278,8 @@ class V2TIMFriendshipManager {
     required FriendApplicationTypeEnum type,
     required String userID,
   }) async {
-    return ImFlutterPlatform.instance.deleteFriendApplication(
-        type: EnumUtils.convertFriendApplicationTypeEnum(type) as int,
-        userID: userID);
+    return ImFlutterPlatform.instance
+        .deleteFriendApplication(type: type.index, userID: userID);
   }
 
   ///设置好友申请已读

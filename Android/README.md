@@ -1,3 +1,5 @@
+[English](./README_EN.md) | 简体中文
+
 本文介绍如何快速跑通即时通信 IM 的体验 Demo。
 
 ## 步骤1：创建应用
@@ -11,9 +13,7 @@
 ## 步骤2：获取密钥信息
 
 1. 单击目标应用所在行的【应用配置】，进入应用详情页面。
-3. 单击**帐号体系集成**右侧的【编辑】，配置**帐号管理员**信息，单击【保存】。
- ![](https://main.qcloudimg.com/raw/2ad153a77fe6f838633d23a0c6a4dde1.png)
-4. 单击【查看密钥】，拷贝并保存密钥信息。
+2. 单击【查看密钥】，拷贝并保存密钥信息。
  >请妥善保管密钥信息，谨防泄露。
 
 ## 步骤3：下载并配置 Demo 源码
@@ -31,7 +31,7 @@
      </tr> 
   <tr>
       <td>iOS</td>   
-      <td>iOS/Demo/TUIKitDemo/Debug/GenerateTestUserSig.h</td>
+      <td>iOS/Demo/TUIKitDemo/Private/GenerateTestUserSig.h</td>
      </tr> 
   <tr>      
       <td>Mac</td>   
@@ -57,7 +57,8 @@
 3. 设置 `GenerateTestUserSig` 文件中的相关参数：
  - SDKAPPID：请设置为 **步骤1** 中获取的实际应用 SDKAppID。
  - SECRETKEY：请设置为 **步骤2** 中获取的实际密钥信息。
- ![](https://main.qcloudimg.com/raw/bfbe25b15b7aa1cc34be76d7388562aa.png)
+
+![](https://qcloudimg.tencent-cloud.cn/raw/c3e75cba79968ebce176d9e97b3bd7bf.png)
 
 
 >本文提到的获取 UserSig 的方案是在客户端代码中配置 SECRETKEY，该方法中 SECRETKEY 很容易被反编译逆向破解，一旦您的密钥泄露，攻击者就可以盗用您的腾讯云流量，因此**该方法仅适合本地跑通 Demo 和功能调试**。
@@ -74,9 +75,16 @@
 ```groovy
 api project(':tuicalling')
 ```
-这样，就不再集成音视频通话功能，聊天页面的更多输入界面就不再出现音视频通话按钮：
+操作完上述步骤后会发现，Demo 中的音频通话、视频通话入口均被隐藏。
+会话界面屏蔽 TUICalling 前后的效果：
 
-<img src="https://qcloudimg.tencent-cloud.cn/raw/8fbdba7660919147a690bdcaf4f4488d.jpg" width="500"/>
+![](https://qcloudimg.tencent-cloud.cn/raw/11d6846dc76aedcda15f6f70b78c59c7.png) ![](https://qcloudimg.tencent-cloud.cn/raw/ca116e25894a6ba72d49e2507cc213ba.png)
+
+联系人资料界面屏蔽 TUICalling 前后的效果：
+
+![](https://qcloudimg.tencent-cloud.cn/raw/98df67c187384445432d490f6c0f7847.png)  ![](https://qcloudimg.tencent-cloud.cn/raw/b604eeac45f0a2cf5924d23567c69090.png)
+
+> 以上演示的仅仅是 Demo 对移除音视频通话功能的处理，开发者可以按照业务要求自定义。
 
 ## 步骤6：编译运行（移除搜索模块）
 如果您不需要搜索功能，那么只需要在 `app 模块` 的 `build.gradle` 文件中删除下面一行即可：
@@ -86,6 +94,10 @@ api project(':tuicalling')
 ```groovy
 api project(':tuisearch')
 ```
-这样在会话列表界面就不会出现搜索框，如下图所示：
+操作完上述步骤后会发现，Demo 中的消息搜索框被隐藏。
 
-<img src="https://qcloudimg.tencent-cloud.cn/raw/b8cb53196326dc6e68f5ca1d210a28bf.jpg" width="500"/>
+消息界面屏蔽 TUISearch 前后的效果：
+
+![](https://qcloudimg.tencent-cloud.cn/raw/e099c8fe41f3c908cd88573dad6dc820.png)  ![](https://qcloudimg.tencent-cloud.cn/raw/c501170cbb23923d6bacff893b30fdbb.png)
+
+> 以上演示的仅仅是 Demo 对移除搜索功能的处理，开发者可以按照业务要求自定义。

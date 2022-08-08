@@ -10,65 +10,69 @@
 #import "ConversationController.h"
 #import "SettingController.h"
 #import "ContactsController.h"
-#import "TCConstants.h"
 #import "TUIDefine.h"
 #import "TUIKit.h"
 #import "Aspects.h"
 #import "TCUtil.h"
-#import "TUILoginCache.h"
-#import "TUIDarkModel.h"
-#import "GenerateTestUserSig.h"
-#import "TUILoginCache.h"
+#import "TCLoginModel.h"
 
 #if ENABLELIVE
-#import "TUILiveSceneViewController.h"
-#import "TUIKitLive.h"
 #import "TRTCSignalFactory.h"
 @import TXLiteAVSDK_TRTC;
 #endif
 
+#import "TUIBaseChatViewController.h"
 #import "TUIBadgeView.h"
-#import "AppDelegate+Push.h"
+#import "AppDelegate+Redpoint.h"
 #import "ThemeSelectController.h"
 #import "TUIThemeManager.h"
 #import "LanguageSelectController.h"
+#import "TUILogin.h"
+#import "TUIChatConfig.h"
 
-@interface AppDelegate () <UIAlertViewDelegate, V2TIMConversationListener, V2TIMSDKListener, ThemeSelectControllerDelegate, LanguageSelectControllerDelegate>
-
-@property (nonatomic, weak) TUIBadgeView *badgeView;
+@interface AppDelegate () <V2TIMConversationListener, TUILoginListener, ThemeSelectControllerDelegate, LanguageSelectControllerDelegate>
 
 @end
 
-static AppDelegate *app;
-
 @implementation AppDelegate
 
-+ (instancetype)sharedInstance {
-    return app;
-}
 
-- (void)login:(NSString *)identifier userSig:(NSString *)sig succ:(TSucc)succ fail:(TFail)fail
+#pragma mark - 推送的配置及统一跳转
+
+// APNs 证书 ID 配置
+TUIOfflinePushCertificateIDForAPNS(kAPNSBusiId)
+
+// TPNS 自定义域名、key 配置
+TUIOfflinePushConfigForTPNS(kTPNSAccessID, kTPNSAccessKey, kTPNSDomain)
+
+// 统一点击跳转
+- (void)navigateToTUIChatViewController:(NSString *)userID groupID:(NSString *)groupID
 {
-    [[TUIKit sharedInstance] setupWithAppId:SDKAPPID];
-    [[TUIKit sharedInstance] login:identifier userSig:sig succ:^{
-        
-        [self push_registerIfLogined:identifier];
-        self.window.rootViewController = [app getMainController];
-        
-        [TUITool makeToast:NSLocalizedString(@"AppLoginSucc", nil) duration:1];
-        if (succ) {
-            succ();
-        }
-    } fail:^(int code, NSString *msg) {
-        self.window.rootViewController = [self getLoginController];
-        if (fail) {
-            fail(code, msg);
-        }
-    }];
+    UITabBarController *tab = [self getMainController];
+    if (![tab isKindOfClass: UITabBarController.class]) {
+        // 正在登录中
+        return;
+    }
+    if (tab.selectedIndex != 0) {
+        [tab setSelectedIndex:0];
+    }
+    self.window.rootViewController = tab;
+    UINavigationController *nav = (UINavigationController *)tab.selectedViewController;
+    if (![nav isKindOfClass:UINavigationController.class]) {
+        return;
+    }
+
+    UIViewController *vc = nav.viewControllers.firstObject;
+    if (![vc isKindOfClass:NSClassFromString(@"ConversationController")]) {
+        return;
+    }
+    if ([vc respondsToSelector:NSSelectorFromString(@"pushToChatViewController:userID:")]) {
+        [vc performSelector:NSSelectorFromString(@"pushToChatViewController:userID:") withObject:groupID withObject:userID];
+    }
 }
 
+#pragma mark - Life cycle
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-
     app = self;
 
     // Override point for customization after application launch.
@@ -77,147 +81,47 @@ static AppDelegate *app;
     // 设置主题样式
     TUIRegisterThemeResourcePath([NSBundle.mainBundle pathForResource:@"TUIDemoTheme.bundle" ofType:nil], TUIThemeModuleDemo);
     [ThemeSelectController applyTheme:nil];
-    
-    [self push_init];
+        
     [self setupListener];
-    [self setupCustomSticker];
     [self setupGlobalUI];
-    [self autoLoginIfNeeded];
+    [self setupConfig];
+    [self tryAutoLogin];
     
     return YES;
 }
+- (void)applicationDidEnterBackground:(UIApplication *)application {}
+- (void)applicationWillEnterForeground:(UIApplication *)application {}
+- (void)applicationWillTerminate:(UIApplication *)application {}
+#pragma mark - Public
++ (instancetype)sharedInstance {
+    return app;
+}
 
-- (void)autoLoginIfNeeded
-{
-    self.window.rootViewController = [self getLoginController];
-    [[TUILoginCache sharedInstance] login:^(NSString * _Nonnull identifier, NSUInteger appId, NSString * _Nonnull userSig) {
-        if(appId == SDKAPPID && identifier.length != 0 && userSig.length != 0){
-            [self login:identifier userSig:userSig succ:nil fail:nil];
-        } else {
-            self.window.rootViewController = [self getLoginController];
+- (UIViewController *)getLoginController {
+   UIStoryboard *board = [UIStoryboard storyboardWithName:@"Main" bundle:[NSBundle mainBundle]];
+   LoginController *login = [board instantiateViewControllerWithIdentifier:@"LoginController"];
+   UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:login];
+   return nav;
+}
+
+- (void)loginSDK:(NSString *)userID userSig:(NSString *)sig succ:(TSucc)succ fail:(TFail)fail {
+    [TUILogin login:SDKAPPID userID:userID userSig:sig succ:^{
+        [self redpoint_setupTotalUnreadCount];
+        self.window.rootViewController = [self getMainController];
+        [TUITool makeToast:NSLocalizedString(@"AppLoginSucc", nil) duration:1];
+        if (succ) {
+            succ();
+        }
+    } fail:^(int code, NSString *msg) {
+        self.window.rootViewController = [self getLoginController];
+        [[NSNotificationCenter defaultCenter] postNotificationName: @"TUILoginShowPrivacyPopViewNotfication" object:nil];
+        if (fail) {
+            fail(code, msg);
         }
     }];
 }
 
-- (void)setupGlobalUI
-{
-    [UIViewController aspect_hookSelector:@selector(setTitle:)
-                              withOptions:AspectPositionAfter
-                               usingBlock:^(id<AspectInfo> aspectInfo, NSString *title) {
-        UIViewController *vc = aspectInfo.instance;
-        vc.navigationItem.titleView = ({
-            UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
-            titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
-            titleLabel.text = title;
-            titleLabel;
-        });
-        vc.navigationItem.title = @"";
-    } error:NULL];
-}
-
-- (void)setupCustomSticker
-{
-    NSMutableArray *faceGroups = [NSMutableArray arrayWithArray:TUIConfig.defaultConfig.faceGroups];
-    
-    //4350 group
-    NSMutableArray *faces4350 = [NSMutableArray array];
-    for (int i = 0; i <= 17; i++) {
-        TUIFaceCellData *data = [[TUIFaceCellData alloc] init];
-        NSString *name = [NSString stringWithFormat:@"yz%02d", i];
-        NSString *path = [NSString stringWithFormat:@"4350/%@", name];
-        data.name = name;
-        data.path = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:path];
-        [faces4350 addObject:data];
-    }
-    if(faces4350.count != 0){
-        TUIFaceGroup *group4350 = [[TUIFaceGroup alloc] init];
-        group4350.groupIndex = 1;
-        group4350.groupPath = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:@"4350/"]; //TUIChatFaceImagePath(@"4350/");
-        group4350.faces = faces4350;
-        group4350.rowCount = 2;
-        group4350.itemCountPerRow = 5;
-        group4350.menuPath = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:@"4350/menu"]; // TUIChatFaceImagePath(@"4350/menu");
-        [faceGroups addObject:group4350];
-    }
-    
-    //4351 group
-    NSMutableArray *faces4351 = [NSMutableArray array];
-    for (int i = 0; i <= 15; i++) {
-        TUIFaceCellData *data = [[TUIFaceCellData alloc] init];
-        NSString *name = [NSString stringWithFormat:@"ys%02d", i];
-        NSString *path = [NSString stringWithFormat:@"4351/%@", name];
-        data.name = name;
-        data.path = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:path]; // TUIChatFaceImagePath(path);
-        [faces4351 addObject:data];
-    }
-    if(faces4351.count != 0){
-        TUIFaceGroup *group4351 = [[TUIFaceGroup alloc] init];
-        group4351.groupIndex = 2;
-        group4351.groupPath = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:@"4351/"]; // TUIChatFaceImagePath(@"4351/");
-        group4351.faces = faces4351;
-        group4351.rowCount = 2;
-        group4351.itemCountPerRow = 5;
-        group4351.menuPath = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:@"4351/menu"]; //TUIChatFaceImagePath(@"4351/menu");
-        [faceGroups addObject:group4351];
-    }
-    
-    //4352 group
-    NSMutableArray *faces4352 = [NSMutableArray array];
-    for (int i = 0; i <= 16; i++) {
-        TUIFaceCellData *data = [[TUIFaceCellData alloc] init];
-        NSString *name = [NSString stringWithFormat:@"gcs%02d", i];
-        NSString *path = [NSString stringWithFormat:@"4352/%@", name];
-        data.name = name;
-        data.path = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:path]; // TUIChatFaceImagePath(path);
-        [faces4352 addObject:data];
-    }
-    if(faces4352.count != 0){
-        TUIFaceGroup *group4352 = [[TUIFaceGroup alloc] init];
-        group4352.groupIndex = 3;
-        group4352.groupPath = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:@"4352/"]; //TUIChatFaceImagePath(@"4352/");
-        group4352.faces = faces4352;
-        group4352.rowCount = 2;
-        group4352.itemCountPerRow = 5;
-        group4352.menuPath = [[[NSBundle mainBundle] pathForResource:@"CustomFaceResource" ofType:@"bundle"] stringByAppendingPathComponent:@"4352/menu"]; // TUIChatFaceImagePath(@"4352/menu");
-        [faceGroups addObject:group4352];
-    }
-    
-    TUIConfig.defaultConfig.faceGroups = faceGroups;
-}
-
-
-- (void)handleVCLeak:(UIViewController *)vc oprSeq:(NSString *)seq stackInfo:(NSString *)stack {
-    UIAlertController *ac = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"发现内存泄露:%@",vc] message:seq preferredStyle:UIAlertControllerStyleAlert];
-    [ac addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:nil]];
-    [self.window.rootViewController presentViewController:ac animated:YES completion:nil];
-}
-
-- (void)handleUIViewLeak:(UIView *)view detail:(NSString *)detail hierarchyInfo:(NSString *)hierarchy stackInfo:(NSString *)stack {
-    UIAlertController *ac = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"发现内存泄露:%@",view] message:hierarchy preferredStyle:UIAlertControllerStyleAlert];
-    [ac addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:nil]];
-    [self.window.rootViewController presentViewController:ac animated:YES completion:nil];
-}
-
-- (void)setupListener
-{
-    [[V2TIMManager sharedInstance] addIMSDKListener:self];
-    [[V2TIMManager sharedInstance] addConversationListener:self];
-}
-
-void uncaughtExceptionHandler(NSException*exception){
-    NSLog(@"CRASH: %@", exception);
-    NSLog(@"Stack Trace: %@",[exception callStackSymbols]);
-    // Internal error reporting
-}
-
-- (UIViewController *)getLoginController{
-    UIStoryboard *board = [UIStoryboard storyboardWithName:@"Main" bundle:[NSBundle mainBundle]];
-    LoginController *login = [board instantiateViewControllerWithIdentifier:@"LoginController"];
-    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:login];
-    return nav;
-}
-
-- (UITabBarController *)getMainController{
+- (UITabBarController *)getMainController {
     TUITabBarController *tbc = [[TUITabBarController alloc] init];
     NSMutableArray *items = [NSMutableArray array];
     TUITabBarItem *msgItem = [[TUITabBarItem alloc] init];
@@ -230,7 +134,7 @@ void uncaughtExceptionHandler(NSException*exception){
     @weakify(self)
     msgItem.badgeView.clearCallback = ^{
         @strongify(self)
-        [self push_clearUnreadMessage];
+        [self redpoint_clearUnreadMessage];
     };
     [items addObject:msgItem];
 
@@ -255,13 +159,122 @@ void uncaughtExceptionHandler(NSException*exception){
     return tbc;
 }
 
-- (void)onUserStatus:(TUIUserStatus)status
+
+
+#pragma mark - Private
+- (void)setupListener {
+    [TUILogin addLoginListener:self];
+    [[V2TIMManager sharedInstance] addConversationListener:self];
+}
+
+void uncaughtExceptionHandler(NSException*exception) {
+    NSLog(@"CRASH: %@", exception);
+    NSLog(@"Stack Trace: %@",[exception callStackSymbols]);
+    // Internal error reporting
+}
+
+- (void)tryAutoLogin {
+    self.window.rootViewController = [self getLoginController];
+    [[TCLoginModel sharedInstance] getAccessAddressWithSucceedBlock:^(NSDictionary *data) {
+        [self autoLoginIfNeeded];
+    } failBlock:^(NSInteger errorCode, NSString *errorMsg) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [[TCLoginModel sharedInstance] getAccessAddressWithSucceedBlock:^(NSDictionary *data) {
+                [self autoLoginIfNeeded];
+            } failBlock:^(NSInteger errorCode, NSString *errorMsg) {
+                [[NSNotificationCenter defaultCenter] postNotificationName: @"TUILoginShowPrivacyPopViewNotfication" object:nil];
+            }];
+        });
+    }];
+}
+
+- (void)autoLoginIfNeeded {
+    @weakify(self)
+    [[TCLoginModel sharedInstance] autoLoginWithSucceedBlock:^(NSDictionary *data) {
+        @strongify(self)
+        NSString *userSig = data[@"sdkUserSig"];
+        NSString *userID = data[@"userId"];
+        if (userID.length != 0 && userSig.length != 0) {
+            [self loginSDK:userID userSig:userSig succ:nil fail:nil];
+        } else {
+            self.window.rootViewController = [self getLoginController];
+            [[NSNotificationCenter defaultCenter] postNotificationName: @"TUILoginShowPrivacyPopViewNotfication" object:nil];
+        }
+    } failBlock:^(NSInteger errorCode, NSString *errorMsg) {
+        @strongify(self)
+        self.window.rootViewController = [self getLoginController];
+        [[NSNotificationCenter defaultCenter] postNotificationName: @"TUILoginShowPrivacyPopViewNotfication" object:nil];
+    }];
+}
+
+- (void)setupConfig {
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:kEnableMsgReadStatus]) {
+        TUIChatConfig.defaultConfig.msgNeedReadReceipt = [[NSUserDefaults standardUserDefaults] boolForKey:kEnableMsgReadStatus];
+    } else {
+        TUIChatConfig.defaultConfig.msgNeedReadReceipt = NO;
+        [[NSUserDefaults standardUserDefaults] setBool:NO forKey:kEnableMsgReadStatus];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
+    TUIConfig.defaultConfig.displayOnlineStatusIcon = [[NSUserDefaults standardUserDefaults] boolForKey:kEnableOnlineStatus];
+}
+
+#pragma mark -- Setup UI
+- (void)setupGlobalUI {
+    [UIViewController aspect_hookSelector:@selector(setTitle:)
+                              withOptions:AspectPositionAfter
+                               usingBlock:^(id<AspectInfo> aspectInfo, NSString *title) {
+        UIViewController *vc = aspectInfo.instance;
+        vc.navigationItem.titleView = ({
+            UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+            titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+            titleLabel.text = title;
+            titleLabel;
+        });
+        vc.navigationItem.title = @"";
+    } error:NULL];
+}
+
+
+
+#pragma mark - V2TIMConversationListener
+- (void)onTotalUnreadMessageCountChanged:(UInt64) totalUnreadCount {
+    NSLog(@"%s, totalUnreadCount:%llu", __func__, totalUnreadCount);
+}
+
+#pragma mark - TUILoginListener
+- (void)onConnecting {
+    
+}
+
+- (void)onConnectSuccess {
+    
+}
+
+- (void)onConnectFailed:(int)code err:(NSString *)err {
+    
+}
+
+- (void)onUserSigExpired {
+    [self onUserStatus:TUser_Status_SigExpired];
+}
+
+- (void)onKickedOffline {
+    [self onUserStatus:TUser_Status_ForceOffline];
+}
+
+- (TUIContactViewDataProvider *)contactDataProvider
 {
+    if (_contactDataProvider == nil) {
+        _contactDataProvider = [[TUIContactViewDataProvider alloc] init];
+    }
+    return _contactDataProvider;
+}
+
+- (void)onUserStatus:(TUIUserStatus)status {
     switch (status) {
         case TUser_Status_ForceOffline:
         {
-            UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"下线通知" message:@"您的帐号于另一台手机上登录。" delegate:self cancelButtonTitle:@"退出" otherButtonTitles:@"重新登录", nil];
-            [alertView show];
+            [self showKickOffAlert];
         }
             break;
         case TUser_Status_ReConnFailed:
@@ -279,59 +292,31 @@ void uncaughtExceptionHandler(NSException*exception){
     }
 }
 
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex
-{
-    if (buttonIndex == 0)
-    {
-        [[TUIKit sharedInstance] logout:^{
-            NSLog(@"登出成功！");
+- (void)showKickOffAlert {
+    [self showAlertWithTitle:NSLocalizedString(@"AppOfflineTitle", nil) message:NSLocalizedString(@"AppOfflineDesc", nil) cancelAction:^(UIAlertAction *action, NSString *content) {
+        [TUILogin logout:^{
+            NSLog(@"logout sdk succeed");
         } fail:^(int code, NSString *msg) {
-            NSLog(@"退出登录");
+            NSLog(@"logout sdk failed, code: %ld, msg: %@", (long)code, msg);
         }];
-        
         self.window.rootViewController = [self getLoginController];
-    }
-    else
-    {
-        // 重新登录
-        [[TUILoginCache sharedInstance] login:^(NSString * _Nonnull identifier, NSUInteger appId, NSString * _Nonnull userSig) {
-            [self login:identifier userSig:userSig succ:^{
-                NSLog(@"登录成功！");
-                self.window.rootViewController = [self getMainController];
-            } fail:^(int code, NSString *msg) {
-                NSLog(@"登录失败！");
-                self.window.rootViewController = [self getLoginController];
-            }];
+        [[NSNotificationCenter defaultCenter] postNotificationName: @"TUILoginShowPrivacyPopViewNotfication" object:nil];
+    } confirmAction:^(UIAlertAction *action, NSString *content) {
+        NSString *userID = [TCLoginModel sharedInstance].userID;
+        NSString *userSig = [TCLoginModel sharedInstance].userSig;
+        [self loginSDK:userID userSig:userSig succ:^{
+            NSLog(@"relogin sdk succeed");
+            self.window.rootViewController = [self getMainController];
+        } fail:^(int code, NSString *msg) {
+            NSLog(@"relogin sdk failed, code: %ld, msg: %@", (long)code, msg);
+            self.window.rootViewController = [self getLoginController];
+            [[NSNotificationCenter defaultCenter] postNotificationName: @"TUILoginShowPrivacyPopViewNotfication" object:nil];
         }];
-    }
-}
-
-#pragma mark - V2TIMConversationListener
-- (void)onTotalUnreadMessageCountChanged:(UInt64) totalUnreadCount {
-    NSLog(@"%s, totalUnreadCount:%llu", __func__, totalUnreadCount);
-}
-
-#pragma mark - V2TIMSDKListener
-
-- (void)onKickedOffline {
-    [self onUserStatus:TUser_Status_ForceOffline];
-}
-
-- (void)onUserSigExpired {
-    [self onUserStatus:TUser_Status_SigExpired];
-}
-
-- (TUIContactViewDataProvider *)contactDataProvider
-{
-    if (_contactDataProvider == nil) {
-        _contactDataProvider = [[TUIContactViewDataProvider alloc] init];
-    }
-    return _contactDataProvider;
+    }];
 }
 
 #pragma mark - LanguageSelectControllerDelegate
-- (void)onSelectLanguage:(LanguageSelectCellModel *)cellModel
-{
+- (void)onSelectLanguage:(LanguageSelectCellModel *)cellModel {
     // 动态刷新语言的方法: 销毁当前界面，并重新创建后跳转来实现动态刷新语言
     [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"need_recover_login_page_info"];
     [NSUserDefaults.standardUserDefaults synchronize];
@@ -360,8 +345,7 @@ void uncaughtExceptionHandler(NSException*exception){
 }
 
 #pragma mark - ThemeSelectControllerDelegate
-- (void)onSelectTheme:(ThemeSelectCollectionViewCellModel *)cellModel
-{
+- (void)onSelectTheme:(ThemeSelectCollectionViewCellModel *)cellModel {
     // 动态刷新主题的方法: 销毁当前界面，并重新创建后跳转来实现动态刷新主题
     [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"need_recover_login_page_info"];
     [NSUserDefaults.standardUserDefaults synchronize];
@@ -403,6 +387,33 @@ void uncaughtExceptionHandler(NSException*exception){
         [themeVc.view hideToastActivity];
         themeVc.disable = NO;
     });
+}
+
+
+#pragma mark - Other
+typedef void (^cancelHandler)(UIAlertAction *action, NSString *content);
+typedef void (^confirmHandler)(UIAlertAction *action, NSString *content);
+- (void)showAlertWithTitle:(NSString *)title message:(NSString *)message cancelAction:(cancelHandler)cancelHandler confirmAction:(confirmHandler)confirmHandler {
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
+                                                                             message:message
+                                                                      preferredStyle:UIAlertControllerStyleAlert];
+    
+    UIAlertAction *cancel = [UIAlertAction actionWithTitle:NSLocalizedString(@"AppCancelRelogin", nil) style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+        if (cancelHandler) {
+            cancelHandler(action, nil);
+        }
+    }];
+    
+    UIAlertAction *confirm = [UIAlertAction actionWithTitle:NSLocalizedString(@"AppConfirmRelogin", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        if (confirmHandler) {
+            confirmHandler(action, nil);
+        }
+    }];
+    
+    [alertController addAction:cancel];
+    [alertController addAction:confirm];
+    
+    [self.window.rootViewController presentViewController:alertController animated:NO completion:nil];
 }
 
 @end

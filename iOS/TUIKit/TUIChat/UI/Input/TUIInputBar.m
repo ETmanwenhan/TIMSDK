@@ -17,15 +17,29 @@
 #import "TUIDarkModel.h"
 #import "TUIGlobalization.h"
 #import "TUIThemeManager.h"
+#import "NSTimer+Safe.h"
 
 @interface TUIInputBar() <UITextViewDelegate, AVAudioRecorderDelegate>
 @property (nonatomic, strong) TUIRecordView *record;
 @property (nonatomic, strong) NSDate *recordStartTime;
 @property (nonatomic, strong) AVAudioRecorder *recorder;
 @property (nonatomic, strong) NSTimer *recordTimer;
+
+@property (nonatomic, assign) BOOL isFocusOn;
+@property (nonatomic, strong) NSTimer *sendTypingStatusTimer;
+@property (nonatomic, assign) BOOL allowSendTypingStatusByChangeWord;
 @end
 
 @implementation TUIInputBar
+
+- (void)dealloc {
+    
+    if(_sendTypingStatusTimer){
+        [_sendTypingStatusTimer invalidate];
+        _sendTypingStatusTimer = nil;
+    }
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
 
 - (id)initWithFrame:(CGRect)frame
 {
@@ -33,6 +47,7 @@
     if(self){
         [self setupViews];
         [self defaultLayout];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(onThemeChanged) name:TUIDidApplyingThemeChangedNotfication object:nil];
     }
     return self;
 }
@@ -42,62 +57,77 @@
     self.backgroundColor = TUIChatDynamicColor(@"chat_input_controller_bg_color", @"#EBF0F6");
 
     _lineView = [[UIView alloc] init];
-    _lineView.backgroundColor = TUICoreDynamicColor(@"separtor_color", @"#FFFFFF");
+    _lineView.backgroundColor = TUICoreDynamicColor(@"separator_color", @"#FFFFFF");
 
     _micButton = [[UIButton alloc] init];
     [_micButton addTarget:self action:@selector(clickVoiceBtn:) forControlEvents:UIControlEventTouchUpInside];
-    [_micButton setImage:[UIImage d_imageNamed:@"ToolViewInputVoice" bundle:TUIChatBundle] forState:UIControlStateNormal];
-    [_micButton setImage:[UIImage d_imageNamed:@"ToolViewInputVoiceHL" bundle:TUIChatBundle] forState:UIControlStateHighlighted];
+    [_micButton setImage:TUIChatBundleThemeImage(@"chat_ToolViewInputVoice_img",@"ToolViewInputVoice")         forState:UIControlStateNormal];
+    [_micButton setImage: TUIChatBundleThemeImage(@"chat_ToolViewInputVoiceHL_img", @"ToolViewInputVoiceHL")
+                forState:UIControlStateHighlighted];
     [self addSubview:_micButton];
 
     _faceButton = [[UIButton alloc] init];
     [_faceButton addTarget:self action:@selector(clickFaceBtn:) forControlEvents:UIControlEventTouchUpInside];
-    [_faceButton setImage:[UIImage d_imageNamed:@"ToolViewEmotion" bundle:TUIChatBundle] forState:UIControlStateNormal];
-    [_faceButton setImage:[UIImage d_imageNamed:@"ToolViewEmotionHL" bundle:TUIChatBundle] forState:UIControlStateHighlighted];
+    [_faceButton setImage: TUIChatBundleThemeImage(@"chat_ToolViewEmotion_img", @"ToolViewEmotion")
+                 forState:UIControlStateNormal];
+    [_faceButton setImage: TUIChatBundleThemeImage(@"chat_ToolViewEmotionHL_img",@"ToolViewEmotionHL")
+                 forState:UIControlStateHighlighted];
     [self addSubview:_faceButton];
 
+    
     _keyboardButton = [[UIButton alloc] init];
     [_keyboardButton addTarget:self action:@selector(clickKeyboardBtn:) forControlEvents:UIControlEventTouchUpInside];
-    [_keyboardButton setImage:[UIImage d_imageNamed:@"ToolViewKeyboard" bundle:TUIChatBundle] forState:UIControlStateNormal];
-    [_keyboardButton setImage:[UIImage d_imageNamed:@"ToolViewKeyboardHL" bundle:TUIChatBundle] forState:UIControlStateHighlighted];
+    [_keyboardButton setImage:TUIChatBundleThemeImage(@"chat_ToolViewKeyboard_img", @"ToolViewKeyboard") forState:UIControlStateNormal];
+    [_keyboardButton setImage:TUIChatBundleThemeImage(@"chat_ToolViewKeyboardHL_img", @"ToolViewKeyboardHL")
+                     forState:UIControlStateHighlighted];
     _keyboardButton.hidden = YES;
     [self addSubview:_keyboardButton];
 
     _moreButton = [[UIButton alloc] init];
     [_moreButton addTarget:self action:@selector(clickMoreBtn:) forControlEvents:UIControlEventTouchUpInside];
-    [_moreButton setImage:[UIImage d_imageNamed:@"TypeSelectorBtn_Black" bundle:TUIChatBundle] forState:UIControlStateNormal];
-    [_moreButton setImage:[UIImage d_imageNamed:@"TypeSelectorBtnHL_Black" bundle:TUIChatBundle] forState:UIControlStateHighlighted];
+    [_moreButton setImage:TUIChatBundleThemeImage(@"chat_TypeSelectorBtn_Black_img",@"TypeSelectorBtn_Black")          forState:UIControlStateNormal];
+    [_moreButton setImage:TUIChatBundleThemeImage(@"chat_TypeSelectorBtnHL_Black_img",@"TypeSelectorBtnHL_Black")
+                 forState:UIControlStateHighlighted];
     [self addSubview:_moreButton];
 
     _recordButton = [[UIButton alloc] init];
     [_recordButton.titleLabel setFont:[UIFont systemFontOfSize:15.0f]];
-    [_recordButton.layer setMasksToBounds:YES];
-    [_recordButton.layer setCornerRadius:4.0f];
-    [_recordButton.layer setBorderWidth:0.5f];
-    [_recordButton.layer setBorderColor:[UIColor d_colorWithColorLight:TLine_Color dark:TLine_Color_Dark].CGColor];
     [_recordButton addTarget:self action:@selector(recordBtnDown:) forControlEvents:UIControlEventTouchDown];
     [_recordButton addTarget:self action:@selector(recordBtnUp:) forControlEvents:UIControlEventTouchUpInside];
     [_recordButton addTarget:self action:@selector(recordBtnCancel:) forControlEvents:UIControlEventTouchUpOutside | UIControlEventTouchCancel];
     [_recordButton addTarget:self action:@selector(recordBtnExit:) forControlEvents:UIControlEventTouchDragExit];
     [_recordButton addTarget:self action:@selector(recordBtnEnter:) forControlEvents:UIControlEventTouchDragEnter];
     [_recordButton setTitle:TUIKitLocalizableString(TUIKitInputHoldToTalk) forState:UIControlStateNormal];
-    [_recordButton setTitleColor:[UIColor d_colorWithColorLight:TText_Color dark:TText_Color_Dark] forState:UIControlStateNormal];
+    [_recordButton setTitleColor:TUIChatDynamicColor(@"chat_input_text_color", @"#000000") forState:UIControlStateNormal];
     _recordButton.hidden = YES;
     [self addSubview:_recordButton];
 
     _inputTextView = [[TUIResponderTextView alloc] init];
     _inputTextView.delegate = self;
     [_inputTextView setFont:[UIFont systemFontOfSize:16]];
-    [_inputTextView.layer setMasksToBounds:YES];
-    [_inputTextView.layer setCornerRadius:4.0f];
-    [_inputTextView.layer setBorderWidth:0.5f];
-    [_inputTextView.layer setBorderColor:TUICoreDynamicColor(@"separtor_color", @"#FFFFFF").CGColor];
     _inputTextView.backgroundColor = TUIChatDynamicColor(@"chat_input_bg_color", @"#FFFFFF");
     _inputTextView.textColor = TUIChatDynamicColor(@"chat_input_text_color", @"#000000");
     [_inputTextView setReturnKeyType:UIReturnKeySend];
     [self addSubview:_inputTextView];
-}
 
+    [self applyBorderTheme];
+}
+- (void)applyBorderTheme {
+    if (_recordButton) {
+        [_recordButton.layer setMasksToBounds:YES];
+        [_recordButton.layer setCornerRadius:4.0f];
+        [_recordButton.layer setBorderWidth:0.5f];
+        [_recordButton.layer setBorderColor:TUICoreDynamicColor(@"separator_color", @"#DBDBDB").CGColor];
+    }
+    
+    if (_inputTextView) {
+        [_inputTextView.layer setMasksToBounds:YES];
+        [_inputTextView.layer setCornerRadius:4.0f];
+        [_inputTextView.layer setBorderWidth:0.5f];
+        [_inputTextView.layer setBorderColor:TUICoreDynamicColor(@"separator_color", @"#DBDBDB").CGColor];
+    }
+    
+}
 - (void)defaultLayout
 {
     _lineView.frame = CGRectMake(0, 0, Screen_Width, TLine_Heigh);
@@ -226,6 +256,7 @@
         [_record setStatus:Record_Status_Recording];
         _recordButton.backgroundColor = [UIColor lightGrayColor];
         [_recordButton setTitle:TUIKitLocalizableString(TUIKitInputReleaseToSend) forState:UIControlStateNormal];  // @"松开 结束"
+        [self showHapticFeedback];
         [self startRecord];
     }
 }
@@ -288,6 +319,18 @@
     [_recordButton setTitle:TUIKitLocalizableString(TUIKitInputReleaseToSend) forState:UIControlStateNormal]; //  @"松开 结束"
 }
 
+- (void)showHapticFeedback{
+    if (@available(iOS 10.0, *)) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIImpactFeedbackGenerator *generator = [[UIImpactFeedbackGenerator alloc] initWithStyle: UIImpactFeedbackStyleMedium];
+            [generator prepare];
+            [generator impactOccurred];
+        });
+        
+    } else {
+        // Fallback on earlier versions
+    }
+}
 #pragma mark - talk
 
 - (void)textViewDidBeginEditing:(UITextView *)textView
@@ -295,10 +338,46 @@
     self.keyboardButton.hidden = YES;
     self.micButton.hidden = NO;
     self.faceButton.hidden = NO;
+    
+    self.isFocusOn = YES;
+    self.allowSendTypingStatusByChangeWord  = YES;
+
+    
+    __weak typeof(self) weakSelf = self;
+    self.sendTypingStatusTimer = [NSTimer tui_scheduledTimerWithTimeInterval:4 repeats:YES block:^(NSTimer * _Nonnull timer) {
+        __strong typeof(weakSelf)strongSelf = weakSelf;
+        strongSelf.allowSendTypingStatusByChangeWord = YES;
+    }];
+    
+    if (self.isFocusOn &&textView.text.length > 0) {
+        if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldBeginTyping:)]) {
+            [_delegate inputTextViewShouldBeginTyping:textView];
+        }
+    }
+}
+
+- (void)textViewDidEndEditing:(UITextView *)textView {
+    
+    self.isFocusOn = NO;
+    if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldEndTyping:)]) {
+        [_delegate inputTextViewShouldEndTyping:textView];
+    }
 }
 
 - (void)textViewDidChange:(UITextView *)textView
 {
+    if (self.allowSendTypingStatusByChangeWord && self.isFocusOn &&textView.text.length > 0) {
+        if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldBeginTyping:)]) {
+            self.allowSendTypingStatusByChangeWord = NO;
+            [_delegate inputTextViewShouldBeginTyping:textView];
+        }
+    }
+    
+    if (self.isFocusOn && textView.text.length == 0) {
+        if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldEndTyping:)]) {
+            [_delegate inputTextViewShouldEndTyping:textView];
+        }
+    }
     CGSize size = [_inputTextView sizeThatFits:CGSizeMake(_inputTextView.frame.size.width, TTextView_TextView_Height_Max)];
     CGFloat oldHeight = _inputTextView.frame.size.height;
     CGFloat newHeight = size.height;
@@ -522,5 +601,10 @@
         [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
     }
 }
+
+- (void)onThemeChanged {
+    [self applyBorderTheme];
+}
+
 
 @end

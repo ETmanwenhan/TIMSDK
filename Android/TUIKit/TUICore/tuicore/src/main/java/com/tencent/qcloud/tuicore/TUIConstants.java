@@ -1,5 +1,7 @@
 package com.tencent.qcloud.tuicore;
 
+import com.tencent.imsdk.BaseConstants;
+
 /**
  * 公共常量
  */
@@ -33,7 +35,8 @@ public final class TUIConstants {
         public static final String TUI_GROUP = "TUIGroupService";
         public static final String TUI_CALLING = "TUICallingService";
         public static final String TUI_LIVE = "TUILiveService";
-
+        public static final String TUI_BEAUTY = "TUIBeauty";
+        public static final String TUI_OFFLINEPUSH = "TUIOfflinePushService";
     }
 
     /**
@@ -56,7 +59,10 @@ public final class TUIConstants {
         public static final String EVENT_SUB_KEY_START_INIT = "eventSubKeyStartInit";
         // 开始反初始化
         public static final String EVENT_SUB_KEY_START_UNINIT = "eventSubKeyStartUnInit";
-
+        // 登录成功
+        public static final String EVENT_SUB_KEY_USER_LOGIN_SUCCESS = "eventSubKeyUserLoginSuccess";
+        // 登出成功
+        public static final String EVENT_SUB_KEY_USER_LOGOUT_SUCCESS = "eventSubKeyUserLogoutSuccess";
 
         public static final String SELF_ID = "selfId";
         public static final String SELF_SIGNATURE = "selfSignature";
@@ -81,6 +87,10 @@ public final class TUIConstants {
         public static final String METHOD_EXIT_CHAT = "exitChat";
         // 获取消息摘要 用来显示在会话列表
         public static final String METHOD_GET_DISPLAY_STRING = "getDisplayString";
+        // add message to chat list
+        public static final String METHOD_ADD_MESSAGE_TO_CHAT = "addMessageToChat";
+        // 处理完群申请 // Process the group application
+        public static final String METHOD_GROUP_APPLICAITON_PROCESSED = "groupApplicationProcessed";
 
         // 更多输入按钮扩展
         public static final String EXTENSION_INPUT_MORE_CUSTOM_MESSAGE = "inputMoreCustomMessage";
@@ -114,6 +124,8 @@ public final class TUIConstants {
         public static final String MEMBER_DETAILS = "memberDetails";
         public static final String IS_GROUP_CHAT = "isGroupChat";
         public static final String V2TIMMESSAGE = "v2TIMMessage";
+        public static final String MESSAGE_BEAN = "messageBean";
+        public static final String GROUP_APPLY_NUM = "groupApplicaitonNumber";
 
 
         // 发送自定义消息字段
@@ -178,7 +190,7 @@ public final class TUIConstants {
 
     }
 
-        /**
+    /**
      * TUICalling 相关字段
      */
     public static final class TUICalling {
@@ -186,7 +198,7 @@ public final class TUIConstants {
 
         public static final String METHOD_NAME_CALL = "call";
         public static final String METHOD_NAME_RECEIVEAPNSCALLED = "receiveAPNSCalled";
-        
+
         public static final String PARAM_NAME_TYPE = "type";
         public static final String PARAM_NAME_USERIDS = "userIDs";
         public static final String PARAM_NAME_GROUPID = "groupId";
@@ -205,7 +217,7 @@ public final class TUIConstants {
 
         public static final String TYPE_AUDIO = "audio";
         public static final String TYPE_VIDEO = "video";
-        
+
         public static final int ACTION_ID_AUDIO_CALL = 1;
         public static final int ACTION_ID_VIDEO_CALL = 2;
 
@@ -268,9 +280,55 @@ public final class TUIConstants {
 
     }
 
+
+    public static final class TUIBeauty {
+        public static final String SERVICE_NAME = Service.TUI_BEAUTY;
+
+        public static final String PARAM_NAME_CONTEXT        = "context";
+        public static final String PARAM_NAME_LICENSE_KEY    = "licenseKey";
+        public static final String PARAM_NAME_LICENSE_URL    = "licenseUrl";
+        public static final String PARAM_NAME_FRAME_WIDTH    = "frameWidth";
+        public static final String PARAM_NAME_FRAME_HEIGHT   = "frameHeight";
+        public static final String PARAM_NAME_SRC_TEXTURE_ID = "srcTextureId";
+
+        public static final String METHOD_PROCESS_VIDEO_FRAME = "processVideoFrame";
+        public static final String METHOD_INIT_XMAGIC         = "setLicense";
+        public static final String METHOD_DESTROY_XMAGIC      = "destroy";
+    }
+    
+    /**
+     * TUIOfflinePush 相关字段
+     */
+    public static final class TUIOfflinePush {
+        public static final String SERVICE_NAME = Service.TUI_OFFLINEPUSH;
+
+        public static final String METHOD_UNREGISTER_PUSH = "unRegiterPush";
+    }
+
     public static final class Message {
         public static final String CUSTOM_BUSINESS_ID_KEY = "businessID";
         public static final String CALLING_TYPE_KEY = "call_type";
     }
 
+    public static final class NetworkConnection {
+        public static final String EVENT_CONNECTION_STATE_CHANGED = "eventConnectionStateChanged";
+        public static final String EVENT_SUB_KEY_CONNECTING       = "eventSubKeyConnecting";
+        public static final String EVENT_SUB_KEY_CONNECT_SUCCESS  = "eventSubKeyConnectSuccess";
+        public static final String EVENT_SUB_KEY_CONNECT_FAILED   = "eventSubKeyConnectFailed";
+    }
+
+    public static final class BuyingFeature {
+        public static final int ERR_SDK_INTERFACE_NOT_SUPPORT = BaseConstants.ERR_SDK_INTERFACE_NOT_SUPPORT;
+        public static final String BUYING_GUIDELINES_EN = "https://intl.cloud.tencent.com/document/product/1047/36021?lang=en&pg=#changing-configuration";
+        public static final String BUYING_GUIDELINES = "https://cloud.tencent.com/document/product/269/32458";
+
+        public static final String BUYING_PRICE_DESC_EN = "https://www.tencentcloud.com/document/product/1047/34349#basic-services";
+        public static final String BUYING_PRICE_DESC = "https://cloud.tencent.com/document/product/269/11673?from=17219#.E5.9F.BA.E7.A1.80.E6.9C.8D.E5.8A.A1.E8.AF.A6.E6.83.85";
+
+
+        public static final String BUYING_FEATURE_MESSAGE_RECEIPT = "buying_chat_message_read_receipt";
+        public static final String BUYING_FEATURE_COMMUNITY = "buying_community";
+        public static final String BUYING_FEATURE_SEARCH = "buying_search";
+        public static final String BUYING_FEATURE_ONLINE_STATUS = "buying_online_status";
+    }
 }

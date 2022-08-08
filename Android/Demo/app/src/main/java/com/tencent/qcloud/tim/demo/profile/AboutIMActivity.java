@@ -1,7 +1,6 @@
 package com.tencent.qcloud.tim.demo.profile;
 
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -24,6 +23,9 @@ public class AboutIMActivity extends BaseLightActivity implements View.OnClickLi
     private LineControllerView userAgreementLv;
     private LineControllerView statementLv;
     private LineControllerView aboutIMLv;
+    private LineControllerView cancelAccountLv;
+    private LineControllerView selfInfomationCollectionLv;
+    private LineControllerView thirdPartSharedLv;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,11 +33,8 @@ public class AboutIMActivity extends BaseLightActivity implements View.OnClickLi
         setContentView(R.layout.activity_about_im);
         titleBarLayout = findViewById(R.id.about_im_title_bar);
         sdkVersionLv = findViewById(R.id.about_sdk_version_lv);
-        privacyLv = findViewById(R.id.about_im_privacy_lv);
-        userAgreementLv = findViewById(R.id.about_user_agreement_lv);
-        statementLv = findViewById(R.id.about_statement_lv);
-        aboutIMLv = findViewById(R.id.about_im_lv);
 
+        aboutIMLv = findViewById(R.id.about_im_lv);
         setupViews();
     }
 
@@ -47,45 +46,24 @@ public class AboutIMActivity extends BaseLightActivity implements View.OnClickLi
         String sdkVersion = V2TIMManager.getInstance().getVersion();
         sdkVersionLv.setContent(sdkVersion);
 
-        privacyLv.setOnClickListener(this);
-        userAgreementLv.setOnClickListener(this);
-        statementLv.setOnClickListener(this);
         aboutIMLv.setOnClickListener(this);
+
     }
 
     @Override
     public void onClick(View v) {
-        if (v == privacyLv) {
-            String title = getResources().getString(R.string.im_privacy);
-            startWebUrl(title, Constants.IM_PRIVACY_PROTECTION);
-        } else if (v == userAgreementLv) {
-            String title = getResources().getString(R.string.im_user_agreement);
-            startWebUrl(title, Constants.IM_USER_AGREEMENT);
-        } else if (v == statementLv) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                    .setTitle(this.getString(R.string.im_statement))
-                    .setMessage(this.getString(R.string.im_statement_content))
-                    .setPositiveButton(this.getString(R.string.sure), new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            dialog.dismiss();
-                        }
-                    });
-
-            AlertDialog mDialogStatement = builder.create();
-            mDialogStatement.show();
-        } else if (v == aboutIMLv) {
+        if (v == aboutIMLv) {
             String title = getResources().getString(R.string.about_im);
-            startWebUrl(title, Constants.IM_ABOUT);
-        } else if (v == titleBarLayout.getLeftGroup()) {
-            finish();
+            startWebUrl(Constants.IM_ABOUT);
         }
     }
 
-    private void startWebUrl(String title, String url) {
-        Intent intent = new Intent(this, WebViewActivity.class);
-        intent.putExtra("title", title);
-        intent.putExtra("url", url);
+    private void startWebUrl(String url) {
+        Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_VIEW);
+        Uri contentUrl = Uri.parse(url);
+        intent.setData(contentUrl);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
     }
 }

@@ -1,37 +1,39 @@
 package com.tencent.qcloud.tim.demo;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Application;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.res.Resources;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.multidex.MultiDex;
 
 import com.tencent.bugly.crashreport.CrashReport;
-import com.tencent.imsdk.v2.V2TIMCallback;
-import com.tencent.imsdk.v2.V2TIMConversationListener;
 import com.tencent.imsdk.v2.V2TIMManager;
-import com.tencent.imsdk.v2.V2TIMSDKListener;
 import com.tencent.imsdk.v2.V2TIMValueCallback;
 import com.tencent.qcloud.tim.demo.login.LoginForDevActivity;
+import com.tencent.qcloud.tim.demo.main.MainActivity;
 import com.tencent.qcloud.tim.demo.signature.GenerateTestUserSig;
-import com.tencent.qcloud.tim.demo.thirdpush.OEMPush.HUAWEIHmsMessageService;
-import com.tencent.qcloud.tim.demo.thirdpush.PushSetting;
 import com.tencent.qcloud.tim.demo.utils.BrandUtil;
 import com.tencent.qcloud.tim.demo.utils.DemoLog;
 import com.tencent.qcloud.tim.demo.utils.PrivateConstants;
 import com.tencent.qcloud.tim.demo.bean.UserInfo;
 
-import com.tencent.qcloud.tim.demo.utils.TUIUtils;
+import com.tencent.qcloud.tuicore.TUILogin;
 import com.tencent.qcloud.tuicore.TUIThemeManager;
+import com.tencent.qcloud.tuicore.interfaces.TUILoginListener;
 import com.tencent.qcloud.tuicore.util.ErrorMessageConverter;
+import com.tencent.qcloud.tuicore.util.PermissionRequester;
 import com.tencent.qcloud.tuicore.util.ToastUtil;
-import com.vivo.push.PushClient;
-import com.xiaomi.mipush.sdk.MiPushClient;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.List;
 
 public class DemoApplication extends Application {
 
@@ -43,30 +45,37 @@ public class DemoApplication extends Application {
         return instance;
     }
 
-    private PushSetting pushSetting = new PushSetting();
+    private int sdkAppId = 0;
     @Override
     public void onCreate() {
         DemoLog.i(TAG, "onCreate");
         super.onCreate();
-        instance = this;
-        MultiDex.install(this);
+
+        if (isMainProcess()) {
+            instance = this;
+            MultiDex.install(this);
+
+            // 添加 Demo 主题
+            TUIThemeManager.addLightTheme(R.style.DemoLightTheme);
+            TUIThemeManager.addLivelyTheme(R.style.DemoLivelyTheme);
+            TUIThemeManager.addSeriousTheme(R.style.DemoSeriousTheme);
+
+            registerActivityLifecycleCallbacks(new StatisticActivityLifecycleCallback());
+            initLoginStatusListener();
+            setPermissionRequestContent();
+
+        }
+    }
+
+    private void initBugly() {
         // bugly上报
         CrashReport.UserStrategy strategy = new CrashReport.UserStrategy(getApplicationContext());
-        strategy.setAppVersion(V2TIMManager.getInstance().getVersion());
+        strategy.setAppVersion(BuildConfig.VERSION_NAME);
+        strategy.setDeviceModel(BrandUtil.getBuildModel());
         CrashReport.initCrashReport(getApplicationContext(), PrivateConstants.BUGLY_APPID, true, strategy);
+    }
 
-        // 添加 Demo 主题
-        TUIThemeManager.addLightTheme(R.style.DemoLightTheme);
-        TUIThemeManager.addLivelyTheme(R.style.DemoLivelyTheme);
-        TUIThemeManager.addSeriousTheme(R.style.DemoSeriousTheme);
-
-        /**
-         * TUIKit的初始化函数
-         *
-         * @param context  应用的上下文，一般为对应应用的ApplicationContext
-         * @param sdkAppID 您在腾讯云注册应用时分配的sdkAppID
-         * @param configs  TUIKit的相关配置项，一般使用默认即可，需特殊配置参考API文档
-         */
+    private void initBuildInformation() {
         try {
             JSONObject buildInfoJson = new JSONObject();
             buildInfoJson.put("buildBrand", BrandUtil.getBuildBrand());
@@ -89,49 +98,27 @@ public class DemoApplication extends Application {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-
-        registerActivityLifecycleCallbacks(new StatisticActivityLifecycleCallback());
-        initLoginStatusListener();
     }
 
-    public void init() {
-        TUIUtils.init(this, GenerateTestUserSig.SDKAPPID, null, null);
-
-    }
-
-    public void initPush() {
-        if (pushSetting == null) {
-            pushSetting = new PushSetting();
+    public void init(int imsdkAppId) {
+        initBuildInformation();
+        initBugly();
+        if (imsdkAppId != 0) {
+            sdkAppId = imsdkAppId;
+        } else {
+            sdkAppId = GenerateTestUserSig.SDKAPPID;
         }
-        pushSetting.initPush();
     }
 
-    public void bindUserID(String userId) {
-        if (pushSetting == null) {
-            pushSetting = new PushSetting();
-        }
-        pushSetting.bindUserID(userId);
-    }
-
-    public void unBindUserID(String userId) {
-        if (pushSetting == null) {
-            pushSetting = new PushSetting();
-        }
-        pushSetting.unBindUserID(userId);
-    }
-
-    public void unInitPush(){
-        if (pushSetting == null) {
-            pushSetting = new PushSetting();
-        }
-        pushSetting.unInitPush();
+    public int getSdkAppId() {
+        return sdkAppId;
     }
 
     public void initLoginStatusListener() {
-        V2TIMManager.getInstance().addIMSDKListener(loginStatusListener);
+        TUILogin.addLoginListener(loginStatusListener);
     }
 
-    private final V2TIMSDKListener loginStatusListener = new V2TIMSDKListener() {
+    private final TUILoginListener loginStatusListener = new TUILoginListener() {
         @Override
         public void onKickedOffline() {
             ToastUtil.toastLongMessage(DemoApplication.instance().getString(R.string.repeat_login_tip));
@@ -147,28 +134,18 @@ public class DemoApplication extends Application {
 
     public void logout() {
         DemoLog.i(TAG, "logout");
-        UserInfo.getInstance().setToken("");
-        UserInfo.getInstance().setAutoLogin(false);
-
-        unBindUserID(UserInfo.getInstance().getUserId());
-        unInitPush();
+        UserInfo.getInstance().cleanUserInfo();
 
         Intent intent = new Intent(this, LoginForDevActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.putExtra("LOGOUT", true);
         startActivity(intent);
+
+        MainActivity.finishMainActivity();
     }
 
     class StatisticActivityLifecycleCallback implements ActivityLifecycleCallbacks {
-        private int foregroundActivities = 0;
-        private boolean isChangingConfiguration;
 
-        private final V2TIMConversationListener unreadListener = new V2TIMConversationListener() {
-            @Override
-            public void onTotalUnreadMessageCountChanged(long totalUnreadCount) {
-                HUAWEIHmsMessageService.updateBadge(DemoApplication.this, (int) totalUnreadCount);
-            }
-        };
 
         @Override
         public void onActivityCreated(Activity activity, Bundle bundle) {
@@ -183,25 +160,7 @@ public class DemoApplication extends Application {
 
         @Override
         public void onActivityStarted(Activity activity) {
-            foregroundActivities++;
-            if (foregroundActivities == 1 && !isChangingConfiguration) {
-                // 应用切到前台
-                DemoLog.i(TAG, "application enter foreground");
-                V2TIMManager.getOfflinePushManager().doForeground(new V2TIMCallback() {
-                    @Override
-                    public void onError(int code, String desc) {
-                        DemoLog.e(TAG, "doForeground err = " + code + ", desc = " + ErrorMessageConverter.convertIMError(code, desc));
-                    }
 
-                    @Override
-                    public void onSuccess() {
-                        DemoLog.i(TAG, "doForeground success");
-                    }
-                });
-
-                V2TIMManager.getConversationManager().removeConversationListener(unreadListener);
-            }
-            isChangingConfiguration = false;
         }
 
         @Override
@@ -216,36 +175,7 @@ public class DemoApplication extends Application {
 
         @Override
         public void onActivityStopped(Activity activity) {
-            foregroundActivities--;
-            if (foregroundActivities == 0) {
-                // 应用切到后台
-                DemoLog.i(TAG, "application enter background");
-                V2TIMManager.getConversationManager().getTotalUnreadMessageCount(new V2TIMValueCallback<Long>() {
-                    @Override
-                    public void onSuccess(Long aLong) {
-                        int totalCount = aLong.intValue();
-                        V2TIMManager.getOfflinePushManager().doBackground(totalCount, new V2TIMCallback() {
-                            @Override
-                            public void onError(int code, String desc) {
-                                DemoLog.e(TAG, "doBackground err = " + code + ", desc = " + ErrorMessageConverter.convertIMError(code, desc));
-                            }
 
-                            @Override
-                            public void onSuccess() {
-                                DemoLog.i(TAG, "doBackground success");
-                            }
-                        });
-                    }
-
-                    @Override
-                    public void onError(int code, String desc) {
-
-                    }
-                });
-
-                V2TIMManager.getConversationManager().addConversationListener(unreadListener);
-            }
-            isChangingConfiguration = activity.isChangingConfigurations();
         }
 
         @Override
@@ -257,5 +187,53 @@ public class DemoApplication extends Application {
         public void onActivityDestroyed(Activity activity) {
 
         }
+    }
+    private void setPermissionRequestContent() {
+        ApplicationInfo applicationInfo = this.getApplicationInfo();
+        Resources resources = this.getResources();
+        String appName = resources.getString(applicationInfo.labelRes);
+
+        PermissionRequester.PermissionRequestContent microphoneContent = new PermissionRequester.PermissionRequestContent();
+        microphoneContent.setReasonTitle(getString(R.string.demo_permission_mic_reason_title, appName));
+        microphoneContent.setReason(getString(R.string.demo_permission_mic_reason));
+        microphoneContent.setIconResId(R.drawable.demo_permission_icon_mic);
+        microphoneContent.setDeniedAlert(getString(R.string.demo_permission_mic_dialog_alert, appName));
+        PermissionRequester.setPermissionRequestContent(PermissionRequester.PermissionConstants.MICROPHONE, microphoneContent);
+
+        PermissionRequester.PermissionRequestContent cameraContent = new PermissionRequester.PermissionRequestContent();
+        cameraContent.setReasonTitle(getString(R.string.demo_permission_camera_reason_title, appName));
+        cameraContent.setReason(getString(R.string.demo_permission_camera_reason));
+        cameraContent.setIconResId(R.drawable.demo_permission_icon_camera);
+        cameraContent.setDeniedAlert(getString(R.string.demo_permission_camera_dialog_alert, appName));
+        PermissionRequester.setPermissionRequestContent(PermissionRequester.PermissionConstants.CAMERA, cameraContent);
+    }
+
+    private boolean isMainProcess() {
+        ActivityManager am = ((ActivityManager) this.getSystemService(Context.ACTIVITY_SERVICE));
+        String mainProcessName = this.getPackageName();
+        int myPid = android.os.Process.myPid();
+
+        List<ActivityManager.RunningAppProcessInfo> processInfos = am.getRunningAppProcesses();
+        if (processInfos == null) {
+            Log.i(TAG, "isMainProcess get getRunningAppProcesses null");
+            List<ActivityManager.RunningServiceInfo> processList = am.getRunningServices(Integer.MAX_VALUE);
+            if (processList == null) {
+                Log.i(TAG, "isMainProcess get getRunningServices null");
+                return false;
+            }
+            for (ActivityManager.RunningServiceInfo rsi : processList) {
+                if (rsi.pid == myPid && mainProcessName.equals(rsi.service.getPackageName())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        for (ActivityManager.RunningAppProcessInfo info : processInfos) {
+            if (info.pid == myPid && mainProcessName.equals(info.processName)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

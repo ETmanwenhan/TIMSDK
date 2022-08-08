@@ -15,6 +15,8 @@ static NSString *kConversationCell_ReuseId = @"TConversationCell";
 
 @interface TUIGroupConversationListController ()<UIGestureRecognizerDelegate, UITableViewDelegate, UITableViewDataSource, UIPopoverPresentationControllerDelegate>
 
+@property (nonatomic, strong) UILabel *noDataTipsLabel;
+
 @end
 
 @implementation TUIGroupConversationListController
@@ -31,8 +33,13 @@ static NSString *kConversationCell_ReuseId = @"TConversationCell";
     self.navigationItem.titleView = titleLabel;
     
 
-    self.view.backgroundColor = [UIColor d_colorWithColorLight:TController_Background_Color dark:TController_Background_Color_Dark];
-    _tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
+    self.view.backgroundColor = TUICoreDynamicColor(@"controller_bg_color", @"#F2F3F5");
+    //Fix  translucent = NO;
+    CGRect rect = self.view.bounds;
+    if (![UINavigationBar appearance].isTranslucent && [[[UIDevice currentDevice] systemVersion] doubleValue]<15.0) {
+        rect = CGRectMake(rect.origin.x, rect.origin.y, rect.size.width, rect.size.height - TabBar_Height - NavBar_Height );
+    }
+    _tableView = [[UITableView alloc] initWithFrame:rect style:UITableViewStylePlain];
     [self.view addSubview:_tableView];
     _tableView.delegate = self;
     _tableView.dataSource = self;
@@ -59,6 +66,9 @@ static NSString *kConversationCell_ReuseId = @"TConversationCell";
         @strongify(self)
         [self.tableView reloadData];
     }];
+    
+    self.noDataTipsLabel.frame = CGRectMake(10, 60, self.view.bounds.size.width - 20, 40);
+    [self.tableView addSubview:self.noDataTipsLabel];
 }
 
 
@@ -75,6 +85,7 @@ static NSString *kConversationCell_ReuseId = @"TConversationCell";
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView;
 {
+    self.noDataTipsLabel.hidden = (self.viewModel.groupList.count != 0);
     return self.viewModel.groupList.count;
 }
 
@@ -181,6 +192,18 @@ static NSString *kConversationCell_ReuseId = @"TConversationCell";
 
 - (UIModalPresentationStyle)adaptivePresentationStyleForPresentationController:(UIPresentationController *)controller {
     return UIModalPresentationNone;
+}
+
+- (UILabel *)noDataTipsLabel
+{
+    if (_noDataTipsLabel == nil) {
+        _noDataTipsLabel = [[UILabel alloc] init];
+        _noDataTipsLabel.textColor = TUIContactDynamicColor(@"contact_add_contact_nodata_tips_text_color", @"#999999");
+        _noDataTipsLabel.font = [UIFont systemFontOfSize:14.0];
+        _noDataTipsLabel.textAlignment = NSTextAlignmentCenter;
+        _noDataTipsLabel.text = TUIKitLocalizableString(TUIKitContactNoGroupChats);
+    }
+    return _noDataTipsLabel;
 }
 
 @end

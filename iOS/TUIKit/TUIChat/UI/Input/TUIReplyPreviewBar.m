@@ -11,30 +11,6 @@
 #import "NSString+emoji.h"
 #import "TUIThemeManager.h"
 
-@implementation TUIReplyPreviewData
-
-+ (NSString *)displayAbstract:(NSInteger)type abstract:(NSString *)abstract withFileName:(BOOL)withFilename
-{
-    NSString *text = abstract;
-    if (type == V2TIM_ELEM_TYPE_IMAGE) {
-        text = TUIKitLocalizableString(TUIkitMessageTypeImage);
-    } else if (type == V2TIM_ELEM_TYPE_VIDEO) {
-        text = TUIKitLocalizableString(TUIkitMessageTypeVideo);
-    } else if (type == V2TIM_ELEM_TYPE_SOUND) {
-        text = TUIKitLocalizableString(TUIKitMessageTypeVoice);
-    } else if (type == V2TIM_ELEM_TYPE_FACE) {
-        text = TUIKitLocalizableString(TUIKitMessageTypeAnimateEmoji);
-    } else if (type == V2TIM_ELEM_TYPE_FILE) {
-        if (withFilename) {
-            text = [NSString stringWithFormat:@"%@%@", TUIKitLocalizableString(TUIkitMessageTypeFile), abstract];;
-        } else {
-            text = TUIKitLocalizableString(TUIkitMessageTypeFile);
-        }
-    }
-    return text;
-}
-
-@end
 
 @implementation TUIReplyPreviewBar
 
@@ -47,7 +23,7 @@
 }
 
 - (void)setupViews {
-    self.backgroundColor = TUIChatDynamicColor(@"chat_input_controller_bg_color", @"#FFFFFF");
+    self.backgroundColor = TUIChatDynamicColor(@"chat_input_controller_bg_color", @"#EBF0F6");
     [self addSubview:self.titleLabel];
     [self addSubview:self.closeButton];
 }
@@ -81,6 +57,14 @@
     _titleLabel.lineBreakMode = previewData.type == (NSInteger)V2TIM_ELEM_TYPE_FILE ? NSLineBreakByTruncatingMiddle : NSLineBreakByTruncatingTail;
 }
 
+- (void)setPreviewReferenceData:(TUIReferencePreviewData *)previewReferenceData {
+    _previewReferenceData = previewReferenceData;
+    
+    NSString *abstract = [TUIReferencePreviewData displayAbstract:previewReferenceData.type abstract:previewReferenceData.msgAbstract withFileName:YES];
+    _titleLabel.text = [[NSString stringWithFormat:@"%@: %@", previewReferenceData.sender, abstract] getLocalizableStringWithFaceContent];
+    _titleLabel.lineBreakMode = previewReferenceData.type == (NSInteger)V2TIM_ELEM_TYPE_FILE ? NSLineBreakByTruncatingMiddle : NSLineBreakByTruncatingTail;
+}
+
 - (UILabel *)titleLabel
 {
     if (_titleLabel == nil) {
@@ -95,11 +79,28 @@
 {
     if (_closeButton == nil) {
         _closeButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        [_closeButton setImage:[UIImage d_imageNamed:@"icon_close" bundle:TUIChatBundle] forState:UIControlStateNormal];
+        [_closeButton setImage: TUIChatCommonBundleImage(@"icon_close")
+          forState:UIControlStateNormal];
         [_closeButton addTarget:self action:@selector(onClose:) forControlEvents:UIControlEventTouchUpInside];
         [_closeButton sizeToFit];
     }
     return _closeButton;
 }
 
+@end
+
+@implementation TUIReferencePreviewBar
+
+- (void)layoutSubviews
+{
+    [super layoutSubviews];
+    
+    self.closeButton.mm_right(16.0);
+    self.closeButton.frame = CGRectMake(self.closeButton.frame.origin.x, (self.frame.size.height - 16 ) *0.5, 16, 16);
+    
+    self.titleLabel.mm_x = 16.0;
+    self.titleLabel.mm_y = 10;
+    self.titleLabel.mm_w = self.closeButton.mm_x - 10 - 16;
+    self.titleLabel.mm_h = self.mm_h - 20;
+}
 @end
