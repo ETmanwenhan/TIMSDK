@@ -1256,23 +1256,33 @@ static NSArray *customMessageInfo = nil;
         };
         [message setCloudCustomData:cloudCustomDataDic forType:messageFeature];
     }
-    
-    return [V2TIMManager.sharedInstance sendMessage:message
-                                           receiver:userID
-                                            groupID:groupID
-                                           priority:priority
-                                     onlineUserOnly:isOnlineUserOnly
-                                    offlinePushInfo:pushInfo
-                                           progress:progress
-                                               succ:^{
-        succ();
-    }
-                                               fail:^(int code, NSString *desc) {
-        if (code == ERR_SDK_INTERFACE_NOT_SUPPORT) {
-            [TUITool postUnsupportNotificationOfService:TUIKitLocalizableString(TUIKitErrorUnsupportIntefaceMessageRead)];
+
+    NSString *descs = @"";
+    descs = [V2TIMManager.sharedInstance sendMessage:message
+                                                      receiver:userID
+                                                       groupID:groupID
+                                                      priority:priority
+                                                onlineUserOnly:isOnlineUserOnly
+                                               offlinePushInfo:pushInfo
+                                                      progress:progress
+                                                          succ:^{succ();}
+                                                          fail:^(int code, NSString *desc) {
+
+                   if (code == ERR_SDK_INTERFACE_NOT_SUPPORT) {
+                       [TUITool postUnsupportNotificationOfService:TUIKitLocalizableString(TUIKitErrorUnsupportIntefaceMessageRead)];
+                   }
+        
+                   fail(code, desc);
+        [TUITool hideToast];
+        if (code == [@20006 intValue]) {
+            [TUITool makeToast:@"You may level up by receiving gifts then continue to chat"];
         }
-        fail(code, desc);
+        if (code == [@800001 intValue]) {
+            [TUITool makeToast:@"The text has sensitive words, please edit it again"];
+        }
+        
     }];
+    return descs;
 }
 
 + (BOOL)isGroupCommunity:(NSString *)groupType groupID:(NSString *)groupID {
