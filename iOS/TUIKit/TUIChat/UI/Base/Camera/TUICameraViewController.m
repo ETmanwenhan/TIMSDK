@@ -99,6 +99,8 @@
         self.lastPageBarHidden = self.navigationController.navigationBarHidden;
         self.navigationController.navigationBarHidden = YES;
     }
+    self.lastPageBarHidden = self.navigationController.navigationBarHidden;
+    self.navigationController.navigationBarHidden = YES;
 }
 
 #pragma mark - -输入设备
@@ -313,7 +315,8 @@
             if (strongSelf.isLive == YES) {
                 [strongSelf.navigationController popToRootViewControllerAnimated:YES];
             } else {
-                [strongSelf popViewControllerAnimated:YES];
+//                [strongSelf popViewControllerAnimated:YES];
+                [self dismissViewControllerAnimated:YES completion:nil];
             }
         };
         vc.cancelBlock = ^{
@@ -327,7 +330,8 @@
 - (void)cancelAction:(TUICameraView *)cameraView {
     [self.delegate cameraViewControllerDidCancel:self];
     
-    [self popViewControllerAnimated:YES];
+//    [self popViewControllerAnimated:YES];
+    [self dismissViewControllerAnimated:YES completion:nil];
 }
 
 #pragma mark - -录制视频
