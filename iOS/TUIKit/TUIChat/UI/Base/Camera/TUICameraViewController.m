@@ -199,7 +199,9 @@
 // 开启捕捉
 - (void)startCaptureSession {
     if (!_session.isRunning) {
-        [_session startRunning];
+        dispatch_async(dispatch_get_global_queue(DISPATCH_TARGET_QUEUE_DEFAULT, 0), ^{
+            [_session startRunning];
+        });
     }
 }
 
