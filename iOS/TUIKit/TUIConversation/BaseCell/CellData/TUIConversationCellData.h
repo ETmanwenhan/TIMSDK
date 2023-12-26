@@ -107,7 +107,7 @@ typedef NS_ENUM(NSInteger, TUIConversationOnlineStatus) {
  *  The time of the latest message
  *  Recording the receive/send time of the latest message in the conversation.
  */
-@property(nonatomic, strong) NSDate *time;
+@property(nonatomic, strong) NSDate * __nullable time;
 
 /**
  *  会话置顶位

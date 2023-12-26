@@ -465,7 +465,7 @@ static inline NSBundle *getTUIGetLocalizable(NSString *bundleName) {
 #define TRelayMessageCell_Text_Width_Max (Screen_Width - TRelayMessageCell_Text_PADDING)
 
 // text view
-#define TTextView_Height (49)
+#define TTextView_Height (40)
 #define TTextView_Button_Size CGSizeMake(30, 30)
 #define TTextView_Margin 6
 #define TTextView_TextView_Height_Min (TTextView_Height - 2 * TTextView_Margin)
