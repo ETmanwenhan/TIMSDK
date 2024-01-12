@@ -44,6 +44,10 @@
 
 + (NSString *)getDisplayString:(V2TIMMessage *)message {
     NSString *content = message.textElem.text;
+    // 表情符判空，防止nil崩溃
+    if (content == nil) {
+        return @"";
+    }
     return content.getLocalizableStringWithFaceContent;
 }
 
