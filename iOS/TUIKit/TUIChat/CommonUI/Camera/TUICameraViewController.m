@@ -306,7 +306,8 @@
     [self.delegate cameraViewControllerDidPictureLib:self
                                       finishCallback:^{
                                         @strongify(self);
-                                        [self popViewControllerAnimated:NO];
+                                        //[self popViewControllerAnimated:NO];
+                                        [self dismissViewControllerAnimated:NO completion:nil];
                                       }];
 }
 
