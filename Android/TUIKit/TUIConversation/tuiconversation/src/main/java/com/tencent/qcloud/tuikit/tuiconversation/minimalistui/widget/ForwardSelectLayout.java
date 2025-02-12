@@ -39,9 +39,6 @@ public class ForwardSelectLayout extends RelativeLayout {
         }
     }
 
-    /**
-     * 初始化相关UI元素
-     */
     private void init() {
         inflate(getContext(), R.layout.minimalist_forward_layout, this);
         conversationList = findViewById(R.id.conversation_list);
@@ -60,7 +57,6 @@ public class ForwardSelectLayout extends RelativeLayout {
         adapter.setShowMultiSelectCheckBox(true);
         adapter.setSwipeEnabled(false);
         conversationList.setAdapter((IConversationListAdapter) adapter);
-        conversationList.setItemAvatarRadius(ScreenUtil.dip2px(28));
         presenter.setAdapter(adapter);
         presenter.loadMoreConversation();
     }

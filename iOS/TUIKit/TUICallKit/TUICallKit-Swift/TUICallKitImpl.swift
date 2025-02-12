@@ -10,15 +10,17 @@ import TUICore
 import UIKit
 import TUICallEngine
 
-#if USE_TRTC
+#if canImport(TXLiteAVSDK_TRTC)
 import TXLiteAVSDK_TRTC
-#else
+#elseif canImport(TXLiteAVSDK_Professional)
 import TXLiteAVSDK_Professional
 #endif
 
 class TUICallKitImpl: TUICallKit {
     static let instance = TUICallKitImpl()
     let selfUserCallStatusObserver = Observer()
+    let callingVibratorFeature = CallingVibratorFeature()
+    let callingBellFeature = CallingBellFeature()
     
     override init() {
         super.init()
@@ -32,7 +34,7 @@ class TUICallKitImpl: TUICallKit {
         TUICallState.instance.selfUser.value.callStatus.removeObserver(selfUserCallStatusObserver)
     }
     
-    // MARK: TUICallKit对外接口实现
+    // MARK: Implementation of external interface for TUICallKit
     override func setSelfInfo(nickname: String, avatar: String, succ: @escaping TUICallSucc, fail: @escaping TUICallFail) {
         CallEngineManager.instance.setSelfInfo(nickname: nickname, avatar: avatar) {
             succ()
@@ -51,13 +53,13 @@ class TUICallKitImpl: TUICallKit {
     
     override func call(userId: String, callMediaType: TUICallMediaType, params: TUICallParams,
                        succ: @escaping TUICallSucc, fail: @escaping TUICallFail) {
-        if  userId.count <= 0 {
-            fail(ERROR_PARAM_INVALID, "call failed, invalid params 'userId'")
+        if TUILogin.getUserID() == nil {
+            fail(ERROR_INIT_FAIL, "call failed, please login")
             return
         }
         
-        if TUILogin.getUserID() == nil {
-            fail(ERROR_INIT_FAIL, "call failed, please login")
+        if  userId.count <= 0 || userId == TUILogin.getUserID() {
+            fail(ERROR_PARAM_INVALID, "call failed, invalid params 'userId'")
             return
         }
         
@@ -97,7 +99,14 @@ class TUICallKitImpl: TUICallKit {
     
     override func groupCall(groupId: String, userIdList: [String], callMediaType: TUICallMediaType, params: TUICallParams,
                             succ: @escaping TUICallSucc, fail: @escaping TUICallFail) {
-        if  userIdList.isEmpty {
+        if TUILogin.getUserID() == nil {
+            fail(ERROR_INIT_FAIL, "call failed, please login")
+            return
+        }
+        
+        let userIdList = userIdList.filter { $0 != TUILogin.getUserID() }
+        
+        if userIdList.isEmpty {
             fail(ERROR_PARAM_INVALID, "call failed, invalid params 'userIdList'")
             return
         }
@@ -105,11 +114,6 @@ class TUICallKitImpl: TUICallKit {
         if userIdList.count >= MAX_USER {
             fail(ERROR_PARAM_INVALID, "groupCall failed, currently supports call with up to 9 people")
             TUITool.makeToast(TUICallKitLocalize(key: "TUICallKit.User.Exceed.Limit"))
-            return
-        }
-        
-        if TUILogin.getUserID() == nil {
-            fail(ERROR_INIT_FAIL, "call failed, please login")
             return
         }
         
@@ -146,7 +150,12 @@ class TUICallKitImpl: TUICallKit {
             return
         }
         
-        CallEngineManager.instance.joinInGroupCall(roomId: roomId, groupId: groupId, callMediaType: callMediaType)
+        CallEngineManager.instance.joinInGroupCall(roomId: roomId, groupId: groupId, callMediaType: callMediaType) {
+            
+        } fail: { [weak self] code, message in
+            guard let self = self else { return }
+            self.handleAbilityFailErrorMessage(code: code, message: message)
+        }
     }
     
     override func setCallingBell(filePath: String) {
@@ -209,9 +218,19 @@ class TUICallKitImpl: TUICallKit {
         
         return UIViewController()
     }
+    
+    override func enableVirtualBackground (enable: Bool) {
+        CallEngineManager.instance.reportOnlineLog(enable)
+        TUICallState.instance.showVirtualBackgroundButton = enable
+    }
+    
+    override func enableIncomingBanner (enable: Bool) {
+        TUICallState.instance.enableIncomingBanner = enable
+    }
+    
 }
 
-// MARK: TUICallKit内部接口
+// MARK: Internal interface for TUICallKit
 private extension TUICallKitImpl {
     func registerNotifications() {
         NotificationCenter.default.addObserver(self,
@@ -237,13 +256,14 @@ private extension TUICallKitImpl {
     }
     
     @objc func logoutSuccessNotification(noti: Notification) {
-        CallEngineManager.instance.removeObserver(TUICallState.instance)
+        CallEngineManager.instance.hangup()
+        TUICallEngine.destroyInstance()
+        TUICallState.instance.cleanState()
     }
     
     @objc func showViewControllerNotification(noti: Notification) {
-        TUICallState.instance.audioDevice.value = .earpiece
-        CallEngineManager.instance.setAudioPlaybackDevice(device: .earpiece)
-        WindowManager.instance.showCallWindow()
+        CallEngineManager.instance.setAudioPlaybackDevice(device: TUICallState.instance.audioDevice.value)
+        WindowManager.instance.showCallWindow(false)
     }
     
     func initEngine() {
@@ -278,17 +298,19 @@ private extension TUICallKitImpl {
     
     func registerObserveState() {
         TUICallState.instance.selfUser.value.callStatus.addObserver(selfUserCallStatusObserver, closure: { newValue, _ in
-            if TUICallState.instance.selfUser.value.callRole.value != TUICallRole.none &&
-                TUICallState.instance.selfUser.value.callStatus.value == TUICallStatus.waiting {
-                TUICallState.instance.audioDevice.value = TUIAudioPlaybackDevice.earpiece
-                CallEngineManager.instance.setAudioPlaybackDevice(device: TUIAudioPlaybackDevice.earpiece)
-                WindowManager.instance.showCallWindow()
-            }
-            
-            if TUICallState.instance.selfUser.value.callRole.value == TUICallRole.none &&
-                TUICallState.instance.selfUser.value.callStatus.value == TUICallStatus.none {
-                WindowManager.instance.closeCallWindow()
-                WindowManager.instance.closeFloatWindow()
+            if TUICallState.instance.selfUser.value.callRole.value != TUICallRole.none {
+                if TUICallState.instance.selfUser.value.callStatus.value == TUICallStatus.waiting {
+                    TUICallState.instance.audioDevice.value = TUIAudioPlaybackDevice.earpiece
+                    CallEngineManager.instance.setAudioPlaybackDevice(device: TUIAudioPlaybackDevice.earpiece)
+                    WindowManager.instance.showCallWindow(TUICallState.instance.enableIncomingBanner)
+                } else if TUICallState.instance.selfUser.value.callStatus.value == TUICallStatus.accept && !WindowManager.instance.isFloating {
+                    WindowManager.instance.showCallWindow(false)
+                }
+            } else {
+                if TUICallState.instance.selfUser.value.callStatus.value == TUICallStatus.none {
+                    WindowManager.instance.closeCallWindow()
+                    WindowManager.instance.closeFloatWindow()
+                }
             }
         })
     }
@@ -316,7 +338,7 @@ private extension TUICallKitImpl {
         return callParams
     }
     
-    func handleAbilityFailErrorMessage(code: Int32, message: String?) {
+    func convertCallKitError(code: Int32, message: String?) -> String {
         var errorMessage: String? = message
         if code == ERROR_PACKAGE_NOT_PURCHASED {
             errorMessage = TUICallKitLocalize(key: "TUICallKit.purchased")
@@ -324,7 +346,22 @@ private extension TUICallKitImpl {
             errorMessage = TUICallKitLocalize(key: "TUICallKit.support")
         } else if code == ERR_SVR_MSG_IN_PEER_BLACKLIST.rawValue {
             errorMessage = TUICallKitLocalize(key: "TUICallKit.ErrorInPeerBlacklist")
+        } else if code == ERROR_INIT_FAIL {
+            errorMessage = TUICallKitLocalize(key: "TUICallKit.ErrorInvalidLogin")
+        } else if code == ERROR_PARAM_INVALID {
+            errorMessage = TUICallKitLocalize(key: "TUICallKit.ErrorParameterInvalid")
+        } else if code == ERROR_REQUEST_REFUSED {
+            errorMessage = TUICallKitLocalize(key: "TUICallKit.ErrorRequestRefused")
+        } else if code == ERROR_REQUEST_REPEATED {
+            errorMessage = TUICallKitLocalize(key: "TUICallKit.ErrorRequestRepeated")
+        } else if code == ERROR_SCENE_NOT_SUPPORTED {
+            errorMessage = TUICallKitLocalize(key: "TUICallKit.ErrorSceneNotSupport")
         }
+        return errorMessage ?? ""
+    }
+    
+    func handleAbilityFailErrorMessage(code: Int32, message: String?) {
+        let errorMessage = TUITool.convertIMError(Int(code), msg: convertCallKitError(code: code, message: message))
         TUITool.makeToast(errorMessage ?? "", duration: 4)
     }
     

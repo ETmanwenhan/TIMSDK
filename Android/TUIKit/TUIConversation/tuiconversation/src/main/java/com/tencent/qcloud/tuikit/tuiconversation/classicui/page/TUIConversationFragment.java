@@ -14,6 +14,7 @@ import android.widget.ListView;
 import android.widget.PopupWindow;
 
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuicore.TUICore;
@@ -24,7 +25,6 @@ import com.tencent.qcloud.tuikit.timcommon.component.action.PopActionClickListen
 import com.tencent.qcloud.tuikit.timcommon.component.action.PopDialogAdapter;
 import com.tencent.qcloud.tuikit.timcommon.component.action.PopMenuAction;
 import com.tencent.qcloud.tuikit.timcommon.component.dialog.TUIKitDialog;
-import com.tencent.qcloud.tuikit.timcommon.component.fragments.BaseFragment;
 import com.tencent.qcloud.tuikit.timcommon.util.LayoutUtil;
 import com.tencent.qcloud.tuikit.tuiconversation.R;
 import com.tencent.qcloud.tuikit.tuiconversation.bean.ConversationInfo;
@@ -33,6 +33,7 @@ import com.tencent.qcloud.tuikit.tuiconversation.classicui.util.TUIConversationU
 import com.tencent.qcloud.tuikit.tuiconversation.classicui.widget.ConversationLayout;
 import com.tencent.qcloud.tuikit.tuiconversation.commonutil.ConversationUtils;
 import com.tencent.qcloud.tuikit.tuiconversation.commonutil.TUIConversationLog;
+import com.tencent.qcloud.tuikit.tuiconversation.config.classicui.TUIConversationConfigClassic;
 import com.tencent.qcloud.tuikit.tuiconversation.presenter.ConversationPresenter;
 
 import java.util.ArrayList;
@@ -42,7 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TUIConversationFragment extends BaseFragment {
+public class TUIConversationFragment extends Fragment {
     private static final String TAG = TUIConversationFragment.class.getSimpleName();
 
     private View mBaseView;
@@ -50,7 +51,6 @@ public class TUIConversationFragment extends BaseFragment {
     private ListView mConversationPopList;
     private PopDialogAdapter mConversationPopAdapter;
     private PopupWindow mConversationPopWindow;
-    private String popWindowConversationId;
     private List<PopMenuAction> mConversationPopActions = new ArrayList<>();
 
     private ConversationPresenter presenter;
@@ -76,7 +76,7 @@ public class TUIConversationFragment extends BaseFragment {
     }
 
     private void initView() {
-        // 从布局文件中获取会话列表面板
+        
         mConversationLayout = mBaseView.findViewById(R.id.conversation_layout);
 
         presenter = new ConversationPresenter();
@@ -84,15 +84,12 @@ public class TUIConversationFragment extends BaseFragment {
         presenter.setShowType(ConversationPresenter.SHOW_TYPE_CONVERSATION_LIST_WITH_FOLD);
         mConversationLayout.setPresenter(presenter);
 
-        // 会话列表面板的默认UI和交互初始化
         mConversationLayout.initDefault();
-        // 通过API设置ConversataonLayout各种属性的样例，开发者可以打开注释，体验效果
-        //        ConversationLayoutSetting.customizeConversation(mConversationLayout);
 
         mConversationLayout.getConversationList().setOnConversationAdapterListener(new OnConversationAdapterListener() {
             @Override
             public void onItemClick(View view, int viewType, ConversationInfo conversationInfo) {
-                // 此处为demo的实现逻辑，更根据会话类型跳转到相关界面，开发者可根据自己的应用场景灵活实现
+                
                 if (conversationInfo.isMarkFold()) {
                     mConversationLayout.clearUnreadStatusOfFoldItem();
                     startFoldedConversationActivity();
@@ -115,12 +112,6 @@ public class TUIConversationFragment extends BaseFragment {
                 if (conversationInfo == null) {
                     return;
                 }
-
-                if (!TextUtils.isEmpty(popWindowConversationId) && popWindowConversationId.equals(conversationInfo.getConversationId())) {
-                    if (mConversationPopWindow != null) {
-                        mConversationPopWindow.dismiss();
-                    }
-                }
             }
         });
 
@@ -135,47 +126,24 @@ public class TUIConversationFragment extends BaseFragment {
         }
     }
 
-    private void initPopMenuAction() {
-        // 设置长按conversation显示PopAction
-        PopMenuAction action = new PopMenuAction();
-        action.setActionName(getResources().getString(R.string.not_display));
-        action.setWeight(800);
-        action.setActionClickListener(new PopActionClickListener() {
-            @Override
-            public void onActionClick(int index, Object data) {
-                ConversationInfo conversationInfo = (ConversationInfo) data;
-                if (conversationInfo.isMarkFold()) {
-                    mConversationLayout.hideFoldedItem(true);
-                } else {
-                    mConversationLayout.markConversationHidden(conversationInfo);
-                }
-            }
-        });
-        List<PopMenuAction> conversationPopActions = new ArrayList<PopMenuAction>();
-        conversationPopActions.add(action);
-
-        mConversationPopActions.clear();
-        mConversationPopActions.addAll(conversationPopActions);
-    }
-
-    private void addMarkUnreadPopMenuAction(boolean markUnread) {
-        PopMenuAction action = new PopMenuAction();
-        action.setActionClickListener(new PopActionClickListener() {
+    private PopMenuAction getMarkUnreadPopMenuAction(boolean markUnread) {
+        PopMenuAction markUnreadAction = new PopMenuAction();
+        markUnreadAction.setActionClickListener(new PopActionClickListener() {
             @Override
             public void onActionClick(int index, Object data) {
                 mConversationLayout.markConversationUnread((ConversationInfo) data, markUnread);
             }
         });
         if (markUnread) {
-            action.setActionName(getResources().getString(R.string.mark_unread));
+            markUnreadAction.setActionName(getResources().getString(R.string.mark_unread));
         } else {
-            action.setActionName(getResources().getString(R.string.mark_read));
+            markUnreadAction.setActionName(getResources().getString(R.string.mark_read));
         }
-        action.setWeight(900);
-        mConversationPopActions.add(0, action);
+        markUnreadAction.setWeight(900);
+        return markUnreadAction;
     }
 
-    private void addDeletePopMenuAction() {
+    private PopMenuAction getDeletePopMenuAction() {
         PopMenuAction action = new PopMenuAction();
         action.setActionClickListener(new PopActionClickListener() {
             @Override
@@ -203,37 +171,46 @@ public class TUIConversationFragment extends BaseFragment {
         });
         action.setActionName(getResources().getString(R.string.chat_delete));
         action.setWeight(700);
-        mConversationPopActions.add(action);
+        return action;
     }
 
-    /**
-     * 长按会话item弹框
-     * @param view 长按 view
-     * @param conversationInfo 会话数据对象
-     */
     private void showItemPopMenu(View view, final ConversationInfo conversationInfo) {
-        initPopMenuAction();
+        mConversationPopActions.clear();
+
+        PopMenuAction hideAction = new PopMenuAction();
+        hideAction.setActionName(getResources().getString(R.string.not_display));
+        hideAction.setWeight(800);
+        hideAction.setActionClickListener(new PopActionClickListener() {
+            @Override
+            public void onActionClick(int index, Object data) {
+                ConversationInfo conversationInfo = (ConversationInfo) data;
+                if (conversationInfo.isMarkFold()) {
+                    mConversationLayout.hideFoldedItem(true);
+                } else {
+                    mConversationLayout.markConversationHidden(conversationInfo);
+                }
+            }
+        });
+        mConversationPopActions.add(hideAction);
+
+        PopMenuAction markUnreadAction = null;
+        PopMenuAction deleteAction = null;
 
         if (!conversationInfo.isMarkFold()) {
             if (conversationInfo.getUnRead() > 0) {
-                addMarkUnreadPopMenuAction(false);
+                markUnreadAction = getMarkUnreadPopMenuAction(false);
             } else {
                 if (conversationInfo.isMarkUnread()) {
-                    addMarkUnreadPopMenuAction(false);
+                    markUnreadAction = getMarkUnreadPopMenuAction(false);
                 } else {
-                    addMarkUnreadPopMenuAction(true);
+                    markUnreadAction = getMarkUnreadPopMenuAction(true);
                 }
             }
 
-            addDeletePopMenuAction();
-
+            deleteAction = getDeletePopMenuAction();
+            mConversationPopActions.add(markUnreadAction);
+            mConversationPopActions.add(deleteAction);
             mConversationPopActions.addAll(addMoreConversationAction(conversationInfo));
-            Collections.sort(mConversationPopActions, new Comparator<PopMenuAction>() {
-                @Override
-                public int compare(PopMenuAction o1, PopMenuAction o2) {
-                    return o2.getWeight() - o1.getWeight();
-                }
-            });
         }
 
         View itemPop = LayoutInflater.from(getActivity()).inflate(R.layout.conversation_pop_menu_layout, null);
@@ -249,19 +226,28 @@ public class TUIConversationFragment extends BaseFragment {
                 restoreConversationItemBackground();
             }
         });
-
-        for (int i = 0; i < mConversationPopActions.size(); i++) {
-            PopMenuAction action = mConversationPopActions.get(i);
-            if (conversationInfo.isTop()) {
-                if (action.getActionName().equals(getResources().getString(R.string.chat_top))) {
-                    action.setActionName(getResources().getString(R.string.quit_chat_top));
+        TUIConversationConfigClassic.ConversationMenuItemDataSource dataSource = TUIConversationConfigClassic.getConversationMenuItemDataSource();
+        if (dataSource != null) {
+            List<Integer> excludeList = dataSource.conversationShouldHideItemsInMoreMenu(conversationInfo);
+            if (excludeList != null && !excludeList.isEmpty()) {
+                if (excludeList.contains(TUIConversationConfigClassic.HIDE)) {
+                    mConversationPopActions.remove(hideAction);
                 }
-            } else {
-                if (action.getActionName().equals(getResources().getString(R.string.quit_chat_top))) {
-                    action.setActionName(getResources().getString(R.string.chat_top));
+                if (excludeList.contains(TUIConversationConfigClassic.DELETE)) {
+                    mConversationPopActions.remove(deleteAction);
                 }
             }
+            List<PopMenuAction> conversationPopMenuItems = dataSource.conversationShouldAddNewItemsToMoreMenu(conversationInfo);
+            if (conversationPopMenuItems != null && !conversationPopMenuItems.isEmpty()) {
+                mConversationPopActions.addAll(conversationPopMenuItems);
+            }
         }
+        Collections.sort(mConversationPopActions, new Comparator<PopMenuAction>() {
+            @Override
+            public int compare(PopMenuAction o1, PopMenuAction o2) {
+                return o2.getWeight() - o1.getWeight();
+            }
+        });
         mConversationPopAdapter = new PopDialogAdapter();
         mConversationPopList.setAdapter(mConversationPopAdapter);
         mConversationPopAdapter.setDataSource(mConversationPopActions);
@@ -270,12 +256,10 @@ public class TUIConversationFragment extends BaseFragment {
         mConversationPopWindow.setOutsideTouchable(true);
         int width = ConversationUtils.getListUnspecifiedWidth(mConversationPopAdapter, mConversationPopList);
         mConversationPopWindow.setWidth(width);
-        popWindowConversationId = conversationInfo.getConversationId();
         mConversationPopWindow.setOnDismissListener(new PopupWindow.OnDismissListener() {
             @Override
             public void onDismiss() {
                 restoreConversationItemBackground();
-                popWindowConversationId = "";
             }
         });
         int x = view.getWidth() / 2;

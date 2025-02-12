@@ -13,6 +13,7 @@
 #import "TUIConversationCell.h"
 #import "TUIConversationListDataProvider.h"
 #import "TUIFoldListViewController.h"
+#import "TUIConversationConfig.h"
 
 #define GroupBtnSpace 24
 #define GroupScrollViewHeight 30
@@ -124,7 +125,7 @@
 }
 
 - (void)setupViews {
-    self.view.backgroundColor = TUIConversationDynamicColor(@"conversation_bg_color", @"#FFFFFF");
+    self.view.backgroundColor = [TUIConversationConfig sharedConfig].listBackgroundColor ? : TUIConversationDynamicColor(@"conversation_bg_color", @"#FFFFFF");
     self.viewHeight = self.view.mm_h;
     if (self.isShowBanner) {
         CGSize size = CGSizeMake(self.view.bounds.size.width, 60);
@@ -144,7 +145,6 @@
     [self.tableViewContainer addSubview:self.tableViewForAll];
 
     if (self.isShowConversationGroup) {
-        // 延迟点时间加载，等待插件能力位异步加载完毕
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
           NSArray *extensionList = [TUICore getExtensionList:TUICore_TUIConversationExtension_ConversationGroupListBanner_ClassicExtensionID param:nil];
           @weakify(self);
@@ -212,6 +212,7 @@
 - (TUIConversationTableView *)tableViewForAll {
     if (!_tableViewForAll) {
         _tableViewForAll = [[TUIConversationTableView alloc] init];
+        _tableViewForAll.backgroundColor = self.view.backgroundColor;
         _tableViewForAll.convDelegate = self;
         _tableViewForAll.tipsMsgWhenNoConversation = [NSString stringWithFormat:TIMCommonLocalizableString(TUIConversationNone), @""];
         if (self.settingDataProvider) {
@@ -774,7 +775,6 @@
                     desc = TIMCommonLocalizableString(TUIKitMessageTipsOthersRecallMessage);
                 } else if (msg.groupID.length > 0) {
                     /**
-                     * 对于群组消息的名称显示，优先显示群名片，昵称优先级其次，用户ID优先级最低。
                      * For the name display of group messages, the group business card is displayed first, the nickname has the second priority, and the user ID
                      * has the lowest priority.
                      */

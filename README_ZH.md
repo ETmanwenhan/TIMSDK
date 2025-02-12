@@ -38,7 +38,7 @@
 <td style="text-align:center">Android  </td>
 <td style="text-align:center" ><a href="https://github.com/tencentyun/TIMSDK/tree/master/Android/IMSDK">Github(推荐)</a></td>
 <td style="text-align:left" ><a href="https://cloud.tencent.com/document/product/269/37059">【极速集成】导入TUIKit (Android)</a><br><a href="https://cloud.tencent.com/document/product/269/75283">【常规集成】快速导入到工程 (Android)</a></td>
-<td style="text-align:center" rowspan='4'><a href="https://cloud.tencent.com/document/product/269/1606">更新日志(终端)</a> </td>
+<td style="text-align:center" rowspan='5'><a href="https://cloud.tencent.com/document/product/269/1606">更新日志(终端)</a> </td>
 </tr>
 <tr>
 <td style="text-align:center">iOS  </td>
@@ -54,6 +54,11 @@
 <td style="text-align:center">Windows  </td>
 <td style="text-align:center" ><a href="https://github.com/tencentyun/TIMSDK/tree/master/Windows/IMSDK">Github(推荐)</a></td>
 <td style="text-align:left" ><a href="https://cloud.tencent.com/document/product/269/75287">【常规集成】快速导入到工程 (Windows)</a></td>
+</tr>
+<tr>
+<td style="text-align:center">HarmonyOS  </td>
+<td style="text-align:center" ><a href="https://gitee.com/cloudtencent/TIMSDK/tree/master/HarmonyOS/IMSDK">Gitee(推荐)</a></td>
+<td style="text-align:left" ><a href="https://cloud.tencent.com/document/product/269/103558">【常规集成】快速导入到工程 (HarmonyOS)</a></td>
 </tr>
 </table>
 
@@ -160,27 +165,7 @@
 
 [接口升级指引](https://docs.qq.com/sheet/DS3lMdHpoRmpWSEFW)
 
-## 最新增强版 7.7.5282 @2023.12.18
+## 最新增强版 8.4.6675 @2025.02.11
 ### SDK
-- 新增 V2TIMCommunityManager 和 V2TIMCommunityListener，整合社群话题类接口
-- SDK 支持 Quic 和高级加密插件
-- 优化会话的过滤逻辑
-- 话题资料增加 createTime 字段
-- 直播群支持设置管理员和拉取管理员列表
-- 本地内容审核的正则表达式默认忽略英文大小写
-- 修复偶现的 jni 问题
-- 修复偶现的弱网发送消息回调错误的问题
-- 修复偶现的群 tips 消息 intValue 改变的问题
-- 修复 Android 端 SDK 搜索英文问号失败的问题
-
-
-### TUIKit & Demo
-- 新增智能聊天机器人 ChatBot 插件，支持“常见问题”问答形式，支持流式文本消息展示
-- TUIKit 适配 Gradle 8.0 
-- 简化 TUIKit 组件初始化步骤，增加组件依赖配置
-- TUIChat 支持在 RoomKit 中半屏横屏显示
-- TUIChat 支持添加消息点击长按等事件监听器
-- 优化 TIMPush 插件
-- 优化客服插件体验
-- 优化语音消息点击效果
+- 修复分页拉取群成员列表异常的问题。
 

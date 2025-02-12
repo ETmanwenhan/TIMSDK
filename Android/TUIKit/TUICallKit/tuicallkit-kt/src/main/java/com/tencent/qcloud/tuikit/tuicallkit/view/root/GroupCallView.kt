@@ -2,15 +2,16 @@ package com.tencent.qcloud.tuikit.tuicallkit.view.root
 
 import android.content.Context
 import android.view.LayoutInflater
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.RelativeLayout
 import android.widget.ScrollView
 import com.tencent.qcloud.tuicore.TUIConstants
 import com.tencent.qcloud.tuicore.TUICore
 import com.tencent.qcloud.tuikit.tuicallengine.TUICallDefine
 import com.tencent.qcloud.tuikit.tuicallengine.impl.base.Observer
 import com.tencent.qcloud.tuikit.tuicallkit.R
+import com.tencent.qcloud.tuikit.tuicallkit.state.TUICallState
 import com.tencent.qcloud.tuikit.tuicallkit.utils.ImageLoader
 import com.tencent.qcloud.tuikit.tuicallkit.view.component.CallTimerView
 import com.tencent.qcloud.tuikit.tuicallkit.view.component.CallWaitingHintView
@@ -21,31 +22,29 @@ import com.tencent.qcloud.tuikit.tuicallkit.view.component.function.VideoCallerA
 import com.tencent.qcloud.tuikit.tuicallkit.view.component.userinfo.group.GroupCallerUserInfoView
 import com.tencent.qcloud.tuikit.tuicallkit.view.component.userinfo.group.InviteeAvatarListView
 import com.tencent.qcloud.tuikit.tuicallkit.view.component.videolayout.GroupCallVideoLayout
-import com.tencent.qcloud.tuikit.tuicallkit.viewmodel.root.GroupCallViewModel
 
 class GroupCallView(context: Context) : BaseCallView(context) {
 
     private var layoutRender: ScrollView? = null
-    private var layoutFunction: RelativeLayout? = null
-    private var layoutCallTime: RelativeLayout? = null
-    private var layoutInviterWaitHint: RelativeLayout? = null
-    private var layoutFloatIcon: RelativeLayout? = null
-    private var layoutInviteUserIcon: RelativeLayout? = null
-    private var layoutCallerUserInfo: RelativeLayout? = null
-    private var layoutInviteeWaitHint: RelativeLayout? = null
+    private var layoutFunction: FrameLayout? = null
+    private var layoutCallTime: FrameLayout? = null
+    private var layoutInviterWaitHint: FrameLayout? = null
+    private var layoutFloatIcon: FrameLayout? = null
+    private var layoutInviteUserIcon: FrameLayout? = null
+    private var layoutCallerUserInfo: FrameLayout? = null
+    private var layoutInviteeWaitHint: FrameLayout? = null
     private var layoutInviteeAvatar: LinearLayout? = null
     private var imageBackground: ImageView? = null
 
     private var groupCallVideoLayout: GroupCallVideoLayout? = null
-    private var functionView: BaseCallView? = null
+    private var functionWaitView: BaseCallView? = null
+    private var functionAcceptView: BaseCallView? = null
     private var floatingWindowButton: FloatingWindowButton? = null
     private var inviteUserButton: InviteUserButton? = null
     private var callTimerView: CallTimerView? = null
     private var callWaitingHintView: CallWaitingHintView? = null
     private var callerUserInfo: GroupCallerUserInfoView? = null
     private var inviteeAvatarListView: InviteeAvatarListView? = null
-
-    private var viewModel = GroupCallViewModel()
 
     private var callStatusObserver = Observer<TUICallDefine.Status> {
         refreshCallerUserInfoView()
@@ -61,6 +60,10 @@ class GroupCallView(context: Context) : BaseCallView(context) {
         showAntiFraudReminder()
     }
 
+    private var bottomViewExpandObserver = Observer<Boolean> {
+        layoutFunction?.background = context.resources.getDrawable(R.drawable.tuicallkit_bg_group_call_bottom)
+    }
+
     init {
         initView()
         addObserver()
@@ -68,7 +71,8 @@ class GroupCallView(context: Context) : BaseCallView(context) {
 
     override fun clear() {
         groupCallVideoLayout?.clear()
-        functionView?.clear()
+        functionWaitView?.clear()
+        functionAcceptView?.clear()
         floatingWindowButton?.clear()
         inviteUserButton?.clear()
         callTimerView?.clear()
@@ -92,7 +96,7 @@ class GroupCallView(context: Context) : BaseCallView(context) {
         layoutCallTime = findViewById(R.id.rl_layout_call_time)
         imageBackground = findViewById(R.id.img_group_view_background)
 
-        ImageLoader.loadBlurImage(context, imageBackground, viewModel.selfUser.get().avatar.get())
+        ImageLoader.loadBlurImage(context, imageBackground, TUICallState.instance.selfUser.get().avatar.get())
 
         refreshCallerUserInfoView()
         refreshInviteeAvatarView()
@@ -106,8 +110,8 @@ class GroupCallView(context: Context) : BaseCallView(context) {
     }
 
     private fun refreshCallerUserInfoView() {
-        if (TUICallDefine.Status.Waiting == viewModel.callStatus.get()
-            && TUICallDefine.Role.Called == viewModel.callRole.get()
+        if (TUICallDefine.Status.Waiting == TUICallState.instance.selfUser.get().callStatus.get()
+            && TUICallDefine.Role.Called == TUICallState.instance.selfUser.get().callRole.get()
         ) {
             layoutCallerUserInfo?.visibility = VISIBLE
             callerUserInfo = GroupCallerUserInfoView(context)
@@ -119,8 +123,8 @@ class GroupCallView(context: Context) : BaseCallView(context) {
     }
 
     private fun refreshInviteeAvatarView() {
-        if (TUICallDefine.Status.Waiting == viewModel.callStatus.get()
-            && TUICallDefine.Role.Called == viewModel.callRole.get()
+        if (TUICallDefine.Status.Waiting == TUICallState.instance.selfUser.get().callStatus.get()
+            && TUICallDefine.Role.Called == TUICallState.instance.selfUser.get().callRole.get()
         ) {
             layoutInviteeAvatar?.visibility = VISIBLE
             inviteeAvatarListView = InviteeAvatarListView(context)
@@ -132,7 +136,7 @@ class GroupCallView(context: Context) : BaseCallView(context) {
     }
 
     private fun refreshTimerView() {
-        if (TUICallDefine.Status.Accept == viewModel.callStatus.get()) {
+        if (TUICallDefine.Status.Accept == TUICallState.instance.selfUser.get().callStatus.get()) {
             layoutCallTime?.removeAllViews()
             callTimerView = CallTimerView(context)
             layoutCallTime?.addView(callTimerView)
@@ -143,8 +147,8 @@ class GroupCallView(context: Context) : BaseCallView(context) {
     }
 
     private fun refreshCallStatusView() {
-        if (TUICallDefine.Status.Waiting == viewModel.callStatus.get()) {
-            if (TUICallDefine.Role.Called == viewModel.callRole.get()) {
+        if (TUICallDefine.Status.Waiting == TUICallState.instance.selfUser.get().callStatus.get()) {
+            if (TUICallDefine.Role.Called == TUICallState.instance.selfUser.get().callRole.get()) {
                 layoutInviteeWaitHint?.visibility = VISIBLE
                 layoutInviterWaitHint?.visibility = GONE
                 layoutInviteeWaitHint?.removeAllViews()
@@ -164,9 +168,9 @@ class GroupCallView(context: Context) : BaseCallView(context) {
     }
 
     private fun refreshInviteUserIconView() {
-        if ((TUICallDefine.Role.Caller == viewModel.callRole.get()
-                    && TUICallDefine.Status.None != viewModel.callStatus.get())
-            || TUICallDefine.Status.Accept == viewModel.callStatus.get()
+        if ((TUICallDefine.Role.Caller == TUICallState.instance.selfUser.get().callRole.get()
+                    && TUICallDefine.Status.None != TUICallState.instance.selfUser.get().callStatus.get())
+            || TUICallDefine.Status.Accept == TUICallState.instance.selfUser.get().callStatus.get()
         ) {
             layoutInviteUserIcon?.removeAllViews()
             inviteUserButton?.clear()
@@ -186,29 +190,36 @@ class GroupCallView(context: Context) : BaseCallView(context) {
     }
 
     private fun refreshFunctionView() {
-        if (viewModel.callRole.get() == TUICallDefine.Role.Called) {
-            functionView = if (TUICallDefine.Status.Waiting == viewModel.callStatus.get()) {
-                AudioAndVideoCalleeWaitingView(context)
+        if (TUICallState.instance.selfUser.get().callRole.get() == TUICallDefine.Role.Called) {
+            if (TUICallDefine.Status.Waiting == TUICallState.instance.selfUser.get().callStatus.get()) {
+                functionWaitView = AudioAndVideoCalleeWaitingView(context)
+                layoutFunction!!.removeAllViews()
+                layoutFunction!!.addView(functionWaitView)
             } else {
-                VideoCallerAndCalleeAcceptedView(context)
+                if (functionAcceptView == null) {
+                    functionAcceptView = VideoCallerAndCalleeAcceptedView(context)
+                }
+                layoutFunction!!.removeAllViews()
+                layoutFunction!!.addView(functionAcceptView)
             }
+        } else if (functionAcceptView == null) {
+            functionAcceptView = VideoCallerAndCalleeAcceptedView(context)
             layoutFunction!!.removeAllViews()
-            layoutFunction!!.addView(functionView)
-        } else if (functionView == null) {
-            functionView = VideoCallerAndCalleeAcceptedView(context)
-            layoutFunction!!.addView(functionView)
+            layoutFunction!!.addView(functionAcceptView)
         }
     }
 
     private fun refreshRenderView() {
-        if (TUICallDefine.Role.Called == viewModel.callRole.get()) {
-            if (TUICallDefine.Status.Waiting == viewModel.callStatus.get()) {
+        if (TUICallDefine.Role.Called == TUICallState.instance.selfUser.get().callRole.get()) {
+            if (TUICallDefine.Status.Waiting == TUICallState.instance.selfUser.get().callStatus.get()) {
                 layoutRender?.visibility = GONE
             } else {
                 layoutRender?.visibility = VISIBLE
-                groupCallVideoLayout = GroupCallVideoLayout(context)
-                layoutRender!!.removeAllViews()
-                layoutRender!!.addView(groupCallVideoLayout)
+                if (groupCallVideoLayout == null) {
+                    groupCallVideoLayout = GroupCallVideoLayout(context)
+                    layoutRender!!.removeAllViews()
+                    layoutRender!!.addView(groupCallVideoLayout)
+                }
             }
         } else if (groupCallVideoLayout == null) {
             layoutRender?.visibility = VISIBLE
@@ -219,7 +230,7 @@ class GroupCallView(context: Context) : BaseCallView(context) {
     }
 
     private fun showAntiFraudReminder() {
-        if (TUICallDefine.Status.Accept != viewModel.callStatus.get()) {
+        if (TUICallDefine.Status.Accept != TUICallState.instance.selfUser.get().callStatus.get()) {
             return
         }
 
@@ -234,10 +245,12 @@ class GroupCallView(context: Context) : BaseCallView(context) {
     }
 
     private fun addObserver() {
-        viewModel.callStatus.observe(callStatusObserver)
+        TUICallState.instance.selfUser.get().callStatus.observe(callStatusObserver)
+        TUICallState.instance.isBottomViewExpand.observe(bottomViewExpandObserver)
     }
 
     private fun removeObserver() {
-        viewModel.callStatus.removeObserver(callStatusObserver)
+        TUICallState.instance.selfUser.get().callStatus.removeObserver(callStatusObserver)
+        TUICallState.instance.isBottomViewExpand.removeObserver(bottomViewExpandObserver)
     }
 }

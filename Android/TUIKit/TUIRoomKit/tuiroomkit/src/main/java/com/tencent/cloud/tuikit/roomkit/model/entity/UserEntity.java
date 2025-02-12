@@ -5,6 +5,7 @@ import com.tencent.cloud.tuikit.engine.room.TUIRoomDefine;
 public class UserEntity {
     private String userId;
     private String userName;
+    private String nameCard;
     private String avatarUrl;
 
     private int     userVoiceVolume = 0;
@@ -15,7 +16,9 @@ public class UserEntity {
 
     private boolean isOnSeat = false;
 
-    private boolean disableSendingMessage = false;
+    private boolean enableSendingMessage = true;
+
+    private TUIRoomDefine.Role role = TUIRoomDefine.Role.GENERAL_USER;
 
     public String getUserId() {
         return userId;
@@ -29,8 +32,16 @@ public class UserEntity {
         return userName;
     }
 
+    public String getNameCard() {
+        return nameCard;
+    }
+
     public void setUserName(String userName) {
         this.userName = userName;
+    }
+
+    public void setNameCard(String nameCard) {
+        this.nameCard = nameCard;
     }
 
     public String getAvatarUrl() {
@@ -81,12 +92,20 @@ public class UserEntity {
         isOnSeat = onSeat;
     }
 
-    public boolean isDisableSendingMessage() {
-        return disableSendingMessage;
+    public boolean isEnableSendingMessage() {
+        return enableSendingMessage;
     }
 
-    public void setDisableSendingMessage(boolean disableSendingMessage) {
-        this.disableSendingMessage = disableSendingMessage;
+    public void setEnableSendingMessage(boolean enableSendingMessage) {
+        this.enableSendingMessage = enableSendingMessage;
+    }
+
+    public TUIRoomDefine.Role getRole() {
+        return role;
+    }
+
+    public void setRole(TUIRoomDefine.Role role) {
+        this.role = role;
     }
 
     public UserEntity copy() {
@@ -99,7 +118,8 @@ public class UserEntity {
         userEntity.setHasVideoStream(hasVideoStream);
         userEntity.setVideoStreamType(videoStreamType);
         userEntity.setOnSeat(isOnSeat);
-        userEntity.setDisableSendingMessage(disableSendingMessage);
+        userEntity.setEnableSendingMessage(enableSendingMessage);
+        userEntity.setRole(role);
         return userEntity;
     }
 
@@ -107,10 +127,12 @@ public class UserEntity {
         UserEntity userEntity = new UserEntity();
         userEntity.userId = userInfo.userId;
         userEntity.userName = userInfo.userName;
+        userEntity.nameCard = userInfo.nameCard;
         userEntity.avatarUrl = userInfo.avatarUrl;
         userEntity.hasAudioStream  = userInfo.hasAudioStream;
         userEntity.hasVideoStream = userInfo.hasVideoStream;
         userEntity.videoStreamType = TUIRoomDefine.VideoStreamType.CAMERA_STREAM;
+        userEntity.role = userInfo.userRole;
         return userEntity;
     }
 
@@ -118,10 +140,12 @@ public class UserEntity {
         UserEntity userEntity = new UserEntity();
         userEntity.userId = userInfo.userId;
         userEntity.userName = userInfo.userName;
+        userEntity.nameCard = userInfo.nameCard;
         userEntity.avatarUrl = userInfo.avatarUrl;
         userEntity.hasAudioStream  = userInfo.hasAudioStream;
         userEntity.hasVideoStream = userInfo.hasScreenStream;
         userEntity.videoStreamType = TUIRoomDefine.VideoStreamType.SCREEN_STREAM;
+        userEntity.role = userInfo.userRole;
         return userEntity;
     }
 }

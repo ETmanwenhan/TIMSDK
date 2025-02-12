@@ -30,14 +30,14 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        // 阴影
+        // shadow
         self.layer.shadowColor = RGBA(0, 0, 0, 0.15).CGColor;
         self.layer.shadowOpacity = 1;
         self.layer.shadowOffset = CGSizeMake(0, 0);
         self.layer.shadowRadius = 2;
         self.clipsToBounds = NO;
 
-        // 背景图
+        // backgroudView
         UIImageView *backgroudView = [[UIImageView alloc] initWithFrame:frame];
         [self addSubview:backgroudView];
         backgroudView.mm_fill();
@@ -48,7 +48,7 @@
         ei = rtlEdgeInsetsWithInsets(ei);
         backgroudView.image = [bkImage resizableImageWithCapInsets:ei resizingMode:UIImageResizingModeStretch];
 
-        // 点击事件
+        // tap
         UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onTap)];
         [self addGestureRecognizer:tap];
     }
@@ -163,49 +163,42 @@
 
 static TUIChatSmallTongueView_Minimalist *gTongueView = nil;
 static TUIChatSmallTongue_Minimalist *gTongue = nil;
-static UIWindow *gWindow = nil;
 
 @implementation TUIChatSmallTongueManager_Minimalist
 
 + (void)showTongue:(TUIChatSmallTongue_Minimalist *)tongue delegate:(id<TUIChatSmallTongueViewDelegate_Minimalist>)delegate {
-    if (tongue.type == gTongue.type && tongue.unreadMsgCount == gTongue.unreadMsgCount && tongue.atMsgSeqs == gTongue.atMsgSeqs) {
+    if (tongue.type == gTongue.type 
+        && tongue.parentView == gTongue.parentView
+        && tongue.unreadMsgCount == gTongue.unreadMsgCount
+        && tongue.atMsgSeqs == gTongue.atMsgSeqs
+        && !gTongueView.hidden) {
         return;
     }
     gTongue = tongue;
 
-    if (!gWindow) {
-        gWindow = [[UIWindow alloc] initWithFrame:CGRectZero];
-        gWindow.windowLevel = UIWindowLevelAlert;
-        gWindow.backgroundColor = [UIColor clearColor];
-
-        if (@available(iOS 13.0, *)) {
-            for (UIWindowScene *windowScene in [UIApplication sharedApplication].connectedScenes) {
-                if (windowScene.activationState == UISceneActivationStateForegroundActive) {
-                    gWindow.windowScene = windowScene;
-                    break;
-                }
-            }
-        }
+    if (!gTongueView) {
+        gTongueView = [[TUIChatSmallTongueView_Minimalist alloc] init];
+    } else {
+        [gTongueView removeFromSuperview];
     }
-
     CGFloat tongueWidth = [TUIChatSmallTongueView_Minimalist getTongueWidth:gTongue];
     CGFloat tongueHeight = [TUIChatSmallTongueView_Minimalist getTongueHeight:gTongue];
     if(isRTL()) {
-        gWindow.frame =
-            CGRectMake(kScale390(16), Screen_Height - Bottom_SafeHeight - TTextView_Height - 20 - tongueHeight, tongueWidth, tongueHeight);
+        gTongueView.frame =
+            CGRectMake(kScale390(16),
+                       tongue.parentView.mm_h - Bottom_SafeHeight - TTextView_Height - 20 - tongueHeight,
+                       tongueWidth, tongueHeight);
     }
     else {
-        gWindow.frame =
-            CGRectMake(Screen_Width - kScale390(54), Screen_Height - Bottom_SafeHeight - TTextView_Height - 20 - tongueHeight, tongueWidth, tongueHeight);
+        gTongueView.frame =
+            CGRectMake(tongue.parentView.mm_w - kScale390(54),
+                       tongue.parentView.mm_h - Bottom_SafeHeight - TTextView_Height - 20 - tongueHeight,
+                       tongueWidth, tongueHeight);
     }
-    if (!gTongueView) {
-        gTongueView = [[TUIChatSmallTongueView_Minimalist alloc] initWithFrame:CGRectZero];
-        [gWindow addSubview:gTongueView];
-        gWindow.hidden = NO;
-    }
-    gTongueView.frame = gWindow.bounds;
+    
     gTongueView.delegate = delegate;
     [gTongueView setTongue:gTongue];
+    [tongue.parentView addSubview:gTongueView];
 }
 
 + (void)removeTongue:(TUIChatSmallTongueType)type {
@@ -217,8 +210,10 @@ static UIWindow *gWindow = nil;
 
 + (void)removeTongue {
     gTongue = nil;
-    gTongueView = nil;
-    gWindow = nil;
+    if (gTongueView) {
+        [gTongueView removeFromSuperview];
+        gTongueView = nil;
+    }
 }
 
 + (void)hideTongue:(BOOL)isHidden {

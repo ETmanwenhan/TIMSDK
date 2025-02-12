@@ -4,34 +4,33 @@ English | [简体中文](./README_ZH.md)
 
 ## Download Links
 
-[Latest TUIChat download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUIChat.zip)
+[Latest TUIChat download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUIChat.zip)
 
-[Latest TUIConversation download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUIConversation.zip)
+[Latest TUIConversation download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUIConversation.zip)
 
-[Latest TUIContact download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUIContact.zip)
+[Latest TUIContact download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUIContact.zip)
 
-[Latest TUIGroup download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUIGroup.zip)
+[Latest TUISearch download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUISearch.zip)
 
-[Latest TUISearch download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUISearch.zip)
+[Latest TUICallKit download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUICallKit.zip)
 
-[Latest TUICallKit download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUICallKit.zip)
+[Latest TUICommunity download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUICommunity.zip)
 
-[Latest TUIOfflinePush download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUIOfflinePush.zip)
+[Latest TUITranslationPlugin download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUITranslationPlugin.zip)
 
-[Latest TUICommunity download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUICommunity.zip)
+[Latest TUIVoiceToTextPlugin download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUIVoiceToTextPlugin.zip)
 
-[Latest TUITranslationPlugin download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUITranslationPlugin.zip)
+[Latest TUICustomerServicePlugin download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUICustomerServicePlugin.zip)
 
-[Latest TUIVoiceToTextPlugin download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUIVoiceToTextPlugin.zip)
+[Latest TUICore download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUICore.zip)
 
-[Latest TUICustomerServicePlugin download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUICustomerServicePlugin.zip)
+[Latest TIMCommon download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TIMCommon.zip)
 
-[Latest TUICore download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUICore.zip)
+[Latest TUIRoomKit download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUIRoomKit.zip)
 
-[Latest TIMCommon download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TIMCommon.zip)
+[Latest TUIEmojiPlugin download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUIEmojiPlugin.zip)
 
-[Latest TUIRoomKit download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUIRoomKit.zip)
+[Latest TUIMultimediaPlugin download](https://im.sdk.qcloud.com/download/tuikit/8.4.6667/android/TUIMultimediaPlugin.zip)
 
-[Latest TUIChatBotPlugin download](https://im.sdk.qcloud.com/download/tuikit/7.7.5282/android/TUIChatBotPlugin.zip)
 
 If you encounter a TUIKit bug, please submit a pull request. After successful merging, we will update the TUIKit library in time.

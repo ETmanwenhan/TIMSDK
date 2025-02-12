@@ -24,7 +24,6 @@
 
     <string name="chat_message_detail">Message details</string>
 
-    <!-- 消息转发 -->
 
     <string name="titlebar_back">Back</string>
     <string name="forward_tip">please select message!</string>
@@ -47,24 +46,10 @@
     <string name="forward_group_note_or_poll_failed_tip">Unable to forward group-note or poll messages.</string>
     <string name="forward_oneByOne_limit_number_tip">Unable to forward the messages one by one because there are too many messages.</string>
 
-    <string name="and_and"> </string>
-    <string name="be_friend">is your friend now.</string>
-
-    <string name="join_group_tip">You have been invited to the group: </string>
-    <string name="joined_tip">You have joined the group: </string>
-    <string name="reject_join_tip">You are rejected from joining the group: </string>
-    <string name="kick_group">You have been kicked out of the group: </string>
-
-
     <string name="send_two_mins">Message sent more than 2 min ago</string>
     <string name="revoke_fail">Failed to recall</string>
 
-    <string name="wait_tip">please try again later</string>
     <string name="group_apply_tips">%1$d group joining request(s)</string>
-
-    <string name="dismiss_tip_before">Your group</string>
-    <string name="dismiss_tip_after">is disbanded.</string>
-    <string name="get_system_notice">Received a custom system notification: </string>
 
     <string name="down_cancle_send">Slide up to cancel</string>
     <string name="say_time_short">Message too short</string>
@@ -113,6 +98,11 @@
     <string name="group_add_opt_join_disable">Prohibited from Joining</string>
     <string name="group_add_opt_invite_disable">Prohibited from Inviting</string>
 
+    <string name="modify_topic_name_is">%s changed the topic name to %s</string>
+    <string name="modify_topic_notice">%s changed the topic notice to %s</string>
+    <string name="modify_topic_introduction">%s changed the group introduction to %s</string>
+    <string name="modify_topic_avatar">%s changed the group avatar</string>
+
     <string name="typing">Typing...</string>
     <string name="titlebar_mutiselect">Select</string>
     <string name="audio_permission_error">Need audio permission</string>
@@ -125,6 +115,7 @@
     <string name="input_tip">No nickname. Enter again.</string>
     <string name="chat_camera_occupied_tip">Other functions are using the camera.</string>
     <string name="chat_mic_is_being_used_cant_record">Microphone is being used by another function, unable to record.</string>
+    <string name="chat_record_audio_failed">Audio recording failed.</string>
 
     <string name="delivered">Delivered to</string>
     <string name="someone_unread">%d unread</string>
@@ -140,16 +131,6 @@
     <string name="open_file_tips">Select an app to open the file</string>
     <string name="download_file_error">Failed to download video: </string>
     <string name="voice_play_tip">Voice file not downloaded.</string>
-
-    <string name="device_info">device info:</string>
-    <string name="system_version">\n system version:</string>
-    <string name="sdk_version">\n SDK version:</string>
-
-    <string name="permission_content">To use this feature, you need to grant permission. Since you have disabled related permission, please manually enable the permission.</string>
-    <string name="setting">Settings</string>
-
-    <string name="no_event_cancle_tip">no cancle event on browser</string>
-    <string name="no_event_confirm_tip">no confirm event on browser</string>
 
     <string name="record_time_tip">The recording time is too short.</string>
     <string name="tap_tips">tap for photo, hold for record</string>
@@ -167,12 +148,6 @@
 
     <string name="group_apply_click_handle">Tap to Process</string>
     <string name="no_support_msg">Unsupported custom messages</string>
-
-    <string name="live">\'s live stream</string>
-    <string name="live_group_live_streaming">Live Streaming</string>
-    <string name="live_group_live_end">Live Over</string>
-    <string name="live_group_user_live">%s Live</string>
-    <string name="live_group_live">Live Group</string>
 
     <string name="start_group_call">Start Group Call</string>
     <string name="start_call">Start Call</string>
@@ -212,7 +187,7 @@
     <string name="chat_permission_mic_reason_title">%s applies for access to the microphone</string>
     <string name="chat_permission_mic_reason">In order for you to send voice messages, make video and audio and video calls, please allow us to access the microphone.</string>
     <string name="chat_permission_camera_reason_title">%s applies for camera permission</string>
-    <string name="chat_permission_camera_reason">In order for you to take photos or videos to send to friends, and to make video calls, please allow us to access the webcam.</string>
+    <string name="chat_permission_camera_reason">In order for you to take photos or videos to send to contacts, and to make video calls, please allow us to access the webcam.</string>
     <string name="chat_permission_storage_reason_title">%s applies for storage permission</string>
     <string name="chat_permission_storage_reason">In order for you to save photos and videos to your device, please allow us to write photos and videos to your device.</string>
     <string name="chat_permission_mic_dialog_alert">Allow microphone access in Settings->Apps->%s to use voice messages, video cameras, and audio and video calls as normal</string>
@@ -222,9 +197,9 @@
     <string name="chat_message_read_receipt">Message Read Receipt</string>
     <string name="chat_i_know">I got it</string>
     <string name="chat_no_more_reminders">No more reminders</string>
-    <string name="chat_im_flagship">Ultimate Edition</string>
+    <string name="chat_im_flagship">Premium Edition</string>
     <string name="chat_buying_guidelines">price description</string>
-    <string name="chat_im_flagship_edition_update_tip">%s feature is only available to the Ultimate edition, which can be used after purchasing the Ultimate Edition. See the price guidelines for details.</string>
+    <string name="chat_im_flagship_edition_update_tip">%s feature is only available to the Premium Edition, which can be used after purchasing the Premium Edition. See the price guidelines for details.</string>
 
     <string name="chat_reply_detail">Reply detail</string>
 
@@ -275,4 +250,87 @@
     <string name="chat_risk_sound">[Violation audio]</string>
     <string name="chat_risk_image">[Violation image]</string>
     <string name="chat_risk_video">[Violation video]</string>
+
+    <string name="chat_recent_use">Recent Use</string>
+    <string name="chat_all_emojis">All Emojis</string>
+
+    <string name="chat_group_pin_message">Pin</string>
+    <string name="chat_group_unpin_message">Unpin</string>
+    <string name="chat_group_message_pinned">%s pinned a message</string>
+    <string name="chat_group_message_unpinned">%s removed a pinned message</string>
+    <string name="chat_unpinned_button_text">Remove</string>
+    <string name="chat_message_is_pinned">The message is already pinned.</string>
+    <string name="chat_message_is_unpinned">This message has already been unpinned.</string>
+
+    <string name="chat_quote_origin_message_revoked">Quoted content has been revoked</string>
+    <string name="chat_reply_origin_message_revoked">Reply content has been revoked</string>
+
+    <string name="group_id">Group ID</string>
+    <string name="group_name">Group Chat Name</string>
+    <string name="group_icon">Change Group Profile Photo</string>
+    <string name="group_notice">Group Notice</string>
+    <string name="group_notice_empty_tip">No group notice</string>
+    <string name="group_members">Group Members</string>
+    <string name="group_type">Group Type</string>
+    <string name="join_group_type">Group Joining Method</string>
+    <string name="invite_group_type">Group Inviting Method</string>
+    <string name="in_group_nick_name">My Alias in Group</string>
+    <string name="dissolve">Disband Group</string>
+    <string name="clear_message">Clear Chat History</string>
+    <string name="modify_group_notice">Edit Group Notice</string>
+    <string name="modify_nick_name_in_goup">Edit My Alias in Group</string>
+    <string name="group_edit">Edit</string>
+    <string name="group_modify_remark_rule">Only letters, digits, underscores, and Chinese characters.</string>
+    <string name="group_clear_message">Clear Chat History</string>
+    <string name="group_choose_avatar">Choose Avatar</string>
+
+    <string name="group_profile_message">Message</string>
+    <string name="group_detail">Group Chat Details</string>
+
+    <string name="modify_group_name_success">Edited</string>
+    <string name="modify_group_notice_success">Edited</string>
+    <string name="exit_group">Leave</string>
+    <string name="modify_nickname_success">Edited</string>
+
+    <string name="modify_icon_fail">Editing failed</string>
+    <string name="modify_icon_suc">Edited</string>
+    <string name="chat_room">Chatroom</string>
+    <string name="chat_room_tip">The request to join chat room is reviewed automatically. Unable to modify it.</string>
+    <string name="community_group">Community</string>
+    <string name="dismiss_group_tip">Disband the group?</string>
+    <string name="quit_group_tip">Leave the group?</string>
+    <string name="clear_group_msg_tip">Are you sure you want to clear the chat history?</string>
+
+    <string name="private_group">Discussion Group</string>
+    <string name="public_group">Public Group</string>
+    <string name="modify_group_name">Edit Group Name</string>
+    <string name="group_join_type">Group Joining Method</string>
+    <string name="forbid_join">Prohibited from Joining</string>
+    <string name="manager_judge">Admin Approval</string>
+    <string name="auto_judge">Auto Approval</string>
+    <string name="profile_msgrev_opt">Mute Notifications</string>
+    <string name="contact_modify_remark_rule">Only letters, digits, underscores, and Chinese characters.</string>
+    <string name="chat_background_title">Background</string>
+
+    <string name="forbid_invite">Prohibited from Inviting</string>
+    <string name="profile_detail">Details</string>
+    <string name="profile_chat_background">Chat background</string>
+    <string name="chat_to_top">Pin</string>
+    <string name="fold_this_group_chat">Fold this group chat</string>>
+    <string name="contact_account_tag">ID : </string>
+    <string name="contact_signature_tag">Status : </string>
+    <string name="profile_remark">Alias</string>
+    <string name="profile_black">Block</string>
+    <string name="profile_chat">Send Message</string>
+    <string name="profile_delete_friend">Delete Contact</string>
+    <string name="profile_clear_message">Clear Chat History</string>
+    <string name="contact_no_status">No status</string>
+
+    <string name="profile_remark_edit">Edit Alias</string>
+    <string name="group_invite_type">Group Inviting Method</string>
+
+    <string name="group_account_tag">ID : </string>
+    <string name="clear_msg_tip">Are you sure you want to clear the chat history?</string>
+    <string name="contact_delete_friend_tip">Are you sure you want to delete the contact?</string>
+    <string name="chat_add_friend">Add Contact</string>
 </resources>

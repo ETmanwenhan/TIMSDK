@@ -119,6 +119,22 @@ public class TUICommunityService implements TUIInitializer, ITUINotification, IT
             }
 
             @Override
+            public void onMemberInvited(String groupID, V2TIMGroupMemberInfo opUser, List<V2TIMGroupMemberInfo> memberList) {
+                if (CommunityUtil.isCommunityGroup(groupID)) {
+                    String selfID = V2TIMManager.getInstance().getLoginUser();
+                    for (V2TIMGroupMemberInfo memberInfo : memberList) {
+                        if (TextUtils.equals(memberInfo.getUserID(), selfID)) {
+                            List<CommunityEventListener> listeners = getCommunityEventListenerList();
+                            for (CommunityEventListener communityEventListener : listeners) {
+                                communityEventListener.onJoinedCommunity(groupID);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            @Override
             public void onGroupCreated(String groupID) {
                 if (CommunityUtil.isCommunityGroup(groupID)) {
                     List<CommunityEventListener> listeners = getCommunityEventListenerList();
@@ -219,8 +235,8 @@ public class TUICommunityService implements TUIInitializer, ITUINotification, IT
                 }
                 for (String topicID : topicIDList) {
                     HashMap<String, Object> param = new HashMap<>();
-                    param.put(TUIConstants.TUIGroup.GROUP_ID, topicID);
-                    TUICore.notifyEvent(TUIConstants.TUIGroup.EVENT_GROUP, TUIConstants.TUIGroup.EVENT_SUB_KEY_GROUP_DISMISS, param);
+                    param.put(TUIConstants.TUIContact.GROUP_ID, topicID);
+                    TUICore.notifyEvent(TUIConstants.TUIContact.EVENT_GROUP, TUIConstants.TUIContact.EVENT_SUB_KEY_GROUP_DISMISS, param);
                 }
             }
 
@@ -232,9 +248,9 @@ public class TUICommunityService implements TUIInitializer, ITUINotification, IT
                     communityEventListener.onTopicChanged(groupID, topicBean);
                 }
                 HashMap<String, Object> param = new HashMap<>();
-                param.put(TUIConstants.TUIGroup.GROUP_ID, topicInfo.getTopicID());
-                param.put(TUIConstants.TUIGroup.GROUP_NAME, topicInfo.getTopicName());
-                TUICore.notifyEvent(TUIConstants.TUIGroup.EVENT_GROUP, TUIConstants.TUIGroup.EVENT_SUB_KEY_GROUP_INFO_CHANGED, param);
+                param.put(TUIConstants.TUIContact.GROUP_ID, topicInfo.getTopicID());
+                param.put(TUIConstants.TUIContact.GROUP_NAME, topicInfo.getTopicName());
+                TUICore.notifyEvent(TUIConstants.TUIContact.EVENT_GROUP, TUIConstants.TUIContact.EVENT_SUB_KEY_GROUP_INFO_CHANGED, param);
             }
         });
     }

@@ -21,6 +21,7 @@ import com.tencent.qcloud.tuikit.tuicontact.R;
 import com.tencent.qcloud.tuikit.tuicontact.TUIContactService;
 import com.tencent.qcloud.tuikit.tuicontact.bean.ContactItemBean;
 import com.tencent.qcloud.tuikit.tuicontact.config.TUIContactConfig;
+import com.tencent.qcloud.tuikit.tuicontact.config.minimalistui.TUIContactConfigMinimalist;
 import com.tencent.qcloud.tuikit.tuicontact.presenter.ContactPresenter;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,13 +95,17 @@ public class ContactAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             itemViewHolder.unreadText.setVisibility(View.GONE);
             itemViewHolder.userStatusView.setVisibility(View.GONE);
             int radius = ScreenUtil.dip2px(20);
+            if (TUIContactConfigMinimalist.getContactAvatarRadius() != TUIContactConfigMinimalist.UNDEFINED) {
+                radius = TUIContactConfigMinimalist.getContactAvatarRadius();
+            }
+            itemViewHolder.avatar.setRadius(radius);
             if (isGroupList) {
                 int defaultIconResId = TUIUtil.getDefaultGroupIconResIDByGroupType(itemViewHolder.itemView.getContext(), contactBean.getGroupType());
                 GlideEngine.loadUserIcon(itemViewHolder.avatar, contactBean.getAvatarUrl(), defaultIconResId, radius);
             } else {
                 GlideEngine.loadUserIcon(itemViewHolder.avatar, contactBean.getAvatarUrl(), radius);
             }
-            if (dataSourceType == ContactListView.DataSource.CONTACT_LIST && TUIContactConfig.getInstance().isShowUserStatus()) {
+            if (dataSourceType == ContactListView.DataSource.CONTACT_LIST && TUIContactConfigMinimalist.isShowUserOnlineStatusIcon()) {
                 itemViewHolder.userStatusView.setVisibility(View.VISIBLE);
                 if (contactBean.getStatusType() == V2TIMUserStatus.V2TIM_USER_STATUS_ONLINE) {
                     itemViewHolder.userStatusView.setBackgroundResource(
@@ -118,24 +123,14 @@ public class ContactAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             String newFriendString = TUIContactService.getAppContext().getResources().getString(R.string.new_friend);
             String myGroupString = TUIContactService.getAppContext().getResources().getString(R.string.group);
             String blokeListString = TUIContactService.getAppContext().getResources().getString(R.string.blacklist);
-            if (TextUtils.equals(newFriendString, contactBean.getId())) {
+            if (presenter.newContacts == contactBean) {
                 controllerViewHolder.controllerName.setText(newFriendString);
-                presenter.getFriendApplicationUnreadCount(new IUIKitCallback<Integer>() {
-                    @Override
-                    public void onSuccess(Integer data) {
-                        if (data == 0) {
-                            controllerViewHolder.unreadText.setVisibility(View.GONE);
-                        } else {
-                            controllerViewHolder.unreadText.setVisibility(View.VISIBLE);
-                            controllerViewHolder.unreadText.setText("" + data);
-                        }
-                    }
-
-                    @Override
-                    public void onError(String module, int errCode, String errMsg) {
-                        ToastUtil.toastShortMessage("Error code = " + errCode + ", desc = " + errMsg);
-                    }
-                });
+                controllerViewHolder.unreadText.setText(contactBean.getUnreadCount() + "");
+                if (contactBean.getUnreadCount() > 0) {
+                    controllerViewHolder.unreadText.setVisibility(View.VISIBLE);
+                } else {
+                    controllerViewHolder.unreadText.setVisibility(View.GONE);
+                }
             } else if (TextUtils.equals(myGroupString, contactBean.getId())) {
                 controllerViewHolder.controllerName.setText(myGroupString);
                 controllerViewHolder.unreadText.setVisibility(View.GONE);
@@ -230,6 +225,13 @@ public class ContactAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     public void setDataSourceType(int dataSourceType) {
         this.dataSourceType = dataSourceType;
+    }
+
+    public void onDataChanged(ContactItemBean data) {
+        int index = mData.indexOf(data);
+        if (index != -1) {
+            notifyItemChanged(index);
+        }
     }
 
     public static class ContactItemViewHolder extends RecyclerView.ViewHolder {

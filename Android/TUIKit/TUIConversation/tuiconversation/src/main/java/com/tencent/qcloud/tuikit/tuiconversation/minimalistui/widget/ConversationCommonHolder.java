@@ -1,6 +1,7 @@
 package com.tencent.qcloud.tuikit.tuiconversation.minimalistui.widget;
 
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.text.Html;
 import android.view.View;
 import android.widget.CheckBox;
@@ -14,15 +15,21 @@ import com.tencent.imsdk.v2.V2TIMMessage;
 import com.tencent.imsdk.v2.V2TIMUserStatus;
 import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuicore.TUICore;
+import com.tencent.qcloud.tuikit.timcommon.bean.TUIMessageBean;
 import com.tencent.qcloud.tuikit.timcommon.component.UnreadCountTextView;
 import com.tencent.qcloud.tuikit.timcommon.component.face.FaceManager;
 import com.tencent.qcloud.tuikit.timcommon.component.swipe.SwipeLayout;
 import com.tencent.qcloud.tuikit.timcommon.util.DateTimeUtil;
+import com.tencent.qcloud.tuikit.timcommon.util.ScreenUtil;
 import com.tencent.qcloud.tuikit.tuiconversation.R;
 import com.tencent.qcloud.tuikit.tuiconversation.bean.ConversationInfo;
 import com.tencent.qcloud.tuikit.tuiconversation.bean.DraftInfo;
 import com.tencent.qcloud.tuikit.tuiconversation.commonutil.TUIConversationLog;
+import com.tencent.qcloud.tuikit.tuiconversation.commonutil.TUIConversationUtils;
 import com.tencent.qcloud.tuikit.tuiconversation.config.TUIConversationConfig;
+import com.tencent.qcloud.tuikit.tuiconversation.config.minimalistui.TUIConversationConfigMinimalist;
+import com.tencent.qcloud.tuikit.tuiconversation.presenter.ConversationPresenter;
+
 import java.util.Date;
 import java.util.HashMap;
 
@@ -45,13 +52,17 @@ public class ConversationCommonHolder extends ConversationBaseHolder {
     protected TextView atAllTv;
     protected TextView atMeTv;
     protected TextView draftTv;
+    protected TextView riskTv;
     private boolean showFoldedStyle = true;
+    protected TextView foldGroupNameTv;
+    protected TextView foldGroupNameDivider;
     protected SwipeLayout swipeLayout;
     protected RelativeLayout markReadView;
     protected RelativeLayout moreView;
     protected TextView markReadTextView;
     protected TextView notDisplayView;
     protected ImageView markReadIconView;
+    private ConversationInfo currentConversation;
 
     public ConversationCommonHolder(View itemView) {
         super(itemView);
@@ -65,6 +76,9 @@ public class ConversationCommonHolder extends ConversationBaseHolder {
         atMeTv = rootView.findViewById(R.id.conversation_at_me);
         atAllTv = rootView.findViewById(R.id.conversation_at_all);
         draftTv = rootView.findViewById(R.id.conversation_draft);
+        riskTv = rootView.findViewById(R.id.conversation_risk);
+        foldGroupNameTv = rootView.findViewById(R.id.fold_group_name);
+        foldGroupNameDivider = rootView.findViewById(R.id.fold_group_name_divider);
         disturbView = rootView.findViewById(R.id.not_disturb);
         multiSelectCheckBox = rootView.findViewById(R.id.select_checkbox);
         messageStatusLayout = rootView.findViewById(R.id.message_status_layout);
@@ -88,19 +102,12 @@ public class ConversationCommonHolder extends ConversationBaseHolder {
     }
 
     public void layoutViews(ConversationInfo conversation, int position) {
+        currentConversation = conversation;
+
         initTitleAndTime(conversation);
         setLastMessageAndStatus(conversation);
 
-        conversationIconView.setRadius(mAdapter.getItemAvatarRadius());
-        if (mAdapter.getItemDateTextSize() != 0) {
-            timelineText.setTextSize(mAdapter.getItemDateTextSize());
-        }
-        if (mAdapter.getItemBottomTextSize() != 0) {
-            messageText.setTextSize(mAdapter.getItemBottomTextSize());
-        }
-        if (mAdapter.getItemTopTextSize() != 0) {
-            titleText.setTextSize(mAdapter.getItemTopTextSize());
-        }
+        conversationIconView.setRadius(ScreenUtil.dip2px(40));
         if (!mAdapter.hasItemUnreadDot()) {
             conversationNotDisturbUnread.setVisibility(View.GONE);
             unreadText.setVisibility(View.GONE);
@@ -126,9 +133,13 @@ public class ConversationCommonHolder extends ConversationBaseHolder {
             messageStatusLayout.setVisibility(View.GONE);
             messageFailed.setVisibility(View.GONE);
             messageSending.setVisibility(View.GONE);
+            atAllTv.setVisibility(View.GONE);
+            atMeTv.setVisibility(View.GONE);
+            draftTv.setVisibility(View.GONE);
+            riskTv.setVisibility(View.GONE);
         }
 
-        if (!conversation.isGroup() && TUIConversationConfig.getInstance().isShowUserStatus()) {
+        if (!conversation.isGroup() && TUIConversationConfigMinimalist.isShowUserOnlineStatusIcon()) {
             if (conversation.getStatusType() == V2TIMUserStatus.V2TIM_USER_STATUS_ONLINE) {
                 userStatusView.setVisibility(View.VISIBLE);
             } else {
@@ -137,10 +148,48 @@ public class ConversationCommonHolder extends ConversationBaseHolder {
         } else {
             userStatusView.setVisibility(View.GONE);
         }
+        applyCustomConfig();
+    }
+
+    private void applyCustomConfig() {
+        if (currentConversation.isTop() && !isForwardMode) {
+            Drawable pinnedCellBackground = TUIConversationConfigMinimalist.getPinnedCellBackground();
+            if (pinnedCellBackground != null) {
+                leftItemLayout.setBackground(pinnedCellBackground);
+            } else {
+                leftItemLayout.setBackgroundColor(rootView.getResources().getColor(R.color.conversation_item_top_color));
+            }
+        } else {
+            Drawable cellBackground = TUIConversationConfigMinimalist.getCellBackground();
+            if (cellBackground != null) {
+                leftItemLayout.setBackground(cellBackground);
+            } else {
+                leftItemLayout.setBackgroundColor(Color.WHITE);
+            }
+        }
+        if (!TUIConversationConfigMinimalist.isShowCellUnreadCount()) {
+            unreadText.setVisibility(View.GONE);
+            conversationNotDisturbUnread.setVisibility(View.GONE);
+        }
+        if (!TUIConversationConfigMinimalist.isShowUserOnlineStatusIcon()) {
+            userStatusView.setVisibility(View.GONE);
+        }
+        if (TUIConversationConfigMinimalist.getCellTitleLabelFontSize() != TUIConversationConfigMinimalist.UNDEFINED) {
+            titleText.setTextSize(TUIConversationConfigMinimalist.getCellTitleLabelFontSize());
+        }
+        if (TUIConversationConfigMinimalist.getCellSubtitleLabelFontSize() != TUIConversationConfigMinimalist.UNDEFINED) {
+            messageText.setTextSize(TUIConversationConfigMinimalist.getCellSubtitleLabelFontSize());
+        }
+        if (TUIConversationConfigMinimalist.getCellTimeLabelFontSize() != TUIConversationConfigMinimalist.UNDEFINED) {
+            timelineText.setTextSize(TUIConversationConfigMinimalist.getCellTimeLabelFontSize());
+        }
+        if (TUIConversationConfigMinimalist.getAvatarCornerRadius() != TUIConversationConfigMinimalist.UNDEFINED) {
+            conversationIconView.setRadius(TUIConversationConfigMinimalist.getAvatarCornerRadius());
+        }
+
     }
 
     private void setLastMessageAndStatus(ConversationInfo conversation) {
-        draftTv.setVisibility(View.GONE);
         DraftInfo draftInfo = conversation.getDraft();
         String draftText = "";
         if (draftInfo != null) {
@@ -156,22 +205,27 @@ public class ConversationCommonHolder extends ConversationBaseHolder {
                 TUIConversationLog.e("ConversationCommonHolder", " getDraftJsonMap error ");
             }
         }
+
+        atAllTv.setVisibility(View.GONE);
+        atMeTv.setVisibility(View.GONE);
+        draftTv.setVisibility(View.GONE);
+        riskTv.setVisibility(View.GONE);
         if (draftInfo != null) {
             messageText.setText(FaceManager.emojiJudge(draftText));
             timelineText.setText(DateTimeUtil.getTimeFormatText(new Date(draftInfo.getDraftTime() * 1000)));
         } else {
-            HashMap<String, Object> param = new HashMap<>();
-            param.put(TUIConstants.TUIChat.V2TIMMESSAGE, conversation.getLastMessage());
-            String lastMsgDisplayString =
-                (String) TUICore.callService(TUIConstants.TUIChat.SERVICE_NAME, TUIConstants.TUIChat.METHOD_GET_DISPLAY_STRING, param);
-            // 获取要显示的字符
-            // Get the characters to display
-            if (lastMsgDisplayString != null) {
-                messageText.setText(Html.fromHtml(lastMsgDisplayString));
-                messageText.setTextColor(rootView.getResources().getColor(R.color.list_bottom_text_bg));
-            }
-            if (conversation.getLastMessage() != null) {
-                timelineText.setText(DateTimeUtil.getTimeFormatText(new Date(conversation.getLastMessageTime() * 1000)));
+            if (TUIConversationUtils.hasRiskContent(conversation.getLastMessage())) {
+                riskTv.setVisibility(View.VISIBLE);
+            } else {
+                TUIMessageBean lasTUIMessageBean = conversation.getLastTUIMessageBean();
+                if (lasTUIMessageBean != null) {
+                    String displayString = ConversationPresenter.getMessageDisplayString(lasTUIMessageBean);
+                    messageText.setText(Html.fromHtml(displayString));
+                    messageText.setTextColor(rootView.getResources().getColor(R.color.list_bottom_text_bg));
+                }
+                if (conversation.getLastMessage() != null) {
+                    timelineText.setText(DateTimeUtil.getTimeFormatText(new Date(conversation.getLastMessageTime() * 1000)));
+                }
             }
         }
 
@@ -195,7 +249,7 @@ public class ConversationCommonHolder extends ConversationBaseHolder {
 
                     if (messageText.getText() != null) {
                         String text = messageText.getText().toString();
-                        messageText.setText("[" + conversation.getUnRead() + rootView.getContext().getString(R.string.message_num) + "] " + text);
+                        messageText.setText("[" + conversation.getUnRead() + " " + rootView.getContext().getString(R.string.message_num) + "] " + text);
                     }
                 }
             }
@@ -255,21 +309,19 @@ public class ConversationCommonHolder extends ConversationBaseHolder {
     }
 
     private void initTitleAndTime(ConversationInfo conversation) {
-        if (conversation.isTop() && !isForwardMode) {
-            leftItemLayout.setBackgroundColor(rootView.getResources().getColor(R.color.conversation_item_top_color));
-        } else {
-            leftItemLayout.setBackgroundColor(Color.WHITE);
-        }
-
         if (showFoldedStyle && conversation.isMarkFold()) {
             titleText.setText(R.string.folded_group_chat);
             timelineText.setVisibility(View.GONE);
+            foldGroupNameTv.setVisibility(View.VISIBLE);
+            foldGroupNameDivider.setVisibility(View.VISIBLE);
+            foldGroupNameTv.setText(conversation.getTitle());
         } else {
             titleText.setText(conversation.getTitle());
+            foldGroupNameTv.setVisibility(View.GONE);
+            foldGroupNameDivider.setVisibility(View.GONE);
         }
+
         messageText.setText("");
         timelineText.setText("");
-        atAllTv.setVisibility(View.GONE);
-        atMeTv.setVisibility(View.GONE);
     }
 }

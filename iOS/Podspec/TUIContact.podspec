@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name         = 'TUIContact'
-  spec.version      = '7.7.5282'
+  spec.version      = '8.4.6667'
   spec.platform     = :ios 
   spec.ios.deployment_target = '9.0'
   spec.license      = { :type => 'Proprietary',
@@ -16,18 +16,21 @@ Pod::Spec.new do |spec|
 
   spec.requires_arc = true
 
-  spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIContact.zip?time=2'}
+  spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUIContact.zip?time=2'}
 
   spec.default_subspec = 'ALL'
-  
+  spec.subspec 'CommonModel' do |commonModel|
+    commonModel.source_files = '**/TUIContact/CommonModel/*.{h,m,mm}'
+    commonModel.dependency 'TXIMSDK_Plus_iOS_XCFramework'
+    commonModel.dependency 'TUICore'
+    commonModel.dependency 'TIMCommon','~> 8.4.6667'
+    commonModel.dependency 'ReactiveObjC'
+    commonModel.dependency 'Masonry'
+  end
   spec.subspec 'BaseCell' do |baseCell|
     baseCell.subspec 'CellData' do |cellData|
       cellData.source_files = '**/TUIContact/BaseCell/CellData/*.{h,m,mm}'
-      cellData.dependency 'TXIMSDK_Plus_iOS','7.7.5282'
-      cellData.dependency 'TUICore','7.7.5282'
-      cellData.dependency 'TIMCommon','7.7.5282'
-      cellData.dependency 'ReactiveObjC'
-      cellData.dependency 'Masonry'
+      cellData.dependency "TUIContact/CommonModel"
     end
     baseCell.subspec 'CellUI' do |cellUI|
       cellUI.source_files = '**/TUIContact/BaseCell/CellUI/*.{h,m,mm}'
@@ -58,9 +61,7 @@ Pod::Spec.new do |spec|
       header.source_files = '**/TUIContact/UI_Classic/Header/*.{h,m,mm}'
       header.dependency "TUIContact/UI_Classic/Service"
     end
-    uiClassic.resource = [
-      '**/TUIContact/Resources/*.bundle'
-    ]
+    uiClassic.resource = ['**/TUIContact/Resources/*.bundle']
   end
   
   spec.subspec 'UI_Minimalist' do |uiMinimalist|
@@ -90,9 +91,7 @@ Pod::Spec.new do |spec|
       header.source_files = '**/TUIContact/UI_Minimalist/Header/*.{h,m,mm}'
       header.dependency "TUIContact/UI_Minimalist/Service"
     end
-    uiMinimalist.resource = [
-      '**/TUIContact/Resources/*.bundle'
-    ]
+    uiMinimalist.resource = ['**/TUIContact/Resources/*.bundle']
   end
 
   spec.subspec 'ALL' do |all|
@@ -100,12 +99,10 @@ Pod::Spec.new do |spec|
     all.dependency "TUIContact/UI_Minimalist"
   end
 
-  spec.pod_target_xcconfig = {
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64'
+  spec.resource_bundle = {
+    "#{spec.module_name}_Privacy" => '**/TUIContact/Resources/PrivacyInfo.xcprivacy'
   }
-  spec.user_target_xcconfig = {
-   'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64'
-  }
+  
 end
 
 # pod trunk push TUIContact.podspec --use-libraries --allow-warnings

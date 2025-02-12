@@ -1,6 +1,9 @@
 package com.tencent.qcloud.tuikit.tuiconversation.minimalistui.widget;
 
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.AttributeSet;
 import android.view.View;
@@ -17,10 +20,10 @@ import com.tencent.qcloud.tuikit.timcommon.component.interfaces.IUIKitCallback;
 import com.tencent.qcloud.tuikit.timcommon.component.swipe.Attributes;
 import com.tencent.qcloud.tuikit.tuiconversation.R;
 import com.tencent.qcloud.tuikit.tuiconversation.bean.ConversationInfo;
+import com.tencent.qcloud.tuikit.tuiconversation.config.minimalistui.TUIConversationConfigMinimalist;
 import com.tencent.qcloud.tuikit.tuiconversation.interfaces.IConversationListAdapter;
 import com.tencent.qcloud.tuikit.tuiconversation.minimalistui.interfaces.IConversationLayout;
 import com.tencent.qcloud.tuikit.tuiconversation.minimalistui.page.TUIConversationMinimalistFragment;
-import com.tencent.qcloud.tuikit.tuiconversation.minimalistui.setting.ConversationLayoutSetting;
 import com.tencent.qcloud.tuikit.tuiconversation.presenter.ConversationPresenter;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,9 +64,6 @@ public class ConversationLayout extends RelativeLayout implements IConversationL
         }
     }
 
-    /**
-     * 初始化相关UI元素
-     */
     private void init() {
         inflate(getContext(), R.layout.minimalistui_conversation_layout, this);
         mConversationList = findViewById(R.id.conversation_list);
@@ -109,6 +109,15 @@ public class ConversationLayout extends RelativeLayout implements IConversationL
                 conversationMutiSelectEnd();
             }
         });
+
+        applyCustomConfig();
+    }
+
+    private void applyCustomConfig() {
+        Drawable listBackground = TUIConversationConfigMinimalist.getListBackground();
+        if (listBackground != null) {
+            mConversationList.setBackground(listBackground);
+        }
     }
 
     public void initUI() {
@@ -120,7 +129,7 @@ public class ConversationLayout extends RelativeLayout implements IConversationL
             homeView.setVisibility(VISIBLE);
             titleView.setVisibility(GONE);
             rtCubeTitleView.setVisibility(VISIBLE);
-            homeView.setBackgroundResource(R.drawable.title_bar_left_icon);
+            homeView.setBackgroundResource(com.tencent.qcloud.tuikit.timcommon.R.drawable.common_title_bar_home_icon);
             homeView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
@@ -152,6 +161,10 @@ public class ConversationLayout extends RelativeLayout implements IConversationL
 
     public boolean isMultiSelected() {
         return isMultiSelected;
+    }
+
+    public void setTitle(String title) {
+        titleView.setText(title);
     }
 
     private void conversationMutiSelectStart() {
@@ -191,7 +204,6 @@ public class ConversationLayout extends RelativeLayout implements IConversationL
         if (presenter != null) {
             presenter.setAdapter(adapter);
         }
-        ConversationLayoutSetting.customizeConversation(this);
         mConversationList.loadConversation();
         mConversationList.loadMarkedConversation();
     }
@@ -240,7 +252,7 @@ public class ConversationLayout extends RelativeLayout implements IConversationL
     @Override
     public void markConversationUnread(ConversationInfo conversationInfo, boolean markUnread) {
         if (presenter != null) {
-            presenter.markConversationUnread(conversationInfo, markUnread);
+            presenter.markConversationUnreadAndCleanUnreadCount(conversationInfo, markUnread);
         }
     }
 

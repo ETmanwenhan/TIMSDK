@@ -14,6 +14,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * TUI configuration, such as file path configuration, user information
@@ -31,7 +33,7 @@ public class TUIConfig {
 
     public static final String TUICORE_SETTINGS_SP_NAME = "TUICoreSettings";
 
-    private static final String RECORD_DIR_SUFFIX = "/record/";
+    public static final String RECORD_DIR_SUFFIX = "/record/";
     private static final String RECORD_DOWNLOAD_DIR_SUFFIX = "/record/download/";
     public static final String VIDEO_BASE_DIR_SUFFIX = "/video/";
     private static final String VIDEO_DOWNLOAD_DIR_SUFFIX = "/video/download/";
@@ -50,6 +52,7 @@ public class TUIConfig {
     public static final int TUI_HOST_TYPE_RTCUBE = 1;
     // 0,im app; 1,rtcube app
     private static int tuiHostType = TUI_HOST_TYPE_IMAPP;
+    private static Map<String, Object> customDataMap = new HashMap<>();
 
     public static void init(Context context) {
         if (initialized) {
@@ -174,7 +177,6 @@ public class TUIConfig {
     }
 
     /**
-     * 获取群组会话否展示九宫格样式的头像，默认为 true
      * Gets whether to display the avatar in the nine-square grid style in the group conversation, the default is true
      */
     public static boolean isEnableGroupGridAvatar() {
@@ -182,7 +184,6 @@ public class TUIConfig {
     }
 
     /**
-     * 设置群组会话是否展示九宫格样式的头像
      * Set whether to display the avatar in the nine-square grid style in group conversations
      */
     public static void setEnableGroupGridAvatar(boolean enableGroupGridAvatar) {
@@ -190,8 +191,6 @@ public class TUIConfig {
     }
 
     /**
-     * 获取 c2c 会话的默认头像
-     *
      * Get the default avatar for c2c conversation
      *
      * @return
@@ -201,8 +200,6 @@ public class TUIConfig {
     }
 
     /**
-     * 设置 c2c 会话的默认头像
-     *
      *Set the default avatar for c2c conversation
      *
      * @return
@@ -212,8 +209,6 @@ public class TUIConfig {
     }
 
     /**
-     * 获取 group 会话的默认头像
-     *
      * Get the default avatar for group conversation
      *
      * @return
@@ -223,14 +218,26 @@ public class TUIConfig {
     }
 
     /**
-     * 设置 group 会话的默认头像
-     *
      *Set the default avatar for group conversation
      *
      * @return
      */
     public static void setDefaultGroupAvatarImage(int defaultGroupAvatarImage) {
         TUIConfig.defaultGroupAvatarImage = defaultGroupAvatarImage;
+    }
+
+    /**
+     * Add custom data
+     */
+    public static void setCustomData(String key, Object value) {
+        TUIConfig.customDataMap.put(key, value);
+    }
+
+    /**
+     * Get custom data
+     */
+    public static Object getCustomData(String key) {
+        return TUIConfig.customDataMap.get(key);
     }
 
     /**

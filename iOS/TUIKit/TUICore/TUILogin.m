@@ -8,6 +8,8 @@
 
 @import ImSDK_Plus;
 
+NSString *const TUIInitSdkSuccessNotification = @"TUIInitSdkSuccessNotification";
+NSString *const TUIInitSdkFailNotification = @"TUIInitSdkFailNotification";
 NSString *const TUILoginSuccessNotification = @"TUILoginSuccessNotification";
 NSString *const TUILoginFailNotification = @"TUILoginFailNotification";
 NSString *const TUILogoutSuccessNotification = @"TUILogoutSuccessNotification";
@@ -138,7 +140,12 @@ NSString *const TUILogoutFailNotification = @"TUILogoutFailNotification";
     self.sdkAppID = sdkAppID;
     V2TIMSDKConfig *config = [[V2TIMSDKConfig alloc] init];
     config.logLevel = V2TIM_LOG_INFO;
-    [[V2TIMManager sharedInstance] initSDK:sdkAppID config:config listener:nil];
+
+    if ([[V2TIMManager sharedInstance] initSDK:sdkAppID config:config listener:nil]) {
+        [NSNotificationCenter.defaultCenter postNotificationName:TUIInitSdkSuccessNotification object:nil];
+    } else {
+        [NSNotificationCenter.defaultCenter postNotificationName:TUIInitSdkFailNotification object:nil];
+    }
 }
 
 - (void)login:(NSString *)userID userSig:(NSString *)userSig succ:(TSucc)succ fail:(TFail)fail {
@@ -192,37 +199,65 @@ NSString *const TUILogoutFailNotification = @"TUILogoutFailNotification";
         sdkConfig.logLevel = V2TIM_LOG_INFO;
     }
 
-    [[V2TIMManager sharedInstance] initSDK:sdkAppID config:sdkConfig];
+    if ([[V2TIMManager sharedInstance] initSDK:sdkAppID config:sdkConfig]) {
+        [NSNotificationCenter.defaultCenter postNotificationName:TUIInitSdkSuccessNotification object:nil];
+    } else {
+        [NSNotificationCenter.defaultCenter postNotificationName:TUIInitSdkFailNotification object:nil];
+    }
 
     [V2TIMManager.sharedInstance addIMSDKListener:self];
 
     self.userID = userID;
     self.userSig = userSig;
-    if ([[[V2TIMManager sharedInstance] getLoginUser] isEqualToString:userID]) {
+    [[V2TIMManager sharedInstance] callExperimentalAPI:@"getLoginAccountType" param:nil succ:^(NSObject *result) {
+        int accountType = [((NSNumber *)result) intValue];
+        [TUILogin.shareInstance loginImpl:accountType userID:userID userSig:userSig config:config succ:succ fail:fail];
+    } fail:^(int code, NSString *desc) {
+        [TUILogin.shareInstance loginImpl:TUI_ACCOUNT_TYPE_UNKOWN userID:userID userSig:userSig config:config succ:succ fail:fail];
+    }];
+}
+
+- (void)loginImpl:(int)loginAccountType userID:(NSString *)userID userSig:(NSString *)userSig
+           config:(TUILoginConfig *)config succ:(TSucc)succ fail:(TFail)fail {
+    if ([[[V2TIMManager sharedInstance] getLoginUser] isEqualToString:userID] && loginAccountType == TUI_ACCOUNT_TYPE_IM) {
         if (succ) {
             succ();
         }
         [NSNotificationCenter.defaultCenter postNotificationName:TUILoginSuccessNotification object:nil];
         return;
     }
+    
+    if (config && config.initLocalStorageOnly) {
+        [[V2TIMManager sharedInstance] callExperimentalAPI:@"initLocalStorage" param:self.userID succ:^(NSObject *result) {
+            if (succ) {
+                succ();
+            }
+        } fail:^(int code, NSString *desc) {
+            if (fail) {
+                fail(code, desc);
+            }
+        }];
+        return;
+    }
+    
     __weak __typeof(self) weakSelf = self;
     [[V2TIMManager sharedInstance] login:userID
-        userSig:userSig
-        succ:^{
-          __strong __typeof(weakSelf) strongSelf = weakSelf;
-          [strongSelf getSelfUserInfo];
-          if (succ) {
-              succ();
-          }
-          [NSNotificationCenter.defaultCenter postNotificationName:TUILoginSuccessNotification object:nil];
+                                 userSig:userSig
+                                    succ:^{
+        __strong __typeof(weakSelf) strongSelf = weakSelf;
+        [strongSelf getSelfUserInfo];
+        if (succ) {
+            succ();
         }
-        fail:^(int code, NSString *desc) {
-          self.loginWithInit = NO;
-          if (fail) {
-              fail(code, desc);
-          }
-          [NSNotificationCenter.defaultCenter postNotificationName:TUILoginFailNotification object:nil];
-        }];
+        [NSNotificationCenter.defaultCenter postNotificationName:TUILoginSuccessNotification object:nil];
+    }
+                                    fail:^(int code, NSString *desc) {
+        self.loginWithInit = NO;
+        if (fail) {
+            fail(code, desc);
+        }
+        [NSNotificationCenter.defaultCenter postNotificationName:TUILoginFailNotification object:nil];
+    }];
 }
 
 - (void)getSelfUserInfo {
@@ -249,7 +284,6 @@ NSString *const TUILogoutFailNotification = @"TUILogoutFailNotification";
               succ();
           }
           if (self.loginWithInit) {
-              // 使用的是新接口登录，退出时需要反初始化，并移除监听
               // The new interface is currently used to log in. When logging out, you need to deinitialize and remove the listener.
               [V2TIMManager.sharedInstance removeIMSDKListener:self];
               [V2TIMManager.sharedInstance unInitSDK];

@@ -1,5 +1,7 @@
 package com.tencent.cloud.tuikit.roomkit.view.page.widget.Chat;
 
+import static com.tencent.cloud.tuikit.roomkit.model.ConferenceEventCenter.RoomEngineEvent.KICKED_OUT_OF_ROOM;
+
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
@@ -13,8 +15,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.tencent.cloud.tuikit.roomkit.R;
-import com.tencent.cloud.tuikit.roomkit.model.manager.RoomEngineManager;
-import com.tencent.cloud.tuikit.roomkit.videoseat.ui.view.RoundRelativeLayout;
+import com.tencent.cloud.tuikit.roomkit.model.ConferenceEventCenter;
+import com.tencent.cloud.tuikit.roomkit.model.manager.ConferenceController;
 import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuicore.TUICore;
 import com.tencent.qcloud.tuicore.TUIThemeManager;
@@ -24,6 +26,14 @@ import java.util.Map;
 
 public class ChatActivity extends AppCompatActivity {
     private static final String TAG = "ChatActivity";
+    private ConferenceEventCenter.RoomEngineEventResponder mEngineEventObserver = new ConferenceEventCenter.RoomEngineEventResponder() {
+        @Override
+        public void onEngineEvent(ConferenceEventCenter.RoomEngineEvent event, Map<String, Object> params) {
+            if (event == KICKED_OUT_OF_ROOM) {
+                ChatActivity.this.finish();
+            }
+        }
+    };
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -31,6 +41,7 @@ public class ChatActivity extends AppCompatActivity {
         Log.d(TAG, "onCreate : " + this);
         initStatusBar();
         initView();
+        ConferenceEventCenter.getInstance().subscribeEngine(KICKED_OUT_OF_ROOM, mEngineEventObserver);
     }
 
     @Override
@@ -43,6 +54,7 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        ConferenceEventCenter.getInstance().unsubscribeEngine(KICKED_OUT_OF_ROOM, mEngineEventObserver);
         Log.d(TAG, "onDestroy : " + this);
     }
 
@@ -59,10 +71,13 @@ public class ChatActivity extends AppCompatActivity {
         map.put(TUIConstants.TUIChat.ObjectFactory.ChatFragment.ENABLE_ROOM, false);
         map.put(TUIConstants.TUIChat.ObjectFactory.ChatFragment.ENABLE_AUDIO_CALL, false);
         map.put(TUIConstants.TUIChat.ObjectFactory.ChatFragment.ENABLE_VIDEO_CALL, false);
+        map.put(TUIConstants.TUIChat.ObjectFactory.ChatFragment.ENABLE_TAKE_PHOTO, false);
+        map.put(TUIConstants.TUIChat.ObjectFactory.ChatFragment.ENABLE_RECORD_VIDEO, false);
         map.put(TUIConstants.TUIChat.ObjectFactory.ChatFragment.CHAT_ID,
-                RoomEngineManager.sharedInstance().getRoomStore().roomInfo.roomId);
+                ConferenceController.sharedInstance().getConferenceState().roomInfo.roomId);
         map.put(TUIConstants.TUIChat.ObjectFactory.ChatFragment.CHAT_TYPE,
                 TUIConstants.TUIChat.ObjectFactory.ChatFragment.CHAT_TYPE_GROUP);
+        map.put(TUIConstants.TUIChat.ObjectFactory.ChatFragment.CHAT_TITLE, getString(R.string.tuiroomkit_item_chat));
         Object object = TUICore.createObject(TUIConstants.TUIChat.ObjectFactory.OBJECT_FACTORY_NAME,
                 TUIConstants.TUIChat.ObjectFactory.ChatFragment.OBJECT_NAME, map);
         if (object == null || !(object instanceof Fragment)) {

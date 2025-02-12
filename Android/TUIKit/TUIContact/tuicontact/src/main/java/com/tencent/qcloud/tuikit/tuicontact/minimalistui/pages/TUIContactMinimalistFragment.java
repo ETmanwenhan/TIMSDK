@@ -6,17 +6,20 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.Nullable;
-import com.tencent.qcloud.tuikit.timcommon.component.fragments.BaseFragment;
+import androidx.fragment.app.Fragment;
+
+import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuikit.tuicontact.R;
-import com.tencent.qcloud.tuikit.tuicontact.TUIContactConstants;
 import com.tencent.qcloud.tuikit.tuicontact.TUIContactService;
 import com.tencent.qcloud.tuikit.tuicontact.bean.ContactItemBean;
+import com.tencent.qcloud.tuikit.tuicontact.minimalistui.MinimalistUIExtensionObserver;
+import com.tencent.qcloud.tuikit.tuicontact.minimalistui.util.MinimalistUIUtils;
 import com.tencent.qcloud.tuikit.tuicontact.minimalistui.widget.ContactLayout;
 import com.tencent.qcloud.tuikit.tuicontact.minimalistui.widget.ContactListView;
 import com.tencent.qcloud.tuikit.tuicontact.presenter.ContactPresenter;
 import com.tencent.qcloud.tuikit.tuicontact.util.TUIContactLog;
 
-public class TUIContactMinimalistFragment extends BaseFragment {
+public class TUIContactMinimalistFragment extends Fragment {
     private static final String TAG = TUIContactMinimalistFragment.class.getSimpleName();
     private ContactLayout mContactLayout;
 
@@ -62,13 +65,16 @@ public class TUIContactMinimalistFragment extends BaseFragment {
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     TUIContactService.getAppContext().startActivity(intent);
                 } else {
-                    Intent intent = new Intent(TUIContactService.getAppContext(), FriendProfileMinimalistActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    intent.putExtra(TUIContactConstants.ProfileType.CONTENT, contact);
-                    TUIContactService.getAppContext().startActivity(intent);
+                    MinimalistUIUtils.showContactDetails(contact.getId());
                 }
             }
         });
+    }
+
+    public void reloadData() {
+        if (mContactLayout != null) {
+            mContactLayout.reloadData();
+        }
     }
 
     @Override

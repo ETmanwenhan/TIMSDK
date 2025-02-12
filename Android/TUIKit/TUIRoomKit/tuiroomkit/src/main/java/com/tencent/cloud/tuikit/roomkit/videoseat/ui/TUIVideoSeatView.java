@@ -5,7 +5,6 @@ import static com.tencent.cloud.tuikit.roomkit.videoseat.Constants.VOLUME_NO_SOU
 
 import android.content.Context;
 import android.content.res.Configuration;
-import android.graphics.Rect;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -16,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.tencent.cloud.tuikit.engine.common.TUIVideoView;
 import com.tencent.cloud.tuikit.roomkit.R;
+import com.tencent.cloud.tuikit.roomkit.videoseat.Constants;
 import com.tencent.cloud.tuikit.roomkit.videoseat.ui.layout.LandscapePageLayoutManager;
 import com.tencent.cloud.tuikit.roomkit.videoseat.ui.layout.PageLayoutManager;
 import com.tencent.cloud.tuikit.roomkit.videoseat.ui.layout.PagerSnapHelper;
@@ -36,7 +36,7 @@ public class TUIVideoSeatView extends RelativeLayout {
     private static final String TAG = "TUIVideoSeatView";
 
     private static final int CLICK_ACTION_MAX_MOVE_DISTANCE = 10;
-    private static final int SMALL_VIDEO_UPDATE_INTERVAL = 5 * 1000;
+    private static final int SMALL_VIDEO_UPDATE_INTERVAL    = 5 * 1000;
 
     private Context mContext;
 
@@ -47,7 +47,7 @@ public class TUIVideoSeatView extends RelativeLayout {
     private UserDisplayView   mUserDisplayView;
 
     private List<String>     mVisibleVideoStreams;
-    private List<UserEntity> mMemberEntityList;
+    private List<UserEntity> mMemberEntityList = new ArrayList<>();
 
     private IVideoSeatViewModel mViewModel;
 
@@ -83,7 +83,6 @@ public class TUIVideoSeatView extends RelativeLayout {
 
     public void setViewClickListener(OnClickListener clickListener) {
         mClickListener = clickListener;
-        mMemberListAdapter.setItemClickListener(mClickListener);
     }
 
     public void setMemberEntityList(List<UserEntity> memberEntityList) {
@@ -187,6 +186,22 @@ public class TUIVideoSeatView extends RelativeLayout {
                 return recognizeClickEventFromTouch(event);
             }
         });
+        mMemberListAdapter.setItemClickListener(new UserListAdapter.OnItemClickListener() {
+            @Override
+            public void onItemClick(View view, int position) {
+                if (mClickListener != null) {
+                    mClickListener.onClick(view);
+                }
+            }
+
+            @Override
+            public void onItemDoubleClick(View view, int position) {
+                if (mMemberEntityList.size() < Constants.SPEAKER_MODE_MEMBER_MIN_LIMIT) {
+                    return;
+                }
+                mViewModel.toggleScreenSizeOnDoubleClick(position);
+            }
+        });
     }
 
     private void updateUserTalkingViewVisible() {
@@ -247,7 +262,7 @@ public class TUIVideoSeatView extends RelativeLayout {
             mUserDisplayView.enableVolumeEffect(newUser.isAudioAvailable());
             mUserDisplayView.updateVolumeEffect(newUser.getAudioVolume());
             mUserDisplayView.setVolume(newUser.isTalk());
-            // sdk 最后不会回调音量0，所以 app 需要每次将音量清 0
+            // The SDK will not call back the volume to 0 in the end, so the app needs to clear the volume to 0 every time.
             newUser.setAudioVolume(VOLUME_NO_SOUND);
         }
     }
@@ -332,8 +347,8 @@ public class TUIVideoSeatView extends RelativeLayout {
      * @param fromItem
      * @param toItem
      */
-    private void processVideoPlay(int fromItem, int toItem) {
-        if (mViewModel == null) {
+    public void processVideoPlay(int fromItem, int toItem) {
+        if (mViewModel == null || fromItem < 0 || toItem >= mMemberEntityList.size()) {
             return;
         }
         List<String> newUserIds = new ArrayList<>();
@@ -376,7 +391,6 @@ public class TUIVideoSeatView extends RelativeLayout {
         }
         if (entity.isSelf()) {
             mViewModel.setLocalVideoView(entity);
-            notifyItemVideoVisibilityStageChanged(mMemberEntityList.indexOf(entity));
             return;
         }
         if (!entity.isVideoAvailable()) {
@@ -391,6 +405,7 @@ public class TUIVideoSeatView extends RelativeLayout {
             return;
         }
         if (entity.isSelf()) {
+            mViewModel.setLocalVideoView(entity);
             return;
         }
         if (mViewModel != null) {
@@ -398,14 +413,18 @@ public class TUIVideoSeatView extends RelativeLayout {
         }
     }
 
-    public void notifyItemVideoVisibilityStageChanged(int position) {
+    public void notifyItemVideoVisibilityStageChanged(UserEntity user) {
         if (mMemberListAdapter == null) {
             return;
         }
         post(new Runnable() {
             @Override
             public void run() {
-                mMemberListAdapter.notifyItemChanged(position, UserListAdapter.PAYLOAD_VIDEO);
+                int index = mMemberEntityList.indexOf(user);
+                if (index < 0 || index >= mMemberEntityList.size()) {
+                    return;
+                }
+                mMemberListAdapter.notifyItemChanged(index, UserListAdapter.PAYLOAD_VIDEO);
             }
         });
     }
@@ -421,13 +440,85 @@ public class TUIVideoSeatView extends RelativeLayout {
                 || position > mVisibleRange.getMaxVisibleRange()) {
             return;
         }
-        UserEntity entity = mMemberEntityList.get(position);
-        if (entity.isSelf()) {
-            notifyItemVideoVisibilityStageChanged(position);
-        } else if (entity.isCameraAvailable()) {
-            startVideoPlay(entity);
+        processVideoPlay(mVisibleRange.getMinVisibleRange(), mVisibleRange.getMaxVisibleRange());
+    }
+
+    public void notifySortMove(int fromPosition, int toPosition) {
+        mMemberListAdapter.notifyItemMoved(fromPosition, toPosition);
+        int minVisible = mVisibleRange.getMinVisibleRange();
+        int maxVisible = mVisibleRange.getMaxVisibleRange();
+        if (fromPosition < minVisible) {
+            if (toPosition < minVisible) {
+            } else if (toPosition > maxVisible) {
+                stopOldMinVisibleVideo();
+                startNewMaxVisibleVideo();
+            } else {
+                stopOldMinVisibleVideo();
+                notifyItemVideoSwitchStageChanged(toPosition);
+            }
+        } else if (fromPosition > maxVisible) {
+            if (toPosition < minVisible) {
+                startNewMinVisibleVideo();
+                stopOldMaxVisibleVideo();
+            } else if (toPosition > maxVisible) {
+            } else {
+                stopOldMaxVisibleVideo();
+                notifyItemVideoSwitchStageChanged(toPosition);
+            }
         } else {
-            stopVideoPlay(entity);
+            if (toPosition < minVisible) {
+                startNewMinVisibleVideo();
+                if (mMemberEntityList.get(toPosition).isCameraAvailable()) {
+                    stopVideoPlay(mMemberEntityList.get(toPosition));
+                }
+            } else if (toPosition > maxVisible) {
+                startNewMaxVisibleVideo();
+                if (mMemberEntityList.get(toPosition).isCameraAvailable()) {
+                    stopVideoPlay(mMemberEntityList.get(toPosition));
+                }
+            } else {
+                notifyItemVideoSwitchStageChanged(toPosition);
+            }
+        }
+    }
+
+    private void stopOldMinVisibleVideo() {
+        int oldMinVisible = mVisibleRange.getMinVisibleRange() - 1;
+        if (oldMinVisible < 0 || oldMinVisible >= mMemberEntityList.size()) {
+            return;
+        }
+        if (mMemberEntityList.get(oldMinVisible).isCameraAvailable()) {
+            stopVideoPlay(mMemberEntityList.get(oldMinVisible));
+        }
+    }
+
+    private void stopOldMaxVisibleVideo() {
+        int oldMaxVisible = mVisibleRange.getMaxVisibleRange() + 1;
+        if (oldMaxVisible < 0 || oldMaxVisible >= mMemberEntityList.size()) {
+            return;
+        }
+        if (mMemberEntityList.get(oldMaxVisible).isCameraAvailable()) {
+            stopVideoPlay(mMemberEntityList.get(oldMaxVisible));
+        }
+    }
+
+    private void startNewMinVisibleVideo() {
+        int minVisible = mVisibleRange.getMinVisibleRange();
+        if (minVisible < 0 || minVisible >= mMemberEntityList.size()) {
+            return;
+        }
+        if (mMemberEntityList.get(minVisible).isCameraAvailable()) {
+            startVideoPlay(mMemberEntityList.get(minVisible));
+        }
+    }
+
+    private void startNewMaxVisibleVideo() {
+        int maxVisible = mVisibleRange.getMaxVisibleRange();
+        if (maxVisible < 0 || maxVisible >= mMemberEntityList.size()) {
+            return;
+        }
+        if (mMemberEntityList.get(maxVisible).isCameraAvailable()) {
+            startVideoPlay(mMemberEntityList.get(maxVisible));
         }
     }
 
@@ -473,6 +564,12 @@ public class TUIVideoSeatView extends RelativeLayout {
         }
     }
 
+    public void notifyItemMoved(int fromPosition, int toPosition) {
+        if (mMemberListAdapter != null) {
+            mMemberListAdapter.notifyItemMoved(fromPosition, toPosition);
+        }
+    }
+
     private void updateCircleIndicator() {
         mCircleIndicator.setPageNum(mPageLayoutManager.getTotalPageCount());
         updateScrollIndicator();
@@ -498,6 +595,7 @@ public class TUIVideoSeatView extends RelativeLayout {
         mIsTwoPersonVideoOn = enable;
         updateUserTalkingViewVisible();
         if (enable) {
+            startScreenPlayForTwoPersonVideoMeeting(mIsTwoPersonSwitched ? 1 : 0);
             initUserTalkingViewLayout();
             updateUserInTwoPersonMode(mIsTwoPersonSwitched ? 0 : 1);
             setUserDisplayViewClickListener();
@@ -536,6 +634,14 @@ public class TUIVideoSeatView extends RelativeLayout {
             }
         }
         return null;
+    }
+
+    private void startScreenPlayForTwoPersonVideoMeeting(int position) {
+        UserEntity user = mMemberEntityList.get(position);
+        if (!user.isScreenShareAvailable()) {
+            return;
+        }
+        startVideoPlay(user);
     }
 
     private void setUserDisplayViewClickListener() {

@@ -8,9 +8,10 @@
 
 #import "TUIChatConfig.h"
 #import <TIMCommon/TIMDefine.h>
+#import <TIMCommon/TIMCommonMediator.h>
+#import <TIMCommon/TUIEmojiMeditorProtocol.h>
 #import <TIMCommon/TIMDefine.h>
 #import <TUICore/TUICore.h>
-
 @implementation TUIChatConfig
 
 - (id)init {
@@ -20,15 +21,35 @@
         self.enableVideoCall = YES;
         self.enableAudioCall = YES;
         self.enableWelcomeCustomMessage = YES;
+        self.showFileButton = YES;
+        self.showAlbumButton = YES;
+        self.showTakePhotoButton = YES;
+        self.showRecordVideoButton = YES;
+        self.showGroupNoteButton = YES;
+        self.showPollButton = YES;
+        self.showRoomButton = YES;
         self.enablePopMenuEmojiReactAction = YES;
         self.enablePopMenuReplyAction = YES;
         self.enablePopMenuReferenceAction = YES;
+        self.enablePopMenuPinAction = YES;
+        self.enablePopMenuRecallAction = YES;
+        self.enablePopMenuTranslateAction = YES;
+        self.enablePopMenuConvertAction = YES;
+        self.enablePopMenuForwardAction = YES;
+        self.enablePopMenuSelectAction = YES;
+        self.enablePopMenuCopyAction = YES;
+        self.enablePopMenuDeleteAction = YES;
+        self.enablePopMenuInfoAction = YES;
+        self.enablePopMenuAudioPlaybackAction = YES;
         self.enableMainPageInputBar = YES;
         self.enableTypingStatus = YES;
         self.enableFloatWindowForCall = YES;
         self.enableMultiDeviceForCall = NO;
+        self.enableIncomingBanner = YES;
+        self.enableVirtualBackgroundForCall = NO;
         self.timeIntervalForMessageRecall = 120;
-        [self updateEmojiGroups];
+        self.maxAudioRecordDuration = 60;
+        self.maxVideoRecordDuration = 15;
     }
     return self;
 }
@@ -42,67 +63,9 @@
     return config;
 }
 
-- (void)onChangeLanguage {
-    [self updateEmojiGroups];
-}
-
-- (void)updateEmojiGroups {
-    self.chatContextEmojiDetailGroups = [self updateFaceGroups:self.chatContextEmojiDetailGroups];
-}
-
-- (NSArray *)updateFaceGroups:(NSArray *)groups {
-    if (groups.count) {
-        NSMutableArray *arrayM = [NSMutableArray arrayWithArray:groups];
-        [arrayM removeObjectAtIndex:0];
-
-        TUIFaceGroup *defaultFaceGroup = [self findFaceGroup];
-        if (defaultFaceGroup) {
-            [arrayM insertObject:[self findFaceGroup] atIndex:0];
-        }
-        return [NSArray arrayWithArray:arrayM];
-    } else {
-        NSMutableArray *faceArray = [NSMutableArray array];
-        TUIFaceGroup *defaultFaceGroup = [self findFaceGroup];
-        if (defaultFaceGroup) {
-            [faceArray addObject:defaultFaceGroup];
-        }
-        return faceArray;
-    }
-    return @[];
-}
-- (void)addFaceToCache:(NSString *)path {
-    [[TUIImageCache sharedInstance] addFaceToCache:path];
-}
-- (TUIFaceGroup *)findFaceGroup {
-    // emoji group
-
-    NSMutableArray *emojiFaces = [NSMutableArray array];
-    NSArray *emojis = [NSArray arrayWithContentsOfFile:TUIChatFaceImagePath(@"emoji/emoji.plist")];
-    for (NSDictionary *dic in emojis) {
-        TUIFaceCellData *data = [[TUIFaceCellData alloc] init];
-        NSString *name = [dic objectForKey:@"face_name"];
-        NSString *path = [NSString stringWithFormat:@"emoji/%@", name];
-        NSString *localizableName = [TUIGlobalization g_localizedStringForKey:name bundle:@"TUIChatFace"];
-        data.name = name;
-        data.path = TUIChatFaceImagePath(path);
-        data.localizableName = localizableName;
-        [self addFaceToCache:data.path];
-        [emojiFaces addObject:data];
-    }
-    if (emojiFaces.count != 0) {
-        TUIFaceGroup *emojiGroup = [[TUIFaceGroup alloc] init];
-        emojiGroup.faces = emojiFaces;
-        emojiGroup.groupIndex = 0;
-        emojiGroup.groupPath = TUIChatFaceImagePath(@"emoji/");
-        emojiGroup.menuPath = TUIChatFaceImagePath(@"emoji/menu");
-        emojiGroup.rowCount = 20;
-        emojiGroup.itemCountPerRow = 7;
-        emojiGroup.needBackDelete = NO;
-        [self addFaceToCache:emojiGroup.menuPath];
-        return emojiGroup;
-    }
-
-    return nil;
+- (NSArray<TUIFaceGroup *> *)chatContextEmojiDetailGroups {
+    id<TUIEmojiMeditorProtocol> service = [[TIMCommonMediator share] getObject:@protocol(TUIEmojiMeditorProtocol)];
+    return [service getChatContextEmojiDetailGroups];
 }
 
 - (TUIChatEventConfig *)eventConfig {

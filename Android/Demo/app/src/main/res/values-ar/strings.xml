@@ -9,6 +9,7 @@
 
     <string name="demo_current_language">العربية</string>
     <string name="demo_language_chinese">الصينية المبسطة</string>
+    <string name="demo_language_traditional_chinese">الصينية التقليدية</string>
     <string name="demo_language_english">إنجليزي</string>
     <string name="demo_language_arabic">العربية</string>
 
@@ -72,7 +73,7 @@
     <string name="style_classic">الإصدار الكلاسيكي</string>
     <string name="style_minimalist">الإصدار البسيط</string>
 
-    <string name="demo_language">الصينية المبسطة</string>
+    <string name="demo_language">العربية</string>
     <string name="demo_theme_light">خفيف وسريع</string>
     <string name="demo_signature_tag">التوقيع الشخصي:</string>
     <string name="demo_account_tag">المعرف:</string>
@@ -93,6 +94,9 @@
     <string name="demo_self_detail_modify_nickname_rule">يسمح فقط بالأحرف الصينية والأحرف اللاتينية والأرقام والشرطة السفلية</string>
 
     <string name="conversation_title">تنسنت يون كلاود Chat</string>
+    <string name="conversation_title_disconnected">فصل</string>
+    <string name="conversation_title_connecting">ربط...</string>
+    <string name="conversation_title_loading">جمع...</string>
     <string name="contact_title">دليل الهاتف</string>
     <string name="add_friend">إضافة صديق</string>
     <string name="add_group">إضافة مجموعة</string>
@@ -207,8 +211,9 @@
     <string name="demo_im_flagship_edition_update_tip">هذه الميزة هي ميزة نسخة فاخرة من Chat، يمكن استخدامها بعد شراء حزمة النسخة الفاخرة، يرجى الرجوع إلى توضيح الأسعار للحصول على مزيد من المعلومات.</string>
     <string name="demo_buying_tips">هذه الميزة هي ميزة نسخة فاخرة</string>
 
-    <string name="chat_security_warning">【تحذير أمني】يتم استخدام هذا التطبيق فقط لتجربة منتجات Tencent Cloud Chat ولا يمكن استخدامه للتفاوض التجاري والتوسع. يرجى عدم الوثوق بالرسائل التي تتعلق بالمدفوعات أو الفوز بجوائز وعدم الاتصال بأرقام الهواتف الغريبة بسهولة، وتجنب الوقوع في الخداع.</string>
+    <string name="chat_security_warning">لا تصدق بسهولة في التحويلات المصرفية والفوز بالجوائز وغيرها من المعلومات. كن حذرا عند التعامل مع مكالمات هاتفية غير معروفة لتجنب الوقوع في الخداع. يرجى الإبلاغ عن أي حالات مشبوهة في الوقت المناسب.</string>
     <string name="chat_security_warning_report">الإبلاغ عن ذلك هنا</string>
+    <string name="chat_security_warning_click_to_report">الإبلاغ عن ذلك هنا</string>
 
 
     <string name="change_theme">تغيير الجلد</string>

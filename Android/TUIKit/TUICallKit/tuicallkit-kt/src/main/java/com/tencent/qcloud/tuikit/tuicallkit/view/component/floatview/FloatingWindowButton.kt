@@ -9,17 +9,16 @@ import com.tencent.qcloud.tuicore.permission.PermissionRequester
 import com.tencent.qcloud.tuikit.tuicallengine.TUICallDefine
 import com.tencent.qcloud.tuikit.tuicallengine.impl.base.Observer
 import com.tencent.qcloud.tuikit.tuicallkit.R
+import com.tencent.qcloud.tuikit.tuicallkit.state.TUICallState
 import com.tencent.qcloud.tuikit.tuicallkit.utils.PermissionRequest
 import com.tencent.qcloud.tuikit.tuicallkit.view.CallKitActivity
 import com.tencent.qcloud.tuikit.tuicallkit.view.floatwindow.FloatingWindowView
-import com.tencent.qcloud.tuikit.tuicallkit.viewmodel.component.floatview.FloatingWindowButtonModel
 
 @SuppressLint("AppCompatCustomView")
 class FloatingWindowButton(context: Context) : ImageView(context) {
-    private var viewModel = FloatingWindowButtonModel()
 
     private val callStatusObserver = Observer<TUICallDefine.Status> {
-        if (viewModel.enableFloatWindow && it == TUICallDefine.Status.Accept) {
+        if (TUICallState.instance.enableFloatWindow) {
             this.visibility = VISIBLE
         }
     }
@@ -49,30 +48,27 @@ class FloatingWindowButton(context: Context) : ImageView(context) {
             }
         }
 
-        val showFloatButton = viewModel.callStatus.get() == TUICallDefine.Status.Accept
-                || viewModel.callRole.get() == TUICallDefine.Role.Caller
-
-        if (viewModel.enableFloatWindow && showFloatButton) {
-            visibility = VISIBLE
+        visibility = if (TUICallState.instance.enableFloatWindow) {
+            VISIBLE
         } else {
-            visibility = GONE
+            GONE
         }
     }
 
     private fun showFloatView() {
-        if (viewModel.scene.get() == TUICallDefine.Scene.GROUP_CALL) {
-            viewModel.startFloatService(FloatingWindowGroupView(context.applicationContext))
+        if (TUICallState.instance.scene.get() == TUICallDefine.Scene.GROUP_CALL) {
+            FloatWindowService.startFloatService(FloatingWindowGroupView(context.applicationContext))
         } else {
-            viewModel.startFloatService(FloatingWindowView(context.applicationContext))
+            FloatWindowService.startFloatService(FloatingWindowView(context.applicationContext))
         }
         CallKitActivity.finishActivity()
     }
 
     private fun addObserver() {
-        viewModel.callStatus.observe(callStatusObserver)
+        TUICallState.instance.selfUser.get().callStatus.observe(callStatusObserver)
     }
 
     private fun removeObserver() {
-        viewModel.callStatus.removeObserver(callStatusObserver)
+        TUICallState.instance.selfUser.get().callStatus.removeObserver(callStatusObserver)
     }
 }

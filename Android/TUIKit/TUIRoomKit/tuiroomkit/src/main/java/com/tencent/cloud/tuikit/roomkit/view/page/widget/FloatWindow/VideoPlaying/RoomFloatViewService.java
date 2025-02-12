@@ -19,7 +19,7 @@ import android.view.WindowManager;
 import androidx.annotation.Nullable;
 
 import com.tencent.cloud.tuikit.roomkit.R;
-import com.tencent.cloud.tuikit.roomkit.model.manager.RoomEngineManager;
+import com.tencent.cloud.tuikit.roomkit.model.manager.ConferenceController;
 import com.tencent.qcloud.tuicore.TUILogin;
 import com.tencent.qcloud.tuicore.util.ScreenUtil;
 import com.tencent.qcloud.tuicore.util.TUIBuild;
@@ -109,8 +109,8 @@ public class RoomFloatViewService extends Service {
         mWindowLayoutParams.x = mMaxPositionX;
         mWindowLayoutParams.y = mMaxPositionY >> 1;
 
-        mWindowLayoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
-        mWindowLayoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        mWindowLayoutParams.width = mAppContext.getResources().getDimensionPixelSize(R.dimen.tuiroomkit_room_video_float_view_width);
+        mWindowLayoutParams.height = mAppContext.getResources().getDimensionPixelSize(R.dimen.tuiroomkit_room_video_float_view_height);
         mWindowLayoutParams.format = PixelFormat.TRANSPARENT;
 
         return mWindowLayoutParams;
@@ -167,7 +167,7 @@ public class RoomFloatViewService extends Service {
 
     private void handleClickAction() {
         Log.d(TAG, "handleClickAction");
-        RoomEngineManager.sharedInstance(mAppContext).exitFloatWindow();
+        ConferenceController.sharedInstance(mAppContext).exitFloatWindow();
     }
 
     private void moveBackToOriginalPosition() {
@@ -226,7 +226,7 @@ public class RoomFloatViewService extends Service {
                 initData();
                 getViewParams();
                 updateLayout();
-                RoomEngineManager.sharedInstance().setCameraResolutionMode(
+                ConferenceController.sharedInstance().setCameraResolutionMode(
                         mAppContext.getResources().getConfiguration().orientation == ORIENTATION_PORTRAIT);
             }
         }

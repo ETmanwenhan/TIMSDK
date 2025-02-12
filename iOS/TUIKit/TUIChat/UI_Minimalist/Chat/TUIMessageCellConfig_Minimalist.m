@@ -47,7 +47,7 @@ static NSMutableDictionary *gCustomMessageInfoMap = nil;
 
 @end
 
-#pragma mark - 自定义消息注册 Custom Message Register
+#pragma mark -  Custom Message Register
 @implementation TUIMessageCellConfig_Minimalist (CustomMessageRegister)
 
 + (NSMutableDictionary *)getCustomMessageInfoMap {
@@ -66,7 +66,6 @@ static NSMutableDictionary *gCustomMessageInfoMap = nil;
 }
 
 + (void)registerExternalCustomMessageInfo {
-    // 在这里插入您自己的自定义消息 UI, 您的自定义消息 businessID 不能与内置的相同
     // Insert your own custom message UI here, your businessID can not be same with built-in
     //
     // Example:
@@ -142,7 +141,7 @@ static NSMutableDictionary *gCustomMessageInfoMap = nil;
 @end
 
 
-#pragma mark - 消息 Cell 的高度 Message cell height
+#pragma mark -  Cell  Message cell height
 @implementation TUIMessageCellConfig_Minimalist (MessageCellHeight)
 
 - (NSString *)getHeightCacheKey:(TUIMessageCellData *)msg {
@@ -169,13 +168,7 @@ static NSMutableDictionary *gCustomMessageInfoMap = nil;
 - (CGFloat)getEstimatedHeightFromMessageCellData:(TUIMessageCellData *)cellData {
     NSString *key = [self getHeightCacheKey:cellData];
     CGFloat height = [[self.heightCacheMaps objectForKey:key] floatValue];
-    if (height == 0) {
-        CellClass cellClass = [self.cellClassMaps objectForKey:NSStringFromClass(cellData.class)];
-        if ([cellClass respondsToSelector:@selector(getEstimatedHeight:)]) {
-            height = [cellClass getEstimatedHeight:cellData];
-        }
-    }
-    return height > 0 ? height : 60;
+    return height > 0 ? height : UITableViewAutomaticDimension;;
 }
 
 - (void)removeHeightCacheOfMessageCellData:(TUIMessageCellData *)cellData {
@@ -209,7 +202,7 @@ static NSMutableDictionary *gCustomMessageInfoMap = nil;
     [self bindMessageCellClass:TUIVideoMessageCell_Minimalist.class cellDataClass:TUIVideoMessageCellData.class reuseID:TVideoMessageCell_ReuseId];
     [self bindMessageCellClass:TUIFileMessageCell_Minimalist.class cellDataClass:TUIFileMessageCellData.class reuseID:TFileMessageCell_ReuseId];
     [self bindMessageCellClass:TUIJoinGroupMessageCell_Minimalist.class cellDataClass:TUIJoinGroupMessageCellData.class reuseID:TJoinGroupMessageCell_ReuseId];
-    [self bindMessageCellClass:TUIMergeMessageCell_Minimalist.class cellDataClass:TUIMergeMessageCellData.class reuseID:TRelayMessageCell_ReuserId];
+    [self bindMessageCellClass:TUIMergeMessageCell_Minimalist.class cellDataClass:TUIMergeMessageCellData.class reuseID:TMergeMessageCell_ReuserId];
     [self bindMessageCellClass:TUIReplyMessageCell_Minimalist.class cellDataClass:TUIReplyMessageCellData.class reuseID:TReplyMessageCell_ReuseId];
     [self bindMessageCellClass:TUIReferenceMessageCell_Minimalist.class
                  cellDataClass:TUIReferenceMessageCellData.class

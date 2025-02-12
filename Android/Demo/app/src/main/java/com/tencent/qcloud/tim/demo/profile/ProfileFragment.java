@@ -5,17 +5,16 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+
 import com.tencent.qcloud.tim.demo.R;
-import com.tencent.qcloud.tim.demo.bean.UserInfo;
-import com.tencent.qcloud.tim.demo.utils.TUIKitConstants;
-import com.tencent.qcloud.tim.demo.utils.TUIUtils;
+import com.tencent.qcloud.tim.demo.utils.ProfileUtil;
 import com.tencent.qcloud.tuicore.TUILogin;
 import com.tencent.qcloud.tuicore.interfaces.TUICallback;
 import com.tencent.qcloud.tuicore.util.ToastUtil;
 import com.tencent.qcloud.tuikit.timcommon.component.dialog.TUIKitDialog;
-import com.tencent.qcloud.tuikit.timcommon.component.fragments.BaseFragment;
 
-public class ProfileFragment extends BaseFragment {
+public class ProfileFragment extends Fragment {
     private View mBaseView;
     private ProfileLayout mProfileLayout;
 
@@ -53,13 +52,7 @@ public class ProfileFragment extends BaseFragment {
                                 TUILogin.logout(new TUICallback() {
                                     @Override
                                     public void onSuccess() {
-                                        UserInfo.getInstance().cleanUserInfo();
-                                        Bundle bundle = new Bundle();
-                                        bundle.putBoolean(TUIKitConstants.LOGOUT, true);
-                                        TUIUtils.startActivity("LoginForDevActivity", bundle);
-                                        if (getActivity() != null) {
-                                            getActivity().finish();
-                                        }
+                                        ProfileUtil.onLogoutSuccess(getActivity());
                                     }
 
                                     @Override
@@ -77,5 +70,11 @@ public class ProfileFragment extends BaseFragment {
                     .show();
             }
         });
+    }
+
+    public void reloadData() {
+        if (mProfileLayout != null) {
+            mProfileLayout.loadUserInfo();
+        }
     }
 }

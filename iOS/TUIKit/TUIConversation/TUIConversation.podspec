@@ -1,7 +1,7 @@
 Pod::Spec.new do |spec|
   spec.name         = 'TUIConversation'
-  spec.version      = '7.7.5282'
-  spec.platform     = :ios 
+  spec.version      = '8.4.6667'
+  spec.platform     = :ios
   spec.ios.deployment_target = '9.0'
   spec.license      = { :type => 'Proprietary',
       :text => <<-LICENSE
@@ -17,10 +17,11 @@ Pod::Spec.new do |spec|
   spec.dependency 'ReactiveObjC'
   spec.requires_arc = true
 
-  spec.source = { :path => './' }
+  spec.source = { :git => './'}
   spec.source_files = '**/*.{h,m,mm,c}'
 
-  spec.resource = [
-  'Resources/*.bundle'
-  ]
+  spec.resource = ['Resources/*.bundle']
+  spec.resource_bundle = {
+    "#{spec.module_name}_Privacy" => 'Resources/PrivacyInfo.xcprivacy'
+  }
 end

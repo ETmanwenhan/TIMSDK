@@ -93,7 +93,7 @@ public class SearchMoreMsgAdapter extends RecyclerView.Adapter<RecyclerView.View
         if (viewType == SEARCH_MESSAGE_HEADER_TYPE) {
             return new SearchMessageHeaderHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.search_header, parent, false));
         }
-        return new MessageViewHolder(LayoutInflater.from(context).inflate(R.layout.item_contact_search, parent, false));
+        return new MessageViewHolder(LayoutInflater.from(context).inflate(R.layout.search_item_contact, parent, false));
     }
 
     @Override
@@ -207,11 +207,11 @@ public class SearchMoreMsgAdapter extends RecyclerView.Adapter<RecyclerView.View
 
         public MessageViewHolder(View itemView) {
             super(itemView);
-            mLlItem = (LinearLayout) itemView.findViewById(R.id.ll_item);
-            mUserIconView = (ImageView) itemView.findViewById(R.id.ivAvatar);
-            mTvText = (TextView) itemView.findViewById(R.id.conversation_title);
-            mSubTvText = (TextView) itemView.findViewById(R.id.conversation_sub_title);
-            mSubTvLabelText = (TextView) itemView.findViewById(R.id.conversation_sub_title_label);
+            mLlItem = itemView.findViewById(R.id.ll_item);
+            mUserIconView = itemView.findViewById(R.id.ivAvatar);
+            mTvText = itemView.findViewById(R.id.conversation_title);
+            mSubTvText = itemView.findViewById(R.id.conversation_sub_title);
+            mSubTvLabelText = itemView.findViewById(R.id.conversation_sub_title_label);
         }
     }
 
@@ -222,9 +222,9 @@ public class SearchMoreMsgAdapter extends RecyclerView.Adapter<RecyclerView.View
 
         public SearchMessageHeaderHolder(@NonNull View itemView) {
             super(itemView);
-            conversationLayout = (RelativeLayout) itemView.findViewById(R.id.conversation_layout);
-            conversationIcon = (ImageView) itemView.findViewById(R.id.icon_conversation);
-            conversationTitle = (TextView) itemView.findViewById(R.id.conversation_title);
+            conversationLayout = itemView.findViewById(R.id.conversation_layout);
+            conversationIcon = itemView.findViewById(R.id.icon_conversation);
+            conversationTitle = itemView.findViewById(R.id.conversation_title);
         }
     }
 

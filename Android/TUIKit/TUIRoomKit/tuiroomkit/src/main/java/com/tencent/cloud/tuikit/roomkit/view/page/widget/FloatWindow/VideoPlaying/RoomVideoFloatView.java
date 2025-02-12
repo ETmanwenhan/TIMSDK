@@ -12,9 +12,9 @@ import androidx.constraintlayout.utils.widget.ImageFilterView;
 
 import com.tencent.cloud.tuikit.engine.common.TUIVideoView;
 import com.tencent.cloud.tuikit.roomkit.R;
+import com.tencent.cloud.tuikit.roomkit.common.utils.ImageLoader;
 import com.tencent.cloud.tuikit.roomkit.model.entity.UserEntity;
-import com.tencent.cloud.tuikit.roomkit.model.manager.RoomEngineManager;
-import com.tencent.cloud.tuikit.roomkit.videoseat.ui.utils.ImageLoader;
+import com.tencent.cloud.tuikit.roomkit.model.manager.ConferenceController;
 import com.tencent.cloud.tuikit.roomkit.videoseat.ui.view.UserVolumePromptView;
 import com.tencent.cloud.tuikit.roomkit.viewmodel.RoomVideoFloatViewModel;
 
@@ -77,8 +77,9 @@ public class RoomVideoFloatView extends FrameLayout {
 
     public void onNotifyUserInfoChanged(UserEntity userInfo) {
         mRoomOwnerView.setVisibility(TextUtils.equals(userInfo.getUserId(),
-                RoomEngineManager.sharedInstance().getRoomStore().roomInfo.ownerId) ? VISIBLE : GONE);
-        mUserNameTv.setText(TextUtils.isEmpty(userInfo.getUserName()) ? userInfo.getUserId() : userInfo.getUserName());
+                ConferenceController.sharedInstance().getConferenceState().roomInfo.ownerId) ? VISIBLE : GONE);
+        String name = TextUtils.isEmpty(userInfo.getNameCard()) ? userInfo.getUserName() : userInfo.getNameCard();
+        mUserNameTv.setText(TextUtils.isEmpty(name) ? userInfo.getUserId() : name);
         ImageLoader.loadImage(mContext, mUserAvatarIv, userInfo.getAvatarUrl(), R.drawable.tuivideoseat_head);
     }
 
@@ -88,5 +89,9 @@ public class RoomVideoFloatView extends FrameLayout {
             mTouchListener.onTouch(this, event);
         }
         return true;
+    }
+
+    public void updateUserName(String nameCard) {
+        mUserNameTv.setText(nameCard);
     }
 }

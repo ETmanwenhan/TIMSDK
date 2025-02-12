@@ -1,6 +1,7 @@
 package com.tencent.qcloud.tuikit.tuiconversation.classicui.widget;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.widget.RelativeLayout;
 import com.tencent.qcloud.tuikit.timcommon.component.TitleBarLayout;
@@ -8,6 +9,7 @@ import com.tencent.qcloud.tuikit.timcommon.component.interfaces.IUIKitCallback;
 import com.tencent.qcloud.tuikit.tuiconversation.R;
 import com.tencent.qcloud.tuikit.tuiconversation.bean.ConversationInfo;
 import com.tencent.qcloud.tuikit.tuiconversation.classicui.interfaces.IConversationLayout;
+import com.tencent.qcloud.tuikit.tuiconversation.config.classicui.TUIConversationConfigClassic;
 import com.tencent.qcloud.tuikit.tuiconversation.interfaces.IConversationListAdapter;
 import com.tencent.qcloud.tuikit.tuiconversation.presenter.ConversationPresenter;
 
@@ -37,12 +39,17 @@ public class ConversationLayout extends RelativeLayout implements IConversationL
         }
     }
 
-    /**
-     * 初始化相关UI元素
-     */
     private void init() {
         inflate(getContext(), R.layout.conversation_layout, this);
         mConversationList = findViewById(R.id.conversation_list);
+        applyCustomConfig();
+    }
+
+    private void applyCustomConfig() {
+        Drawable listBackground = TUIConversationConfigClassic.getListBackground();
+        if (listBackground != null) {
+            mConversationList.setBackground(listBackground);
+        }
     }
 
     public void initDefault() {
@@ -97,7 +104,7 @@ public class ConversationLayout extends RelativeLayout implements IConversationL
     @Override
     public void markConversationUnread(ConversationInfo conversationInfo, boolean markUnread) {
         if (presenter != null) {
-            presenter.markConversationUnread(conversationInfo, markUnread);
+            presenter.markConversationUnreadAndCleanUnreadCount(conversationInfo, markUnread);
         }
     }
 

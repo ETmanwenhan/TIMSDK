@@ -48,10 +48,33 @@
               param:@{
                   TUICore_TUICallingService_EnableMultiDeviceAbilityMethod_EnableMultiDeviceAbility : @(TUIChatConfig.defaultConfig.enableMultiDeviceForCall)
               }];
+    [TUICore
+        callService:TUICore_TUICallingService
+             method:TUICore_TUICallingService_EnableIncomingBannerMethod
+              param:@{
+        TUICore_TUICallingService_EnableIncomingBannerMethod_EnableIncomingBanner : @(TUIChatConfig.defaultConfig.enableIncomingBanner)
+              }];
+    [TUICore
+        callService:TUICore_TUICallingService
+             method:TUICore_TUICallingService_EnableVirtualBackgroundForCallMethod
+              param:@{
+        TUICore_TUICallingService_EnableVirtualBackgroundForCallMethod_EnableVirtualBackgroundForCall
+                    : @(TUIChatConfig.defaultConfig.enableVirtualBackgroundForCall)
+              }];
 }
 
 - (NSString *)getDisplayString:(V2TIMMessage *)message {
     return [TUIBaseMessageController getDisplayString:message];
+}
+
+- (void)asyncGetDisplayString:(NSArray<V2TIMMessage *> *)messageList callback:(TUICallServiceResultCallback)resultCallback {
+  if (resultCallback == nil) {
+    return;
+  }
+
+  [TUIBaseMessageController asyncGetDisplayString:messageList callback:^(NSDictionary<NSString *,NSString *> * result) {
+    resultCallback(0, @"", result);
+  }];
 }
 
 #pragma mark - TUIServiceProtocol
@@ -60,10 +83,17 @@
         return [self getDisplayString:param[TUICore_TUIChatService_GetDisplayStringMethod_MsgKey]];
     } else if ([method isEqualToString:TUICore_TUIChatService_SendMessageMethod]) {
         V2TIMMessage *message = [param tui_objectForKey:TUICore_TUIChatService_SendMessageMethod_MsgKey asClass:V2TIMMessage.class];
-        if (message == nil) {
+        TUIMessageCellData *cellData = [param tui_objectForKey:TUICore_TUIChatService_SendMessageMethod_PlaceHolderUIMsgKey asClass:TUIMessageCellData.class];
+        if (!message && !cellData) {
             return nil;
         }
-        NSDictionary *userInfo = @{TUICore_TUIChatService_SendMessageMethod_MsgKey : message};
+        NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
+        if (message) {
+            [userInfo setObject:message forKey:TUICore_TUIChatService_SendMessageMethod_MsgKey];
+        }
+        if (cellData) {
+            [userInfo setObject:cellData forKey:TUICore_TUIChatService_SendMessageMethod_PlaceHolderUIMsgKey];
+        }
         [[NSNotificationCenter defaultCenter] postNotificationName:TUIChatSendMessageNotification object:nil userInfo:userInfo];
     } else if ([method isEqualToString:TUICore_TUIChatService_SendMessageMethodWithoutUpdateUI]) {
         V2TIMMessage *message = [param tui_objectForKey:TUICore_TUIChatService_SendMessageMethodWithoutUpdateUI_MsgKey asClass:V2TIMMessage.class];
@@ -94,6 +124,15 @@
     }
 
     return nil;
+}
+
+- (id)onCall:(NSString *)method param:(NSDictionary *)param resultCallback:(TUICallServiceResultCallback)resultCallback {
+  if ([method isEqualToString:TUICore_TUIChatService_AsyncGetDisplayStringMethod]) {
+    NSArray *messageList = param[TUICore_TUIChatService_AsyncGetDisplayStringMethod_MsgListKey];
+    [self asyncGetDisplayString:messageList callback:resultCallback];
+    return nil;
+  }
+  return nil;
 }
 
 @end

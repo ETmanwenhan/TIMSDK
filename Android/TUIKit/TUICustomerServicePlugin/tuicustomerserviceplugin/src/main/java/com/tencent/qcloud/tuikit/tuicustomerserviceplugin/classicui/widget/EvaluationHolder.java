@@ -113,10 +113,10 @@ public class EvaluationHolder extends MessageBaseHolder {
         }
 
         if (selectedMenu == null) {
-            // 未评价过，不显示结束语
+            
             tvEvaluationTail.setVisibility(View.GONE);
         } else {
-            // 已评价过，显示结束语
+            
             tvEvaluationTail.setVisibility(View.VISIBLE);
         }
 
@@ -141,17 +141,17 @@ public class EvaluationHolder extends MessageBaseHolder {
         });
 
         if (selectedMenu == null && V2TIMManager.getInstance().getServerTime() < expiredTime && selectedIndex != UNSELECT) {
-            // 未评价过且没过期且已经选择了分数
+            
             vSubmitEvaluationFloatLayer.setVisibility(View.GONE);
             tvSubmitEvaluation.setClickable(true);
         } else {
-            // 已评价或者已过期或者还未选择分数
+            
             vSubmitEvaluationFloatLayer.setVisibility(View.VISIBLE);
             tvSubmitEvaluation.setClickable(false);
         }
 
         if (selectedMenu == null && V2TIMManager.getInstance().getServerTime() < expiredTime) {
-            // 未评价过且没过期，点击评价
+            
             if (evaluationBean.getType() == EvaluationBean.EVALUATION_TYPE_STAR) {
                 for (int i = 0; i < ivStarList.size(); i++) {
                     ivStarList.get(i).setBackgroundResource(R.drawable.evaluation_star_default);
@@ -161,7 +161,7 @@ public class EvaluationHolder extends MessageBaseHolder {
                         @Override
                         public void onClick(View view) {
                             selectedIndex = finalI;
-                            // 选择了分数，才可点击
+                            
                             vSubmitEvaluationFloatLayer.setVisibility(View.GONE);
                             tvSubmitEvaluation.setClickable(true);
                             for (int j = 0; j < ivStarList.size(); j++) {
@@ -177,15 +177,15 @@ public class EvaluationHolder extends MessageBaseHolder {
             } else {
                 for (int i = 0; i < tvNumberList.size(); i++) {
                     int finalI = i;
-                    tvNumberList.get(i).setBackgroundResource(TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.evaluation_number_default_bg));
+                    tvNumberList.get(i).setBackgroundResource(TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.number_default_bg));
                     tvNumberList.get(i).setTextColor(
-                        rootView.getResources().getColor(TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.evaluation_number_default_color)));
+                        rootView.getResources().getColor(TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.number_default_color)));
                     numberFloatLayerList.get(i).setVisibility(View.GONE);
                     tvNumberList.get(i).setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View view) {
                             selectedIndex = finalI;
-                            // 选择了分数，才可点击
+                            
                             vSubmitEvaluationFloatLayer.setVisibility(View.GONE);
                             tvSubmitEvaluation.setClickable(true);
                             for (int j = 0; j < tvNumberList.size(); j++) {
@@ -194,9 +194,9 @@ public class EvaluationHolder extends MessageBaseHolder {
                                     tvNumberList.get(j).setTextColor(rootView.getResources().getColor(R.color.evaluation_number_active_color));
                                 } else {
                                     tvNumberList.get(j).setBackgroundResource(
-                                        TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.evaluation_number_default_bg));
+                                        TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.number_default_bg));
                                     tvNumberList.get(j).setTextColor(rootView.getResources().getColor(
-                                        TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.evaluation_number_default_color)));
+                                        TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.number_default_color)));
                                 }
                             }
                         }
@@ -204,7 +204,7 @@ public class EvaluationHolder extends MessageBaseHolder {
                 }
             }
         } else {
-            // 已经评价过或者已过期，不可点击
+            
             List<EvaluationBean.Menu> menuList = evaluationBean.getMenuList();
             if (menuList == null || menuList.isEmpty() || menuList.size() > 5) {
                 return;
@@ -232,9 +232,9 @@ public class EvaluationHolder extends MessageBaseHolder {
                         ivStarList.get(i).setBackgroundResource(R.drawable.evaluation_star_default);
                         starFloatLayerList.get(i).setVisibility(View.VISIBLE);
                     } else {
-                        tvNumberList.get(i).setBackgroundResource(TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.evaluation_number_default_bg));
+                        tvNumberList.get(i).setBackgroundResource(TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.number_default_bg));
                         tvNumberList.get(i).setTextColor(
-                            rootView.getResources().getColor(TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.evaluation_number_default_color)));
+                            rootView.getResources().getColor(TUIThemeManager.getAttrResId(rootView.getContext(), R.attr.number_default_color)));
                         numberFloatLayerList.get(i).setVisibility(View.VISIBLE);
                     }
                 }

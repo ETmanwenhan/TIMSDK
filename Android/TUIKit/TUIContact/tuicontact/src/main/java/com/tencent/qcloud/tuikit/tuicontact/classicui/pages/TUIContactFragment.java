@@ -6,22 +6,22 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 import com.tencent.qcloud.tuicore.TUIConstants;
-import com.tencent.qcloud.tuikit.timcommon.component.fragments.BaseFragment;
 import com.tencent.qcloud.tuikit.tuicontact.R;
-import com.tencent.qcloud.tuikit.tuicontact.TUIContactConstants;
 import com.tencent.qcloud.tuikit.tuicontact.TUIContactService;
 import com.tencent.qcloud.tuikit.tuicontact.bean.ContactItemBean;
+import com.tencent.qcloud.tuikit.tuicontact.classicui.ClassicUIExtensionObserver;
+import com.tencent.qcloud.tuikit.tuicontact.classicui.util.ClassicUIUtils;
 import com.tencent.qcloud.tuikit.tuicontact.classicui.widget.ContactLayout;
 import com.tencent.qcloud.tuikit.tuicontact.classicui.widget.ContactListView;
 import com.tencent.qcloud.tuikit.tuicontact.presenter.ContactPresenter;
 import com.tencent.qcloud.tuikit.tuicontact.util.TUIContactLog;
-
 import java.util.HashMap;
 import java.util.Map;
 
-public class TUIContactFragment extends BaseFragment {
+public class TUIContactFragment extends Fragment {
     private static final String TAG = TUIContactFragment.class.getSimpleName();
     private ContactLayout mContactLayout;
 
@@ -65,14 +65,17 @@ public class TUIContactFragment extends BaseFragment {
                         param.put(TUIConstants.TUIContact.CONTEXT, getActivity());
                         contact.getExtensionListener().onClicked(param);
                     } else {
-                        Intent intent = new Intent(TUIContactService.getAppContext(), FriendProfileActivity.class);
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        intent.putExtra(TUIContactConstants.ProfileType.CONTENT, contact);
-                        TUIContactService.getAppContext().startActivity(intent);
+                        ClassicUIUtils.showContactDetails(contact.getId());
                     }
                 }
             }
         });
+    }
+
+    public void reloadData() {
+        if (mContactLayout != null) {
+            mContactLayout.reloadData();
+        }
     }
 
     @Override

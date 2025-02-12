@@ -1,7 +1,246 @@
 English | [简体中文](./版本历史.md)
 
 # TIMSDK
+## 8.4.6675 @2025.02.11 - Enhanced Version
+### SDK
+- Fixed the problem of abnormal paging group member list.
 
+## 8.4.6667 @2025.01.15 - Enhanced Version
+### SDK
+
+- Support searching for group data in the cloud.
+- Support searching for user data in the cloud.
+- Support searching for group member data in the cloud.
+- The community supports setting private topics.
+- Pure push messages support offline storage.
+- Honor's offline push supports message categorization.
+- iOS offline push supports background silent push.
+- iOS push supports setting the interruption level.
+- Self-developed high-performance and highly reliable local KV component.
+- Optimize the local cache policy of the log module.
+- IMSDK supports blocking Tencent package names.
+- Upgrade the SSO connection IP address of the India site.
+- Support SSO to configure the long - polling interval of live broadcast group owners.
+- Optimize the topic data pulling logic and directly return when there is no network connection.
+- Fix an occasional failure in sending @messages to all members in a group by the HarmonyOS SDK.
+- Fix an occasional failure in setting global message Do - Not - Disturb by the HarmonyOS SDK.
+
+### Note:
+**Local sensitive word detection is no longer supported.**
+
+### TUIKit & Demo
+- TUIKit removes the TUIGroup component.
+
+
+## 8.3.6498 @2024.11.26 - Enhanced Version
+### SDK
+
+- Support for Lite Signaling SDK
+- Support for configuring AnyCast routing address
+- Optimization of long connection IP address routing strategy
+- Online push supports custom ringtones
+- Support for OPPO push message classification
+- HarmonyOS platform SDK adaptation API 12
+- Support for HarmonyOS SDK connecting to private servers
+- Support for HarmonyOS TS API and C API mixed compilation
+- Conversation marking supports filtering duplicate requests
+- Optimization and upgrade of single chat unread message and unread count protocol
+- Completion of the recall information of the last message in the conversation
+- Fix occasional issue of message body size exceeding limit in merged forwarding - messages
+- Fix occasional issue of incorrect account type during random login of IM and Push
+- Fix parsing error of message response data format in HarmonyOS SDK
+- Fix occasional failure issue of editing merged forwarding messages
+
+### TUIKit & Demo
+- TUIKit document message supports automatic URL resolution
+- TUIKit's self-developed album browser
+- TUIKit supports video editor
+- TUIKit supports Traditional Chinese
+
+## 8.2.6325 @2024.09.27 - Enhanced Version
+### SDK
+
+- IMSDK now supports crash reporting and monitoring.
+- IMSDK supports HarmonyOS C API version.
+- IMSDK supports Sony PS platform.
+- IMSDK supports pure push notifications.
+- Login now allows for custom fields to be carried.
+- Optimized the logic for server timestamp correction.
+- Upgraded the backend notification protocol for fan following.
+- Updated versions of libcurl and libopenssl.
+- Upgraded the long connection routing address selection.
+- Enhanced the authentication logic for downloading rich media files via COS.
+- Removed the HttpDNS routing method for long connections.
+- Optimized the loading process of QUIC and encryption plugins on the Android platform.
+- Fixed an issue with the Linux SDK exporting some internal symbols.
+- Resolved a rare issue where merged forwarded messages downloaded via the Flutter SDK lacked a message ID.
+- Fixed an error in parsing custom signaling fields in the Harmony SDK.
+- Corrected an issue with parsing session tag fields in the Harmony SDK.
+- Addressed occasional disarray in session sorting fields within the Harmony SDK.
+
+### TUIKit & Demo
+- TUIKit offers enriched API for interface customization.
+- Group voting and group serial message support is now top-positionable.
+- Messages flagged by security measures are not allowed to be forwarded or quoted.
+- Audio and video calls now support enabling virtual backgrounds.
+- Fixed an issue where clicking on a message in TUIChat did not automatically hide the keyboard.
+
+
+## 8.1.6122 @2024.08.30 - Enhanced Version
+### SDK
+- Support offline push for HarmonyOS platform
+- Android platform IM SDK adapted to 16K Page Size
+- Optimize server time correction logic
+- Optimize HTTP addresses for anycast routing on the international site
+- Optimize default value for QUIC channel ping timeout
+- Fix the issue where Mac end group notifications do not distinguish between actively joining a group and being passively invited
+- Fix the issue with incorrect account type during Push login
+
+## 8.1.6116 @2024.08.14 - Enhanced Version
+### SDK
+- Signaling now supports disabling callbacks before and after message sending.
+- Fixed an issue where after deleting a pinned conversation, new messages could not retrieve the conversation.
+- Fixed an occasional issue where after deleting a conversation and receiving a conversation deletion callback, there would still be occasional conversation update callbacks.
+- Fixed occasional crash issues.
+
+### TUIKit & Demo
+- Updated customer service plugin agreement
+- Fixed a crash issue on the iOS side of the group note plugin
+
+## 8.1.6103 @2024.07.26 - Enhanced Version
+### SDK
+- Long connection supports HTTP protocol, enhancing network penetration capabilities.
+- Topic message reception options now support setting whether to follow the community.
+- Topics add a new message reception option to only receive @ messages.
+- Read receipts for private chat messages now include the read time.
+- Support disabling cloud callbacks before and after message sending.
+- Fixed an issue where the conversation list did not update in real-time when group - avatars or names were changed.
+- Fixed an issue where pulling the grouped conversation list was abnormal when logging in without a network connection.
+- Optimized Android HTTPS security issues.
+- Optimized rich media file download authentication.
+- Enhanced database performance for Android.
+
+### TUIKit & Demo
+- TPush standalone push product launched with a smaller package size.
+- Push adds a login-free push feature.
+- Push introduces a new intelligent detection strategy for available channels.
+- Push adds a push registration timeout protection mechanism.
+- TUIChat optimizes the UI display of pinned messages and security prompts.
+- TUIChat international version UI supports "User is typing" status.
+- Optimized the UI experience for message sending and receiving, reducing lag issues.
+
+
+## 8.0.5895 @2024.06.07 - Enhanced Version
+### SDK
+- Added support for offline push settings with a large icon on the right side.
+- Pinned messages now support returning information about the operator.
+- Added support for returning group pinned messages that were deleted by oneself.
+- Added support for preserving conversation grouping information when deleting conversations.
+- Added system notifications for when conversation grouping information is eliminated by the backend.
+- Local message search now supports searching all single or group chat messages.
+- Completed system notifications for friend group changes.
+- The entry tips message and callback in a regular group can distinguish between active joining and being invited into the group.
+- Improved database query throughput and speed.
+- Optimized read receipt performance by merging duplicate requests.
+- Optimized the time range for group signaling synchronization after login.
+- Fixed an issue with pulling messages after inserting local messages in a topic.
+
+### TUIKit & Demo
+- TUIKit now supports message pinning.
+- TUIKit supports asynchronous striking of file messages.
+- TUIKit allows for entering the main interface to view local data without logging in after a network disconnection.
+- TUIKit no longer exposes the original message content when referencing and replying to a retracted message.
+- TUIKit replaces libopencore with AAC+M4A.
+- TUIChat Android supports saving images without extensions to the gallery.
+
+## 7.9.5680 @2024.04.19 - Enhanced Version
+### SDK
+- Fix the issue of the pinned message list returning in the wrong order
+- Fix the issue of incorrect parsing of the Tips type of pinned messages
+- Fix the issue of log writing failure on some Android phones
+- Fix the occasional incomplete retrieval of group roaming messages from old to new
+- Fix the occasional inability to retrieve local messages when pulling historical messages from topics
+- Fix the issue where sessions deleted from the conversation group are reactivated after logging in again
+
+## 7.9.5666 @2024.04.07 - Enhanced Version
+### SDK
+
+- New visionOS SDK, compatible with Apple Vision Pro
+- Group conversation supports message pinning
+- Add the function of receiving group @ reminder offline notifications during Do Not Disturb mode
+- Support setting friend remarks in the "Accept Friend Request" interface
+- Add handling of invitations to join groups
+- Upgrade vivo push package version in TIMPush
+- Fix OV device crash issue in TIMPush
+- Add OfflinePushExtInfo support for push through feature in TIMPush
+- Fix the issue of not receiving the notification of being kicked out due to network disconnection
+- Fix the issue of occasionally not receiving group messages when joining a live group immediately in the login callback
+- Fix the issue of still receiving session change callbacks after receiving the delete session callback
+- Fix the issue of occasional reset of local data in messages
+- Fix the issue of frequent triggering of onRecvMessageModified callback when fetching historical messages
+- Fix the issue of no return value and no support for optional values in some Swift interfaces
+- Fix the multi-endpoint login exception caused by iCloud sync between different types of devices with the same AppleID
+- Fix related issues of communities and topics
+- Fix the issue of failing to fetch historical messages on HarmonyOS platform
+- Upgrade libcurl in Windows platform to 8.4.0
+- Fix the issue of duplicate summary in merged forwarded messages in C++ interface
+- Fix the issue of unable to download large images in C++ interface
+- Fix the issue of incorrect group type in C++ interface
+- Fix the issue of unable to set message custom data in C++ interface
+- Fix the forwarding message failure in C++ interface
+
+### TUIKit & Demo
+
+- iOS components provide PrivacyInfo.xcprivacy privacy list file
+- TUIChatBot plugin supports markdown text display
+- TUIChat chat page header supports displaying call status
+
+## 7.8.5505 @2024.03.01 - Enhanced Version
+### SDK
+- Add PrivacyInfo.xcprivacy privacy file for iOS & Mac SDK
+- Fix the issue that C++ SDK cannot set localCustomData
+- Fix the issue of Swift SDK location message data type error
+- Fix the occasional issue of triggering "message update" callback when pulling historical messages
+- Fix the topic at message exception issue
+- Fix the issue of fetching exceptions in group and topic lists
+- Fix other stability issues
+
+## 7.8.5483 @2024.02.01 - Enhanced Version（The version for Android is 7.8.5484）
+### SDK
+- Support HarmonyOS platform
+- Support Loongson architecture
+- Release TIMPush-UniApp
+- FCM push supports pass-through messages
+- Add permission group function for community topics
+- Add stranger attention/fan function
+- Support configuring cloud message audit policy
+- Support deleting accounts
+- Topic information supports obtaining the readSequence field
+- Fix the problem that after deleting a local inserted group message, the new message received does not update the unread count
+- Fix the problem that the SDK does not callback occasionally after the user subscribes to multiple official accounts at the same time
+- Fix the inconsistency of msgID before and after sending official account messages
+- Fix the problem that the callback does not occur occasionally after subscribing to conversation group unread counts
+- Fix the problem of abnormal creation time of topics
+- Fix the problem that when pulling topic information before and after joining the community, the unread count does not change.
+- Fix the problem of incorrect notification message type for topic information updates
+- Fix the problem that withdrawn status messages can be searched under certain conditions
+- Fix the issue of onApplicationProcessed callback being called multiple times
+
+### TUIKit & Demo
+- Add the TUIEmojiPlugin plugin to support emoticon response functions
+- TUIChat supports adding and displaying gif dynamic emoticons
+- Upgrade the built-in small emoji pack in TUIChat to the new version of yellow face emojis
+- Fix the problem of TUIChat on iOS black screen when clicking image messages
+
+## 7.7.5294 @2023.12.27 - Enhanced Version
+### SDK
+- Optimize Room control logic
+- Solve the problem that the SDK cannot receive notifications of conversation deletion from the group when the local conversation does not exist
+- Solve the problem that a conversation's last message can still be searched when it is in a withdrawn state
+- Solve the problem that message senders cannot receive message change callbacks after live group messages are modified by third-party callbacks
+- Fix occasional stability problems in the log module
+- Optimize community topic unread count logic
+- 
 ## 7.7.5282 @2023.12.18 - Enhanced Version
 ### SDK
 - Added V2TIMCommunityManager and V2TIMCommunityListener to integrate community topic interfaces

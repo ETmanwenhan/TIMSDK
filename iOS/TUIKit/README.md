@@ -2,30 +2,30 @@ English | [简体中文](./README_ZH.md)
 
 # TUIKit (iOS)
 ## Download Links
-[Latest TUIChat download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIChat.zip)
+[Latest TUIChat download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUIChat.zip)
 
-[Latest TUIConversation download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIConversation.zip)
+[Latest TUIConversation download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUIConversation.zip)
 
-[Latest TUIContact download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIContact.zip)
+[Latest TUIContact download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUIContact.zip)
 
-[Latest TUIGroup download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIGroup.zip)
+[Latest TUISearch download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUISearch.zip)
 
-[Latest TUISearch download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUISearch.zip)
+[Latest TUITranslationPlugin download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUITranslationPlugin.zip)
 
-[Latest TUIOfflinePush download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIOfflinePush.zip)
+[Latest TUIVoiceToTextPlugin download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUIVoiceToTextPlugin.zip)
 
-[Latest TUITranslationPlugin download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUITranslationPlugin.zip)
+[Latest TUICustomerServicePlugin download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUICustomerServicePlugin.zip)
 
-[Latest TUIVoiceToTextPlugin download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIVoiceToTextPlugin.zip)
+[Latest TUIEmojiPlugin download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUIEmojiPlugin.zip)
 
-[Latest TUICustomerServicePlugin download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUICustomerServicePlugin.zip)
+[Latest TUIMultimediaPlugin download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUIMultimediaPlugin.zip)
 
-[Latest TUICore download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUICore.zip)
+[Latest TUICore download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUICore.zip)
 
-[Latest TIMCommon download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TIMCommon.zip)
+[Latest TIMCommon download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TIMCommon.zip)
 
-[Latest TUICallKit download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUICallKit.zip)
+[Latest TUICallKit download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUICallKit.zip)
 
-[Latest TUIRoomKit download](https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIRoomKit.zip)
+[Latest TUIRoomKit download](https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/TUIRoomKit.zip)
 
 If you encounter a TUIKit bug, please submit a pull request. After successful merging, we will update the TUIKit library for pod integration in time.

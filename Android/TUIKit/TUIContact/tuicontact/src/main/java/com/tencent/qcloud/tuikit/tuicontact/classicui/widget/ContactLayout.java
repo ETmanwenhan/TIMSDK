@@ -5,11 +5,11 @@ import android.util.AttributeSet;
 import android.widget.LinearLayout;
 import androidx.annotation.Nullable;
 import com.tencent.qcloud.tuikit.timcommon.component.TitleBarLayout;
+import com.tencent.qcloud.tuikit.timcommon.component.interfaces.ILayout;
 import com.tencent.qcloud.tuikit.tuicontact.R;
-import com.tencent.qcloud.tuikit.tuicontact.classicui.interfaces.IContactLayout;
 import com.tencent.qcloud.tuikit.tuicontact.presenter.ContactPresenter;
 
-public class ContactLayout extends LinearLayout implements IContactLayout {
+public class ContactLayout extends LinearLayout implements ILayout {
     private static final String TAG = ContactLayout.class.getSimpleName();
 
     private ContactListView mContactListView;
@@ -36,7 +36,7 @@ public class ContactLayout extends LinearLayout implements IContactLayout {
     }
 
     private void init() {
-        inflate(getContext(), R.layout.contact_layout, this);
+        inflate(getContext(), R.layout.contact_contact_list_layout, this);
         mContactListView = findViewById(R.id.contact_listview);
     }
 
@@ -47,7 +47,10 @@ public class ContactLayout extends LinearLayout implements IContactLayout {
         mContactListView.loadDataSource(ContactListView.DataSource.CONTACT_LIST);
     }
 
-    @Override
+    public void reloadData() {
+        mContactListView.reloadContactList();
+    }
+
     public ContactListView getContactListView() {
         return mContactListView;
     }

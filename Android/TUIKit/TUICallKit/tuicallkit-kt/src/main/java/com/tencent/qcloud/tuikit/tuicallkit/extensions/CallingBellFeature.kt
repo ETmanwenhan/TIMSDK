@@ -10,13 +10,16 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.text.TextUtils
 import androidx.core.content.ContextCompat
-import com.tencent.liteav.audio.TXAudioEffectManager
 import com.tencent.liteav.audio.TXAudioEffectManager.AudioMusicParam
+import com.tencent.qcloud.tuicore.TUIConfig
+import com.tencent.qcloud.tuicore.TUIConstants
+import com.tencent.qcloud.tuicore.TUICore
 import com.tencent.qcloud.tuicore.util.SPUtils
 import com.tencent.qcloud.tuikit.tuicallengine.TUICallDefine
 import com.tencent.qcloud.tuikit.tuicallengine.TUICallEngine
 import com.tencent.qcloud.tuikit.tuicallkit.R
 import com.tencent.qcloud.tuikit.tuicallkit.state.TUICallState
+import com.tencent.qcloud.tuikit.tuicallkit.utils.DeviceUtils
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -42,38 +45,41 @@ class CallingBellFeature(context: Context) {
     fun addObserver() {
         TUICallState.instance.selfUser.get().callStatus.observe {
             when (it) {
-                TUICallDefine.Status.None -> {
-                    stopRing()
-                }
-
                 TUICallDefine.Status.Waiting -> {
-                    startRing()
+                    if (TUICallState.instance?.selfUser?.get()?.callRole?.get() == TUICallDefine.Role.Caller) {
+                        startDialingMusic()
+                    } else {
+                        if (DeviceUtils.isAppRunningForeground(TUIConfig.getAppContext()) || isFCMData()) {
+                            startRinging()
+                        }
+                    }
                 }
 
-                TUICallDefine.Status.Accept -> {
-                    stopRing()
-                }
+                else -> stopRinging()
             }
         }
     }
 
-    private fun startRing() {
-        if (TUICallState.instance?.selfUser?.get()?.callRole?.get() == TUICallDefine.Role.Caller) {
-            startDialingMusic()
+    private fun isFCMData(): Boolean {
+        val pushBrandId =
+            TUICore.callService(TUIConstants.TIMPush.SERVICE_NAME, TUIConstants.TIMPush.METHOD_GET_PUSH_BRAND_ID, null)
+        return TUICore.getService(TUIConstants.TIMPush.SERVICE_NAME) != null
+                && pushBrandId == TUIConstants.DeviceInfo.BRAND_GOOGLE_ELSE
+    }
+
+    private fun startRinging() {
+        if (TUICallState.instance.enableMuteMode) {
+            return
+        }
+        val path = SPUtils.getInstance(PROFILE_TUICALLKIT).getString(PROFILE_CALL_BELL, "")
+        if (TextUtils.isEmpty(path)) {
+            start("", R.raw.phone_ringing)
         } else {
-            if (TUICallState.instance.enableMuteMode) {
-                return
-            }
-            val path = SPUtils.getInstance(PROFILE_TUICALLKIT).getString(PROFILE_CALL_BELL, "")
-            if (TextUtils.isEmpty(path)) {
-                start("", R.raw.phone_ringing, 0)
-            } else {
-                start(path, -1, 0)
-            }
+            start(path, -1)
         }
     }
 
-    private fun stopRing() {
+    private fun stopRinging() {
         stop()
     }
 
@@ -85,11 +91,10 @@ class CallingBellFeature(context: Context) {
             .audioEffectManager.setMusicPlayoutVolume(AUDIO_DIAL_ID, 100)
         val param = AudioMusicParam(AUDIO_DIAL_ID, dialPath)
         param.isShortFile = true
-        TUICallEngine.createInstance(context).trtcCloudInstance
-            .audioEffectManager.startPlayMusic(param)
+        TUICallEngine.createInstance(context).trtcCloudInstance.audioEffectManager.startPlayMusic(param)
     }
 
-    private fun start(resPath: String, resId: Int, duration: Long) {
+    private fun start(resPath: String, resId: Int) {
         preHandler()
         if (TextUtils.isEmpty(resPath) && -1 == resId) {
             return

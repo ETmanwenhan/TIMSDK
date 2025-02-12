@@ -38,11 +38,8 @@ public class ForwardSelectLayout extends RelativeLayout implements IConversation
         }
     }
 
-    /**
-     * 初始化相关UI元素
-     */
     private void init() {
-        inflate(getContext(), R.layout.forward_layout, this);
+        inflate(getContext(), R.layout.conversation_forward_layout, this);
         titleBarLayout = findViewById(R.id.conversation_title);
         conversationList = findViewById(R.id.conversation_list);
     }

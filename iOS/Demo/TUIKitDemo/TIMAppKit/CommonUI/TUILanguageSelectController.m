@@ -153,7 +153,6 @@
         self.navigationController.navigationBar.shadowImage = [UIImage new];
         self.navigationController.navigationBar.standardAppearance = appearance;
         /**
-         * iOS15 新增特性：滑动边界样式
          * New feature in iOS15: sliding border style
          */
         self.navigationController.navigationBar.scrollEdgeAppearance = appearance;
@@ -181,7 +180,6 @@
     self.automaticallyAdjustsScrollViewInsets = NO;
 
     /**
-     * 不设置会导致一些位置错乱，无动画等问题
      * Not setting it will cause some problems such as confusion in position, no animation, etc.
      */
     self.definesPresentationContext = YES;
@@ -227,8 +225,14 @@
     ar.nameInCurrentLanguage = TIMCommonLocalizableString(ar);
     ar.selected = NO;
 
+    TUILanguageSelectCellModel *traditionalChinese = [[TUILanguageSelectCellModel alloc] init];
+    traditionalChinese.languageID = @"zh-Hant";
+    traditionalChinese.languageName = @"繁體中文";
+    traditionalChinese.nameInCurrentLanguage = TIMCommonLocalizableString(zh-Hant);
+    traditionalChinese.selected = NO;
 
-    self.datas = [NSMutableArray arrayWithArray:@[ chinese, english,ar ]];
+
+    self.datas = [NSMutableArray arrayWithArray:@[chinese, english, ar, traditionalChinese]];
 
     for (TUILanguageSelectCellModel *cellModel in self.datas) {
         if ([cellModel.languageID isEqual:languageID]) {
@@ -276,13 +280,13 @@
         [TUIGlobalization setRTLOption:NO];
     }
     /**
-     * 切换语言
+     * 
      * Changing language
      */
     [TUIGlobalization setPreferredLanguage:cellModel.languageID];
     [TUITool configIMErrorMap];
     /**
-     * 处理 UI 选中
+     *  UI 
      * Handling UI selection
      */
     self.selectModel.selected = NO;
@@ -291,7 +295,7 @@
     [tableView reloadData];
 
     /**
-     * 通知页面动态刷新
+     * 
      * Notify page dynamic refresh
      */
     __weak typeof(self) weakSelf = self;

@@ -14,6 +14,7 @@
 #import "TUIConversationCellData_Minimalist.h"
 #import "TUIConversationCell_Minimalist.h"
 #import "TUIFoldListViewController_Minimalist.h"
+#import "TUIConversationConfig.h"
 
 static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Minimalist_ReuseId";
 
@@ -116,7 +117,7 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
     [editButton setFrame:CGRectMake(0, 0, 18 + 21 * 2, 18)];
 
     UIButton *moreButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [moreButton setImage:[UIImage imageNamed:TUIDemoImagePath_Minimalist(@"nav_add")] forState:UIControlStateNormal];
+    [moreButton setImage:[UIImage imageNamed:TUIConversationImagePath_Minimalist(@"nav_add")] forState:UIControlStateNormal];
     [moreButton addTarget:self action:@selector(rightBarButtonClick:) forControlEvents:UIControlEventTouchUpInside];
     moreButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
     [moreButton setFrame:CGRectMake(0, 0, 20, 20)];
@@ -138,7 +139,7 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
 }
 
 - (void)setupViews {
-    self.view.backgroundColor = TUIConversationDynamicColor(@"conversation_bg_color", @"#FFFFFF");
+    self.view.backgroundColor = [TUIConversationConfig sharedConfig].listBackgroundColor ? : TUIConversationDynamicColor(@"conversation_bg_color", @"#FFFFFF");
     CGRect rect = self.view.bounds;
     _tableView = [[UITableView alloc] initWithFrame:rect];
     _tableView.tableFooterView = [[UIView alloc] init];
@@ -148,7 +149,7 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
     _tableView.delegate = self;
     _tableView.dataSource = self;
     _tableView.estimatedRowHeight = 0;
-    _tableView.rowHeight = 64.0;
+    _tableView.rowHeight = kScale390(64.0);
     _tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
     _tableView.delaysContentTouches = NO;
     [self.view addSubview:_tableView];
@@ -466,7 +467,6 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
                     desc = TIMCommonLocalizableString(TUIKitMessageTipsOthersRecallMessage);
                 } else if (msg.groupID.length > 0) {
                     /**
-                     * 对于群组消息的名称显示，优先显示群名片，昵称优先级其次，用户ID优先级最低。
                      * For the name display of group messages, the group business card is displayed first, the nickname has the second priority, and the user ID
                      * has the lowest priority.
                      */
@@ -636,10 +636,10 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
     BOOL read = (cellData.isMarkAsUnread || cellData.unreadCount > 0);
     markAsReadAction.backgroundColor = read ? RGB(37, 104, 240) : RGB(102, 102, 102);
     NSString *markAsReadImageName = read ? @"icon_conversation_swipe_read" : @"icon_conversation_swipe_unread";
-    if ([language containsString:@"zh-"]) {
+    if ([language tui_containsString:@"zh-"]) {
         markAsReadImageName = [markAsReadImageName stringByAppendingString:@"_zh"];
     }
-    else if ([language containsString:@"ar"]) {
+    else if ([language tui_containsString:@"ar"]) {
         markAsReadImageName = [markAsReadImageName stringByAppendingString:@"_ar"];
     }
     markAsReadAction.image =
@@ -669,10 +669,10 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
                           }];
     moreAction.backgroundColor = RGB(0, 0, 0);
     NSString *moreImageName =  @"icon_conversation_swipe_more";
-    if ([language containsString:@"zh-"]) {
+    if ([language tui_containsString:@"zh-"]) {
         moreImageName = [moreImageName stringByAppendingString:@"_zh"];
     }
-    else if ([language containsString:@"ar"]) {
+    else if ([language tui_containsString:@"ar"]) {
         moreImageName = [moreImageName stringByAppendingString:@"_ar"];
     }
     moreAction.image = TUIDynamicImage(@"", TUIThemeModuleConversation_Minimalist, [UIImage imageNamed:TUIConversationImagePath_Minimalist(moreImageName)]);
@@ -768,6 +768,7 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
 
         @weakify(self);
         if (uiMsgs.count > 0) {
+            self.multiChooseView.readButton.enabled = NO;
             self.multiChooseView.hideButton.enabled = YES;
             self.multiChooseView.deleteButton.enabled = YES;
             [self.multiChooseView.readButton setTitle:TIMCommonLocalizableString(MarkAsRead) forState:UIControlStateNormal];
@@ -829,14 +830,13 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
             TUICore_TUIChatObjectFactory_ChatViewController_ConversationID : data.conversationID ?: @"",
             TUICore_TUIChatObjectFactory_ChatViewController_AtTipsStr : data.atTipsStr ?: @"",
             TUICore_TUIChatObjectFactory_ChatViewController_AtMsgSeqs : data.atMsgSeqs ?: @[],
-            TUICore_TUIChatObjectFactory_ChatViewController_Draft : data.draftText ?: @""
+            TUICore_TUIChatObjectFactory_ChatViewController_Draft : data.draftText ?: @"",
         };
         [self.navigationController pushViewController:TUICore_TUIChatObjectFactory_ChatViewController_Minimalist param:param forResult:nil];
     }
 }
 
 - (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
-    // 通过开启或关闭这个开关，控制最后一行分割线的长度
     // Turn on or off the length of the last line of dividers by controlling this switch
     BOOL needLastLineFromZeroToMax = NO;
     if ([cell respondsToSelector:@selector(setSeparatorInset:)]) {
@@ -890,41 +890,77 @@ static NSString *kConversationCell_Minimalist_ReuseId = @"kConversationCell_Mini
 
 // MARK: action
 - (void)showMoreAction:(TUIConversationCellData *)cellData {
+    id<TUIConversationConfigDataSource> dataSource = [TUIConversationConfig sharedConfig].moreMenuDataSource;
+    BOOL hideHide = NO;
+    BOOL hidePin = NO;
+    BOOL hideClear = NO;
+    BOOL hideDelete = NO;
+    NSArray *customizedItems = @[];
+    if (dataSource && [dataSource respondsToSelector:@selector(conversationShouldHideItemsInMoreMenu:)]) {
+        NSInteger flag = [dataSource conversationShouldHideItemsInMoreMenu:cellData];
+        hideHide = flag & TUIConversationItemInMoreMenu_Hide;
+        hidePin = flag & TUIConversationItemInMoreMenu_Pin;
+        hideClear = flag & TUIConversationItemInMoreMenu_Clear;
+        hideDelete = flag & TUIConversationItemInMoreMenu_Delete;
+    }
+    if (dataSource && [dataSource respondsToSelector:@selector(conversationShouldAddNewItemsToMoreMenu:)]) {
+        customizedItems = [dataSource conversationShouldAddNewItemsToMoreMenu:cellData];
+    }
+    
     UIAlertController *ac = [UIAlertController alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet];
     __weak typeof(self) weakSelf = self;
-    [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(MarkHide)
-                                                    style:UIAlertActionStyleDefault
-                                                  handler:^(UIAlertAction *_Nonnull action) {
-                                                    __strong typeof(weakSelf) strongSelf = weakSelf;
-                                                    [strongSelf.dataProvider markConversationHide:cellData];
-                                                    if (cellData.isLocalConversationFoldList) {
-                                                        [TUIConversationListDataProvider_Minimalist cacheConversationFoldListSettings_HideFoldItem:YES];
-                                                    }
-                                                  }]];
-
-    if (!cellData.isMarkAsFolded) {
-        [ac tuitheme_addAction:[UIAlertAction actionWithTitle:cellData.isOnTop ? TIMCommonLocalizableString(UnPin) : TIMCommonLocalizableString(Pin)
+    if (!hideHide) {
+        [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(MarkHide)
                                                         style:UIAlertActionStyleDefault
                                                       handler:^(UIAlertAction *_Nonnull action) {
                                                         __strong typeof(weakSelf) strongSelf = weakSelf;
-                                                        [strongSelf.dataProvider pinConversation:cellData pin:!cellData.isOnTop];
+                                                        [strongSelf.dataProvider markConversationHide:cellData];
+                                                        if (cellData.isLocalConversationFoldList) {
+                                                            [TUIConversationListDataProvider_Minimalist cacheConversationFoldListSettings_HideFoldItem:YES];
+                                                        }
                                                       }]];
     }
 
-    [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(ClearHistoryChatMessage)
-                                                    style:UIAlertActionStyleDefault
-                                                  handler:^(UIAlertAction *_Nonnull action) {
-                                                    __strong typeof(weakSelf) strongSelf = weakSelf;
-                                                    [strongSelf.dataProvider markConversationAsRead:cellData];
-                                                    [strongSelf.dataProvider clearHistoryMessage:cellData];
-                                                  }]];
 
-    [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(Delete)
-                                                    style:UIAlertActionStyleDestructive
-                                                  handler:^(UIAlertAction *_Nonnull action) {
-                                                    __strong typeof(weakSelf) strongSelf = weakSelf;
-                                                    [strongSelf.dataProvider removeConversation:cellData];
-                                                  }]];
+    if (!cellData.isMarkAsFolded) {
+        if (!hidePin) {
+            [ac tuitheme_addAction:[UIAlertAction actionWithTitle:cellData.isOnTop ? TIMCommonLocalizableString(UnPin) : TIMCommonLocalizableString(Pin)
+                                                            style:UIAlertActionStyleDefault
+                                                          handler:^(UIAlertAction *_Nonnull action) {
+                                                            __strong typeof(weakSelf) strongSelf = weakSelf;
+                                                            [strongSelf.dataProvider pinConversation:cellData pin:!cellData.isOnTop];
+                                                          }]];
+        }
+
+    }
+
+    if (!hideClear) {
+        [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(ClearHistoryChatMessage)
+                                                        style:UIAlertActionStyleDefault
+                                                      handler:^(UIAlertAction *_Nonnull action) {
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            [strongSelf.dataProvider markConversationAsRead:cellData];
+            [strongSelf.dataProvider clearHistoryMessage:cellData];
+        }]];
+    }
+
+    if (!hideDelete) {
+        [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(Delete)
+                                                        style:UIAlertActionStyleDestructive
+                                                      handler:^(UIAlertAction *_Nonnull action) {
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            [strongSelf.dataProvider removeConversation:cellData];
+        }]];
+    }
+
+    if (customizedItems.count > 0) {
+        for (id action in customizedItems) {
+            if (![action isKindOfClass:UIAlertAction.class]) {
+                continue;
+            }
+            [ac tuitheme_addAction:action];
+        }
+    }
 
     [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(Cancel) style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:ac animated:YES completion:nil];

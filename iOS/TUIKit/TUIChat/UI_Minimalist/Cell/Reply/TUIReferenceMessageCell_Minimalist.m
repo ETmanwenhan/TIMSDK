@@ -39,14 +39,12 @@
 #endif
 #endif
 
-#define kReplyQuoteViewMaxWidth 175
-#define kReplyQuoteViewMarginWidth 35
-
-
-@interface TUIReferenceMessageCell_Minimalist () <UITextViewDelegate>
+@interface TUIReferenceMessageCell_Minimalist () <UITextViewDelegate,TUITextViewDelegate>
 @property(nonatomic, strong) TUIReplyQuoteView_Minimalist *currentOriginView;
 
 @property(nonatomic, strong) NSMutableDictionary<NSString *, TUIReplyQuoteView_Minimalist *> *customOriginViewsCache;
+
+@property(nonatomic,strong) UILongPressGestureRecognizer *longPressGesture;
 
 @end
 
@@ -75,16 +73,21 @@
     self.textView.scrollEnabled = NO;
     self.textView.editable = NO;
     self.textView.delegate = self;
+    self.textView.tuiTextViewDelegate = self;
     self.textView.font = [UIFont systemFontOfSize:16.0];
     self.textView.textColor = TUIChatDynamicColor(@"chat_reference_message_content_text_color", @"#000000");
 
     [self.bubbleView addSubview:self.textView];
 }
 
+- (void)onLongPressTextViewMessage:(UITextView *)textView {
+    if (self.delegate && [self.delegate respondsToSelector:@selector(onLongPressMessage:)]) {
+        [self.delegate onLongPressMessage:self];
+    }
+}
 - (void)fillWithData:(TUIReferenceMessageCellData *)data {
     [super fillWithData:data];
     self.referenceData = data;
-
     self.senderLabel.text = [NSString stringWithFormat:@"%@:", data.sender];
     self.senderLabel.rtlAlignment = TUITextRTLAlignmentLeading;
     self.selectContent = data.content;
@@ -142,8 +145,11 @@
     self.currentOriginView = [self getCustomOriginView:referenceData.originCellData];
     [self hiddenAllCustomOriginViews:YES];
     self.currentOriginView.hidden = NO;
-    [self.currentOriginView fillWithData:referenceData.quoteData];
     
+    referenceData.quoteData.supportForReply = NO;
+    referenceData.quoteData.showRevokedOriginMessage = referenceData.showRevokedOriginMessage;
+    [self.currentOriginView fillWithData:referenceData.quoteData];
+
     if (referenceData.direction == MsgDirectionIncoming) {
         self.textView.textColor = TUIChatDynamicColor(@"chat_reference_message_content_recv_text_color", @"#000000");
         self.senderLabel.textColor = TUIChatDynamicColor(@"chat_reference_message_quoteView_recv_text_color", @"#888888");
@@ -170,12 +176,7 @@
         else {
             make.trailing.mas_equalTo(self.bubbleView).mas_offset(- 15);
         }
-        if (self.replyEmojiView.isHidden) {
-            make.top.mas_equalTo(self.container.mas_bottom).mas_offset(6);
-        }
-        else {
-            make.top.mas_equalTo(self.replyEmojiView.mas_bottom).mas_offset(6);
-        }
+        make.top.mas_equalTo(self.bubbleView.mas_bottom).mas_offset(self.messageData.messageContainerAppendSize.height + 6);
         make.size.mas_equalTo(self.referenceData.quoteSize);
     }];
     
@@ -185,12 +186,28 @@
         make.width.mas_equalTo(referenceData.senderSize.width);
         make.height.mas_equalTo(referenceData.senderSize.height);
     }];
+    
+    BOOL hideSenderLabel = (referenceData.originCellData.innerMessage.status == V2TIM_MSG_STATUS_LOCAL_REVOKED) &&
+                            !referenceData.showRevokedOriginMessage;
+    if (hideSenderLabel) {
+        self.senderLabel.hidden = YES;
+    } else {
+        self.senderLabel.hidden = NO;
+    }
 
     [self.currentOriginView mas_remakeConstraints:^(MASConstraintMaker *make) {
-        make.leading.mas_equalTo(self.senderLabel.mas_trailing).mas_offset(4);
-        make.top.mas_equalTo(self.senderLabel.mas_top).mas_offset(1);
-        make.trailing.mas_lessThanOrEqualTo(self.quoteView.mas_trailing);
-        make.height.mas_equalTo(self.referenceData.quotePlaceholderSize);
+        if (hideSenderLabel) {
+            make.leading.mas_equalTo(self.quoteView).mas_offset(6);
+            make.top.mas_equalTo(self.quoteView).mas_offset(8);
+            make.trailing.mas_lessThanOrEqualTo(self.quoteView.mas_trailing);
+            make.height.mas_equalTo(self.referenceData.quotePlaceholderSize.height);
+        }
+        else {
+            make.leading.mas_equalTo(self.senderLabel.mas_trailing).mas_offset(4);
+            make.top.mas_equalTo(self.senderLabel.mas_top).mas_offset(1);
+            make.trailing.mas_lessThanOrEqualTo(self.quoteView.mas_trailing);
+            make.height.mas_equalTo(self.referenceData.quotePlaceholderSize.height);
+        }
     }];
     
     [self.quoteLineView mas_remakeConstraints:^(MASConstraintMaker *make) {
@@ -219,7 +236,7 @@
     if (view == nil) {
         Class class = [originCellData getReplyQuoteViewClass];
         NSString *clsStr = NSStringFromClass(class);
-        if (![clsStr containsString:@"_Minimalist"]) {
+        if (![clsStr tui_containsString:@"_Minimalist"]) {
             clsStr = [clsStr stringByAppendingString:@"_Minimalist"];
             class =  NSClassFromString(clsStr);
         }
@@ -243,11 +260,9 @@
     } else if ([view isKindOfClass:[TUIMergeReplyQuoteView_Minimalist class]]) {
         TUIMergeReplyQuoteView_Minimalist *quoteView = (TUIMergeReplyQuoteView_Minimalist *)view;
         if (self.referenceData.direction == MsgDirectionIncoming) {
-            quoteView.titleLabel.textColor = quoteView.subTitleLabel.textColor =
-                TUIChatDynamicColor(@"chat_reference_message_quoteView_recv_text_color", @"#888888");
+            quoteView.titleLabel.textColor = TUIChatDynamicColor(@"chat_reference_message_quoteView_recv_text_color", @"#888888");
         } else {
-            quoteView.titleLabel.textColor = quoteView.subTitleLabel.textColor =
-                TUIChatDynamicColor(@"chat_reference_message_quoteView_text_color", @"#888888");
+            quoteView.titleLabel.textColor = TUIChatDynamicColor(@"chat_reference_message_quoteView_text_color", @"#888888");
         }
     }
 
@@ -405,6 +420,9 @@
     
     CGFloat cellHeight = [super getHeight:referenceCellData withWidth:width];
     cellHeight += referenceCellData.quoteSize.height + referenceCellData.bottomContainerSize.height;
+    if (referenceCellData.bottomContainerSize.height > 0) {
+        cellHeight += kScale375(6);
+    }
     cellHeight += kScale375(6);
     return cellHeight;
 }
@@ -415,21 +433,31 @@
     
     CGFloat quoteHeight = 0;
     CGFloat quoteWidth = 0;
-    CGFloat quoteMaxWidth = kReplyQuoteViewMaxWidth;
+    CGFloat quoteMaxWidth = TReplyQuoteView_Max_Width;
     CGFloat quotePlaceHolderMarginWidth = 12;
-
-    // 动态计算发送者的尺寸
+    
     // Calculate the size of label which displays the sender's displayname
     CGSize senderSize = [@"0" sizeWithAttributes:@{NSFontAttributeName : [UIFont boldSystemFontOfSize:12.0]}];
     CGRect senderRect = [[NSString stringWithFormat:@"%@:",referenceCellData.sender] boundingRectWithSize:CGSizeMake(quoteMaxWidth, senderSize.height)
                                                                options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                                                             attributes:@{NSFontAttributeName : [UIFont boldSystemFontOfSize:12.0]}
                                                                context:nil];
-    // 动态计算自定义引用占位视图的尺寸
+    
+    // Calculate the size of revoke string
+    CGRect messageRevokeRect = CGRectZero;
+    bool showRevokeStr = (referenceCellData.originCellData.innerMessage.status == V2TIM_MSG_STATUS_LOCAL_REVOKED) &&
+                            !referenceCellData.showRevokedOriginMessage;
+    if (showRevokeStr) {
+        NSString *msgRevokeStr = TIMCommonLocalizableString(TUIKitReferenceOriginMessageRevoke);
+        messageRevokeRect = [msgRevokeStr boundingRectWithSize:CGSizeMake(quoteMaxWidth, senderSize.height)
+                                                       options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                                                    attributes:@{NSFontAttributeName : [UIFont boldSystemFontOfSize:12.0]}
+                                                       context:nil];
+    }
+
     // Calculate the size of customize quote placeholder view
     CGSize placeholderSize = [referenceCellData quotePlaceholderSizeWithType:referenceCellData.originMsgType data:referenceCellData.quoteData];
 
-    // 动态计算回复内容的尺寸
     // Calculate the size of label which displays the content of replying the original message
     UIFont *textFont = [UIFont systemFontOfSize:16.0];
     NSAttributedString *attributeString = [referenceCellData.content getFormatEmojiStringWithFont:textFont emojiLocations:nil];
@@ -444,8 +472,8 @@
                                                              context:nil];
     CGSize size2 = replyContentRect2.size;
 
-    // 如果有多行，判断下最后一行的宽度是否超过了消息状态的位置，如果超过，消息状态换行
-    // 如果只有一行，需要加上消息状态的宽度
+    // If there are multiple lines, determine whether the font width of the last line exceeds the position of the message status. If so, the message status will wrap.
+    // If there is only one line, directly add the width of the message status
     if ((int)size2.width / (int)TTextMessageCell_Text_Width_Max > 0) {
         if ((int)size2.width % (int)TTextMessageCell_Text_Width_Max > TTextMessageCell_Text_Width_Max - referenceCellData.msgStatusSize.width) {
             size.height += referenceCellData.msgStatusSize.height;
@@ -466,7 +494,7 @@
     } else {
         size.height = MAX(size.height, TUIBubbleMessageCell_Minimalist.outgoingBubble.size.height);
     }
-
+    
     quoteWidth = senderRect.size.width;
     quoteWidth += placeholderSize.width;
     quoteWidth += (quotePlaceHolderMarginWidth * 2);
@@ -474,6 +502,12 @@
     quoteHeight = MAX(senderRect.size.height, placeholderSize.height);
     quoteHeight += (8 + 8);
 
+    if (showRevokeStr) {
+        quoteWidth = messageRevokeRect.size.width;
+        quoteHeight =  MAX(senderRect.size.height, placeholderSize.height);
+        quoteHeight += (8 + 8);
+    }
+    
     referenceCellData.senderSize = CGSizeMake(CGFLOAT_CEIL(senderRect.size.width)+3, senderRect.size.height);
     referenceCellData.quotePlaceholderSize = CGSizeMake(CGFLOAT_CEIL(placeholderSize.width), placeholderSize.height);
     //    self.replyContentSize = CGSizeMake(replyContentRect.size.width, replyContentRect.size.height);

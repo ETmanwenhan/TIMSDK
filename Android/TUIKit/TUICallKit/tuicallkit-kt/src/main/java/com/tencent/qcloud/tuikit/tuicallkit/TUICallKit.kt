@@ -91,4 +91,22 @@ abstract class TUICallKit {
      * Enable the floating window
      */
     open fun enableFloatWindow(enable: Boolean) {}
+
+    /**
+     * Enable Virtual Background
+     */
+    open fun enableVirtualBackground(enable: Boolean) {}
+
+    /**
+     * Enable callee show banner view when received an new invitation
+     * default: false
+     */
+    open fun enableIncomingBanner(enable: Boolean) {}
+
+    /**
+     * Set the display direction of the CallKit interface. The default value is portrait
+     * @param orientation:  0-Portrait, 1-LandScape, 2-Auto;   default value: 0
+     * Note: You are advised to use portrait mode to avoid abnormal display for small screen devices such as mobile phone
+     */
+    open fun setScreenOrientation(orientation: Int) {}
 }

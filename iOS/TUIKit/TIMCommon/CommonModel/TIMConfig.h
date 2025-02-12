@@ -20,18 +20,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (TIMConfig *)defaultConfig;
 /**
- * 聊天界面输入框的表情列表
- * 需要注意的是， TUIKit 里面的表情包都是有版权限制的，购买的 IM 服务不包括表情包的使用权，请在上线的时候替换成自己的表情包，否则会面临法律风险
+ * In respect for the copyright of the emoji design, the Chat Demo/TUIKit project does not include the cutouts of large emoji elements. Please replace them
+ * with your own designed or copyrighted emoji packs before the official launch for commercial use. The default small yellow face emoji pack is copyrighted by
+ * Tencent Cloud and can be authorized for a fee. If you wish to obtain authorization, please submit a ticket to contact us.
  *
- * The list of emojis in the input box of the chat interface
- * It should be noted that the emoticons in TUIKit are copyrighted. The purchased IM service does not include the right to use the emoticons. Please replace
- * them with your own emoticons when you go online, otherwise you will face legal risks.
+ * submit a ticket url：https://console.cloud.tencent.com/workorder/category?level1_id=29&level2_id=40&source=14&data_title=%E5%8D%B3%E6%97%B6%E9%80%9A%E4%BF%A1%20IM&step=1 (China mainland)
+ * submit a ticket url：https://console.tencentcloud.com/workorder/category?level1_id=29&level2_id=40&source=14&data_title=Chat&step=1 (Other regions)
  */
 @property(nonatomic, strong) NSArray<TUIFaceGroup *> *faceGroups;
-- (void)appendFaceGroup:(TUIFaceGroup *)faceGroup;
 
 /**
- * 聊天界面上长按消息后显示的表情列表
+ * 
  * The list of emoticons displayed after long-pressing the message on the chat interface
  */
 @property(nonatomic, strong) NSArray<TUIFaceGroup *> *chatPopDetailGroups;
@@ -39,6 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property(nonatomic, assign) BOOL enableMessageBubble;
 
++ (BOOL)isClassicEntrance;
 @end
 
 NS_ASSUME_NONNULL_END

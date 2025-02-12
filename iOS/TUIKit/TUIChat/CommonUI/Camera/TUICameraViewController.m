@@ -65,6 +65,7 @@
     self.cameraView.type = self.type;
     self.cameraView.aspectRatio = self.aspectRatio;
     self.cameraView.delegate = self;
+    self.cameraView.maxVideoCaptureTimeLimit = self.videoMaximumDuration;
     [self.view addSubview:self.cameraView];
 
     NSError *error;
@@ -306,7 +307,6 @@
 #pragma mark - - Record
 - (void)startRecordVideoAction:(TUICameraView *)cameraView {
     /**
-     * 每次重新创建，避免之前的信息未释放导致的 Crash
      * Recreate each time to avoid Crash caused by unreleased previous information
      */
     _movieManager = [[TUIMovieManager alloc] init];

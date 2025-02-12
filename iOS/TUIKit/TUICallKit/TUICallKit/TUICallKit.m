@@ -281,6 +281,10 @@ callMediaType:(TUICallMediaType)callMediaType
         CallingUserModel *sponsorModel = nil;
         
         for (CallingUserModel *userModel in modelList) {
+            if (self.currentCallingType == TUICallMediaTypeVideo
+                && (callScene == TUICallSceneSingle || [userModel.userId isEqualToString:[TUICallingUserManager getSelfUserId]])) {
+                userModel.isVideoAvailable = YES;
+            }
             if (sponsor && [userModel.userId isEqualToString:sponsor]) {
                 sponsorModel = userModel;
                 if ([allUserIDs containsObject:sponsor]) {
@@ -492,20 +496,26 @@ callMediaType:(TUICallMediaType)callMediaType
     self.currentCallingRole = TUICallRoleCalled;
     self.currentCallingType = callMediaType;
     [TUICallingStatusManager shareInstance].groupId = groupId;
+    [TUICallingStatusManager shareInstance].callStatus = TUICallStatusWaiting;
     TUICallScene callScene =  [self getCallScene:calleeIdList];
     if (groupId && [groupId isKindOfClass:NSString.class] && groupId.length > 0) {
         callScene = TUICallSceneGroup;
     }
-    [self.callingViewManager createCallingView:callMediaType callRole:TUICallRoleCalled callScene:callScene];
-    [self callStart:calleeIdList type:callMediaType role:TUICallRoleCalled];
-    
-    NSMutableArray *allUserIdList = [NSMutableArray arrayWithArray:calleeIdList];
-    if ((callScene != TUICallSceneSingle) && callerId) {
-        [allUserIdList addObject:callerId];
-    }
-    
-    [self updateCallingView:calleeIdList callScene:callScene sponsor:callerId];
-    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if ([TUICallingStatusManager shareInstance].callStatus != TUICallStatusNone) {
+                [self.callingViewManager createCallingView:callMediaType callRole:TUICallRoleCalled callScene:callScene];
+                [self callStart:calleeIdList type:callMediaType role:TUICallRoleCalled];
+                
+                NSMutableArray *allUserIdList = [NSMutableArray arrayWithArray:calleeIdList];
+                if ((callScene != TUICallSceneSingle) && callerId) {
+                    [allUserIdList addObject:callerId];
+                }
+                
+                [self updateCallingView:calleeIdList callScene:callScene sponsor:callerId];
+            }
+        });
+    });
     if ((UIApplicationStateActive == [UIApplication sharedApplication].applicationState) &&
         [TUICallingCommon checkAuthorizationStatusIsDenied:callMediaType]) {
         [self showAuthorizationAlert:callMediaType];
@@ -659,19 +669,34 @@ callMediaType:(TUICallMediaType)callMediaType
 }
 
 - (void)handleAbilityFailErrorMessage:(int)errorCode errorMessage:(NSString *)errorMessage {
-    NSString *errMsg = errorMessage;
-    if (errorCode == ERROR_PACKAGE_NOT_PURCHASED) {
-        errMsg = TUICallingLocalize(@"TUICallKit.package.not.purchased");
-    } else if (errorCode == ERROR_PACKAGE_NOT_SUPPORTED) {
-        errMsg = TUICallingLocalize(@"TUICallKit.package.not.support");
-    } else if (errorCode == ERR_SVR_MSG_IN_PEER_BLACKLIST) {
-        errMsg = TUICallingLocalize(@"Demo.TRTC.Calling.ErrorInPeerBlacklist");
-    }
-    else {
-        errMsg = [TUITool convertIMError:errorCode msg:errorMessage];
-    }
+    NSString *errMsg = [TUITool convertIMError:errorCode msg:[self convertCallKitError:errorCode errorMessage:errorMessage]];
     [self makeToast:errMsg duration:4 position:nil];
 }
+
+- (NSString *)convertCallKitError:(int)errorCode errorMessage:(NSString *)message {
+    NSString *errorMessage = message;
+    
+    if (errorCode == ERROR_PACKAGE_NOT_PURCHASED) {
+        errorMessage = TUICallingLocalize(@"TUICallKit.package.not.purchased");
+    } else if (errorCode == ERROR_PACKAGE_NOT_SUPPORTED) {
+        errorMessage = TUICallingLocalize(@"TUICallKit.package.not.support");
+    } else if (errorCode == ERR_SVR_MSG_IN_PEER_BLACKLIST) {
+        errorMessage = TUICallingLocalize(@"Demo.TRTC.Calling.ErrorInPeerBlacklist");
+    } else if (errorCode == ERROR_INIT_FAIL) {
+        errorMessage = TUICallingLocalize(@"TUICallKit.ErrorInvalidLogin");
+    } else if (errorCode == ERROR_PARAM_INVALID) {
+        errorMessage = TUICallingLocalize(@"TUICallKit.ErrorParameterInvalid");
+    } else if (errorCode == ERROR_REQUEST_REFUSED) {
+        errorMessage = TUICallingLocalize(@"TUICallKit.ErrorRequestRefused");
+    } else if (errorCode == ERROR_REQUEST_REPEATED) {
+        errorMessage = TUICallingLocalize(@"TUICallKit.ErrorRequestRepeated");
+    } else if (errorCode == ERROR_SCENE_NOT_SUPPORTED) {
+        errorMessage = TUICallingLocalize(@"TUICallKit.ErrorSceneNotSupport");
+    }
+    
+    return errorMessage;
+}
+
 
 - (void)initCallEngine {
     [[TUICallEngine createInstance] init:[TUILogin getSdkAppID] userId:[TUILogin getUserID] userSig:[TUILogin getUserSig] succ:^{
@@ -797,11 +822,19 @@ callMediaType:(TUICallMediaType)callMediaType
         deniedType = AuthorizationDeniedTypeVideo;
     }
     
-    [TUICallingCommon showAuthorizationAlert:deniedType openSettingHandler:^{
-        [[TUICallEngine createInstance] hangup:nil fail:nil];
+    UIAlertController *alertController = [TUICallingCommon getAuthorizationAlert:deniedType openSettingHandler:^{
+        [[TUICallEngine createInstance] hangup:^{
+        } fail:^(int code, NSString * _Nullable errMsg) {
+        }];
     } cancelHandler:^{
-        [[TUICallEngine createInstance] hangup:nil fail:nil];
     }];
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        UIViewController *callViewController = [TUICallingCommon getViewControllerForView:[self.callingViewManager getCallingView]];
+        if (callViewController) {
+            [callViewController presentViewController:alertController animated:YES completion:nil];
+        }
+    });
 }
 
 - (void)startTimer {

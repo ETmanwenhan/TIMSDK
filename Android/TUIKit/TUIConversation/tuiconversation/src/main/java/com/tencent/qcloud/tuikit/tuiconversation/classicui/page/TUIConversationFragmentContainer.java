@@ -17,7 +17,6 @@ import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuicore.TUICore;
 import com.tencent.qcloud.tuicore.TUIThemeManager;
 import com.tencent.qcloud.tuicore.interfaces.TUIExtensionInfo;
-import com.tencent.qcloud.tuikit.timcommon.component.fragments.BaseFragment;
 import com.tencent.qcloud.tuikit.tuiconversation.R;
 import com.tencent.qcloud.tuikit.tuiconversation.TUIConversationConstants;
 import com.tencent.qcloud.tuikit.tuiconversation.TUIConversationService;
@@ -34,7 +33,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 
-public class TUIConversationFragmentContainer extends BaseFragment {
+public class TUIConversationFragmentContainer extends Fragment {
     private static final String TAG = TUIConversationFragmentContainer.class.getSimpleName();
     private List<ConversationGroupBean> mConversationGroupBeans = new ArrayList<>();
 
@@ -146,7 +145,7 @@ public class TUIConversationFragmentContainer extends BaseFragment {
 
         List<ConversationGroupBean> groupBeanList = getGroupExtensionMoreSettings();
         List<ConversationGroupBean> markBeanList = getMarkExtensionMoreSettings();
-        // 分组中包含了标记的信息
+        
         if (groupBeanList != null && !groupBeanList.isEmpty()) {
             mConversationGroupBeans.addAll(groupBeanList);
         }
@@ -171,13 +170,8 @@ public class TUIConversationFragmentContainer extends BaseFragment {
 
         refreshConversationGroupSort();
 
-        // 因为分组未读数问题，这里预加载界面设置3个，默认将未读、@我和标记加载上，保证未读数正确监听
         mViewPager.setOffscreenPageLimit(3);
-        // 关闭预加载
-        // mViewPager.setOffscreenPageLimit(ViewPager2.OFFSCREEN_PAGE_LIMIT_DEFAULT);
-        //((RecyclerView)mViewPager.getChildAt(0)).getLayoutManager().setItemPrefetchEnabled(false);
-        // 设置缓存数量，对应 RecyclerView 中的 mCachedViews，即屏幕外的视图数量
-        //((RecyclerView)mViewPager.getChildAt(0)).setItemViewCacheSize(0);
+        
         adapter = new FragmentStateAdapter(getChildFragmentManager(), getLifecycle()) {
             @NonNull
             @Override
@@ -221,7 +215,7 @@ public class TUIConversationFragmentContainer extends BaseFragment {
         mViewPager.setCurrentItem(selectedPosition);
         mViewPager.registerOnPageChangeCallback(changeCallback);
         selectedColor = getResources().getColor(TUIThemeManager.getAttrResId(getContext(), R.attr.conversation_tab_selected));
-        mConversationTabLayout.setTabTextColors(getResources().getColor(R.color.black), selectedColor);
+        mConversationTabLayout.setTabTextColors(getResources().getColor(com.tencent.qcloud.tuikit.timcommon.R.color.black), selectedColor);
         adapter.notifyDataSetChanged();
         // mViewPager.setUserInputEnabled(false);
         mediator =
@@ -229,7 +223,7 @@ public class TUIConversationFragmentContainer extends BaseFragment {
                 @Override
                 public void onConfigureTab(@NonNull TabLayout.Tab tab, int position) {
                     TUIConversationLog.d(TAG, "onConfigureTab position" + position);
-                    // 这里可以自定义TabView
+                    
                     View layoutView = LayoutInflater.from(getContext()).inflate(R.layout.conversation_group_tab_item, null, false);
                     TextView titileView = layoutView.findViewById(R.id.tab_title);
                     TextView unreadView = layoutView.findViewById(R.id.tab_unread);
@@ -315,7 +309,7 @@ public class TUIConversationFragmentContainer extends BaseFragment {
 
             @Override
             public void notifyGroupUnreadMessageCountChanged(String groupName, long totalUnreadCount) {
-                TUIConversationLog.d(TAG, "notifyGroupUnreadMessageCountChanged");
+                TUIConversationLog.d(TAG, "notifyGroupUnreadMessageCountChanged groupName =" + groupName + "count =" + totalUnreadCount);
                 ListIterator<ConversationGroupBean> iterator = mConversationGroupBeans.listIterator();
                 int index = 0;
                 while (iterator.hasNext()) {
@@ -348,7 +342,6 @@ public class TUIConversationFragmentContainer extends BaseFragment {
                 }
             }
 
-            // 修改刷新 tab 时候引起 TabLayout 位置异常
             int selectPositon = mConversationTabLayout.getSelectedTabPosition();
             if (selectPositon >= 0) {
                 TabLayout.Tab selectedTab = mConversationTabLayout.getTabAt(selectPositon);
@@ -409,7 +402,7 @@ public class TUIConversationFragmentContainer extends BaseFragment {
         @Override
         public void onPageSelected(int position) {
             TUIConversationLog.d(TAG, "onPageSelected position" + position);
-            // 可以来设置选中时tab的大小
+            
             selectedPosition = position;
             int tabCount = mConversationTabLayout.getTabCount();
             for (int i = 0; i < tabCount; i++) {
@@ -419,7 +412,7 @@ public class TUIConversationFragmentContainer extends BaseFragment {
                 if (tab.getPosition() == position) {
                     titileView.setTextColor(selectedColor);
                 } else {
-                    titileView.setTextColor(getResources().getColor(R.color.black));
+                    titileView.setTextColor(getResources().getColor(com.tencent.qcloud.tuikit.timcommon.R.color.black));
                 }
             }
         }

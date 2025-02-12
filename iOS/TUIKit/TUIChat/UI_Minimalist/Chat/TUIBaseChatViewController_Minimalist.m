@@ -30,7 +30,6 @@
 #import "TUIChatConfig.h"
 #import "TUIChatDataProvider.h"
 #import "TUIChatMediaDataProvider.h"
-#import "TUIChatMembersReactController.h"
 #import "TUIChatModifyMessageHelper.h"
 #import "TUICloudCustomDataTypeCenter.h"
 #import "TUIFileMessageCellData.h"
@@ -47,6 +46,9 @@
 #import "UIAlertController+TUICustomStyle.h"
 
 static UIView *gCustomTopView;
+static UIView *gTopExentsionView;
+static UIView *gGroupPinTopView;
+static CGRect gCustomTopViewRect;
 
 @interface TUIBaseChatViewController_Minimalist () <TUIBaseMessageControllerDelegate_Minimalist,
                                                     TUIInputControllerDelegate_Minimalist,
@@ -66,6 +68,7 @@ static UIView *gCustomTopView;
 @property(nonatomic, strong) TUINaviBarIndicatorView *titleView;
 @property(nonatomic, strong) TUIMessageMultiChooseView_Minimalist *multiChooseView;
 @property(nonatomic, assign) BOOL responseKeyboard;
+@property(nonatomic, assign) BOOL isPageAppears;
 @property(nonatomic, strong) TUIChatDataProvider *dataProvider;
 
 @property(nonatomic, assign) BOOL firstAppear;
@@ -92,6 +95,11 @@ static UIView *gCustomTopView;
     if (self) {
         [TUIBaseChatViewController_Minimalist createCachePath];
         [[TUIAIDenoiseSignatureManager sharedInstance] updateSignature];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(reloadTopViewsAndMessagePage)
+                                                     name:TUICore_TUIChatExtension_ChatViewTopArea_ChangedNotification
+                                                   object:nil];
+        [TUIChatMediaSendingManager.sharedInstance addCurrentVC:self];
     }
     return self;
 }
@@ -102,7 +110,8 @@ static UIView *gCustomTopView;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-
+    [self setupTopViews];
+    
     self.firstAppear = YES;
     self.view.backgroundColor = TIMCommonDynamicColor(@"controller_bg_color", @"#FFFFFF");
     self.edgesForExtendedLayout = UIRectEdgeNone;
@@ -117,6 +126,7 @@ static UIView *gCustomTopView;
         [self setupCustomTopView];
     }
     [self setupMessageController];
+    [self setupInputMoreMenu];
     [self setupInputController];
 
     // data provider
@@ -138,14 +148,76 @@ static UIView *gCustomTopView;
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    
+    [self configTopViewsViewWillAppear];
+}
+
+- (void)configTopViewsViewWillAppear {
+    if (gCustomTopView.superview != self.view) {
+        if (CGRectEqualToRect(gCustomTopView.frame, CGRectZero)) {
+            gCustomTopView.frame = CGRectMake(0, CGRectGetMaxY(gTopExentsionView.frame), gCustomTopViewRect.size.width, gCustomTopViewRect.size.height);
+        }
+        [self.view addSubview:gCustomTopView];
+    }
+    if (gTopExentsionView.superview != self.view) {
+        [self.view addSubview:gTopExentsionView];
+    }
+    if (gGroupPinTopView.superview != self.view && self.conversationData.groupID.length > 0){
+        [self.view addSubview:gGroupPinTopView];
+    }
+    
+    [self reloadTopViewsAndMessagePage];
+}
+
+- (void)setupTopViews {
+    if (gTopExentsionView) {
+        [gTopExentsionView removeFromSuperview];
+    }
+    else {
+        gTopExentsionView = [[UIView alloc] init];
+        gTopExentsionView.clipsToBounds = YES;
+    }
+    if (gGroupPinTopView) {
+        [gGroupPinTopView removeFromSuperview];
+    }
+    else {
+        gGroupPinTopView = [[UIView alloc] init];
+        gGroupPinTopView.clipsToBounds = YES;
+    }
+    
+    if (gTopExentsionView) {
+        [self setupTopExentsionView];
+    }
     if (gCustomTopView) {
         [self setupCustomTopView];
+        gCustomTopView.frame = CGRectMake(0, CGRectGetMaxY(gTopExentsionView.frame), gCustomTopViewRect.size.width, gCustomTopViewRect.size.height);
+    }
+    if (gGroupPinTopView && self.conversationData.groupID.length > 0) {
+        [self setupGroupPinTopView];
+        gGroupPinTopView.frame = CGRectMake(0, CGRectGetMaxY(gCustomTopView.frame), gGroupPinTopView.frame.size.width, gGroupPinTopView.frame.size.height);;
     }
 }
+
+- (void)reloadTopViewsAndMessagePage {
+    gCustomTopView.frame = CGRectMake(0, CGRectGetMaxY(gTopExentsionView.frame), gCustomTopView.frame.size.width, gCustomTopView.frame.size.height);
+    if (gGroupPinTopView) {
+        gGroupPinTopView.frame = CGRectMake(0, CGRectGetMaxY(gCustomTopView.frame), gGroupPinTopView.frame.size.width, gGroupPinTopView.frame.size.height);;
+    }
+    
+    CGFloat topMarginByCustomView = [self topMarginByCustomView];
+    if (_messageController.view.mm_y != topMarginByCustomView) {
+        CGFloat textViewHeight = TUIChatConfig.defaultConfig.enableMainPageInputBar? TTextView_Height:0;
+        _messageController.view.frame = CGRectMake(0, topMarginByCustomView, self.view.mm_w,
+                                                   self.view.mm_h - textViewHeight - Bottom_SafeHeight - topMarginByCustomView);
+        [self.messageController scrollToBottom:YES];
+    }
+}
+
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
 
     self.responseKeyboard = YES;
+    self.isPageAppears = YES;
     if (self.firstAppear) {
         [self loadDraft];
         self.firstAppear = NO;
@@ -157,24 +229,13 @@ static UIView *gCustomTopView;
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     self.responseKeyboard = NO;
+    self.isPageAppears = NO;
     [self openMultiChooseBoard:NO];
     [self.messageController enableMultiSelectedMode:NO];
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
-
-    if (self.inputController.status == Input_Status_Input || self.inputController.status == Input_Status_Input_Keyboard) {
-        CGPoint offset = self.messageController.tableView.contentOffset;
-        __weak typeof(self) weakSelf = self;
-        dispatch_async(dispatch_get_main_queue(), ^{
-          __strong typeof(weakSelf) strongSelf = weakSelf;
-          strongSelf.responseKeyboard = YES;
-          [UIApplication.sharedApplication.keyWindow endEditing:YES];
-          [strongSelf inputController:strongSelf.inputController didChangeHeight:CGRectGetMaxY(strongSelf.inputController.inputBar.frame) + Bottom_SafeHeight];
-          [strongSelf.messageController.tableView setContentOffset:offset];
-        });
-    }
 }
 
 - (void)setupNavigator {
@@ -223,6 +284,19 @@ static UIView *gCustomTopView;
         [self.subTitleLabel resetFrameToFitRTL];
     }
     
+    __weak typeof(self) weakSelf = self;
+
+    [[RACObserve(_conversationData, otherSideTyping) distinctUntilChanged] subscribeNext:^(id otherSideTyping) {
+      BOOL otherSideTypingFlag = [otherSideTyping boolValue];
+      if (!otherSideTypingFlag) {
+          [weakSelf updateSubTitleLabelText];
+      }
+      else {
+          NSString *typingText = [NSString stringWithFormat:@"%@...", TIMCommonLocalizableString(TUIKitTyping)];
+          weakSelf.subTitleLabel.text = typingText;
+      }
+    }];
+    
     UIBarButtonItem *infoViewItem = [[UIBarButtonItem alloc] initWithCustomView:infoView];
 
     self.navigationItem.leftBarButtonItems = @[ backButtonItem, infoViewItem ];
@@ -265,6 +339,10 @@ static UIView *gCustomTopView;
 }
 
 - (void)updateSubTitleLabelText {
+    if (![TUIConfig defaultConfig].displayOnlineStatusIcon) {
+        self.subTitleLabel.text = @"";
+        return;
+    }
     if (self.conversationData.userID.length > 0) {
         [[V2TIMManager sharedInstance] getUserStatus:@[ self.conversationData.userID ]
                                                 succ:^(NSArray<V2TIMUserStatus *> *result) {
@@ -367,9 +445,35 @@ static UIView *gCustomTopView;
     [_messageController didMoveToParentViewController:self];
 }
 
+- (void)setupTopExentsionView {
+    if (gTopExentsionView.superview != self.view) {
+        [self.view addSubview:gTopExentsionView];
+    }
+    gTopExentsionView.frame = CGRectMake(0, 0, self.view.frame.size.width, 0);
+    NSMutableDictionary *param = [NSMutableDictionary dictionary];
+    if (self.conversationData.userID.length > 0) {
+        param[TUICore_TUIChatExtension_ChatViewTopArea_ChatID] = self.conversationData.userID;
+        param[TUICore_TUIChatExtension_ChatViewTopArea_IsGroup] = @"0";
+    } else if (self.conversationData.groupID.length > 0) {
+        param[TUICore_TUIChatExtension_ChatViewTopArea_IsGroup] = @"1";
+        param[TUICore_TUIChatExtension_ChatViewTopArea_ChatID] = self.conversationData.groupID;
+    }
+    [TUICore raiseExtension:TUICore_TUIChatExtension_ChatViewTopArea_MinimalistExtensionID parentView:gTopExentsionView param:param];
+
+}
+
+- (void)setupGroupPinTopView {
+    if (gGroupPinTopView.superview != self.view) {
+        [self.view addSubview:gGroupPinTopView];
+    }
+    gGroupPinTopView.backgroundColor = [UIColor clearColor];
+    gGroupPinTopView.frame = CGRectMake(0, 0, self.view.frame.size.width, 0);
+    
+}
 - (void)setupCustomTopView {
-    [self.view addSubview:gCustomTopView];
-    gCustomTopView.mm_top(0).mm_left(0);
+    if (gCustomTopView.superview != self.view) {
+        [self.view addSubview:gCustomTopView];
+    }
 }
 
 - (void)setupInputController {
@@ -383,14 +487,31 @@ static UIView *gCustomTopView;
     _inputController.view.hidden = !TUIChatConfig.defaultConfig.enableMainPageInputBar;
 
 }
+
+- (void)setupInputMoreMenu {
+    id<TUIChatInputBarConfigDataSource> dataSource = [TUIChatConfig defaultConfig].inputBarDataSource;
+    if (dataSource && [dataSource respondsToSelector:@selector(inputBarShouldHideItemsInMoreMenuOfModel:)]) {
+        TUIChatInputBarMoreMenuItem tag = [dataSource inputBarShouldHideItemsInMoreMenuOfModel:self.conversationData];
+        self.conversationData.enableFile = !(tag & TUIChatInputBarMoreMenuItem_File);
+        self.conversationData.enableAlbum = !(tag & TUIChatInputBarMoreMenuItem_Album);
+        self.conversationData.enableTakePhoto = !(tag & TUIChatInputBarMoreMenuItem_TakePhoto);
+        self.conversationData.enableRecordVideo = !(tag & TUIChatInputBarMoreMenuItem_RecordVideo);
+        self.conversationData.enableWelcomeCustomMessage = !(tag & TUIChatInputBarMoreMenuItem_CustomMessage);
+    }
+    if (dataSource && [dataSource respondsToSelector:@selector(inputBarShouldAddNewItemsToMoreMenuOfModel:)]) {
+        NSArray *items = [dataSource inputBarShouldAddNewItemsToMoreMenuOfModel:self.conversationData];
+        if ([items isKindOfClass:NSArray.class]) {
+            self.conversationData.customizedNewItemsInMoreMenu = items;
+        }
+    }
+}
+
 - (void)configHeadImageView:(TUIChatConversationModel *)convData {
     /**
-     * 修改默认头像
      * Setup default avatar
      */
     if (convData.groupID.length > 0) {
         /**
-         * 群组, 则将群组默认头像修改成上次使用的头像
          * If it is a group, change the group default avatar to the last used avatar
          */
         convData.avatarImage = [TUIGroupAvatar getNormalGroupCacheAvatar:convData.groupID groupType:convData.groupType];
@@ -446,7 +567,6 @@ static UIView *gCustomTopView;
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(onFriendInfoChanged:) name:@"FriendInfoChangedNotification" object:nil];
 
     [TUICore registerEvent:TUICore_TUIContactNotify subKey:TUICore_TUIContactNotify_UpdateConversationBackgroundImageSubKey object:self];
-    [TUICore registerEvent:TUICore_TUIGroupNotify subKey:TUICore_TUIGroupNotify_UpdateConversationBackgroundImageSubKey object:self];
 }
 
 #pragma mark - Public Methods
@@ -459,7 +579,7 @@ static UIView *gCustomTopView;
 }
 
 - (void)saveDraft {
-    NSString *content = [self.inputController.inputBar.inputTextView.textStorage getPlainString];
+    NSString *content = [self.inputController.inputBar.inputTextView.textStorage tui_getPlainString];
 
     TUIReplyPreviewData *previewData = nil;
     if (self.inputController.referenceData) {
@@ -513,7 +633,6 @@ static UIView *gCustomTopView;
     }
 
     /**
-     * 显示草稿
      * Display draft
      */
     NSString *draftContent = [jsonDict.allKeys containsObject:@"content"] ? jsonDict[@"content"] : @"";
@@ -527,7 +646,6 @@ static UIView *gCustomTopView;
     NSString *messageRootID = [jsonDict.allKeys containsObject:@"messageRootID"] ? jsonDict[@"messageRootID"] : @"";
 
     /**
-     * 显示消息回复预览
      * Display message reply preview bar
      */
     if ([jsonDict isKindOfClass:NSDictionary.class] && [jsonDict.allKeys containsObject:@"messageReply"]) {
@@ -559,10 +677,29 @@ static UIView *gCustomTopView;
 
 + (void)setCustomTopView:(UIView *)view {
     gCustomTopView = view;
+    gCustomTopViewRect = view.frame;
+    gCustomTopView.clipsToBounds = YES;
 }
 
 + (UIView *)customTopView {
     return gCustomTopView;
+}
+
++ (UIView *)groupPinTopView {
+    return gGroupPinTopView;
+}
+
++ (UIView *)topAreaBottomView {
+    if (gGroupPinTopView) {
+        return gGroupPinTopView;
+    }
+    if (gCustomTopView) {
+        return gCustomTopView;
+    }
+    if (gTopExentsionView) {
+        return gTopExentsionView;
+    }
+    return nil;
 }
 
 #pragma mark - Getters & Setters
@@ -575,8 +712,14 @@ static UIView *gCustomTopView;
 }
 
 - (CGFloat)topMarginByCustomView {
-    return gCustomTopView ? gCustomTopView.mm_h : 0;
+    CGFloat gCutomTopViewH = gCustomTopView && gCustomTopView.superview ? gCustomTopView.mm_h : 0 ;
+    CGFloat gTopExtsionH = gTopExentsionView && gTopExentsionView.superview ? gTopExentsionView.mm_h : 0;
+    CGFloat gGroupPinTopViewH = gGroupPinTopView && gGroupPinTopView.superview ? gGroupPinTopView.mm_h : 0;
+
+    CGFloat height = gCutomTopViewH + gTopExtsionH + gGroupPinTopViewH;
+    return height;
 }
+
 
 #pragma mark - Event Response
 
@@ -625,6 +768,8 @@ static UIView *gCustomTopView;
 }
 
 - (void)rightBarButtonClick {
+    //When pushing a new VC, the keyboard needs to be hidden.
+    [self.inputController reset];
     if (_conversationData.userID.length > 0) {
         [self getUserOrFriendProfileVCWithUserID:self.conversationData.userID
             succBlock:^(UIViewController *_Nonnull vc) {
@@ -634,8 +779,8 @@ static UIView *gCustomTopView;
               [TUITool makeToastError:code msg:desc];
             }];
     } else {
-        NSDictionary *param = @{TUICore_TUIGroupObjectFactory_GetGroupInfoVC_GroupID : self.conversationData.groupID};
-        [self.navigationController pushViewController:TUICore_TUIGroupObjectFactory_GetGroupInfoVC_Minimalist param:param forResult:nil];
+        NSDictionary *param = @{TUICore_TUIContactObjectFactory_GetGroupInfoVC_GroupID : self.conversationData.groupID};
+        [self.navigationController pushViewController:TUICore_TUIContactObjectFactory_GetGroupInfoVC_Minimalist param:param forResult:nil];
     }
 }
 
@@ -655,11 +800,6 @@ static UIView *gCustomTopView;
         [self.messageController clearUImsg];
     } else if ([key isEqualToString:TUICore_TUIContactNotify] && [subKey isEqualToString:TUICore_TUIContactNotify_UpdateConversationBackgroundImageSubKey]) {
         NSString *conversationID = param[TUICore_TUIContactNotify_UpdateConversationBackgroundImageSubKey_ConversationID];
-        if (IS_NOT_EMPTY_NSSTRING(conversationID)) {
-            [self updateBackgroundImageUrlByConversationID:conversationID];
-        }
-    } else if ([key isEqualToString:TUICore_TUIGroupNotify] && [subKey isEqualToString:TUICore_TUIGroupNotify_UpdateConversationBackgroundImageSubKey]) {
-        NSString *conversationID = param[TUICore_TUIGroupNotify_UpdateConversationBackgroundImageSubKey_ConversationID];
         if (IS_NOT_EMPTY_NSSTRING(conversationID)) {
             [self updateBackgroundImageUrlByConversationID:conversationID];
         }
@@ -751,14 +891,12 @@ static UIView *gCustomTopView;
 
 - (void)inputControllerDidInputAt:(TUIInputController_Minimalist *)inputController {
     /**
-     * 交给 GroupChatVC 去处理
      * Handle to GroupChatVC
      */
 }
 
 - (void)inputController:(TUIInputController_Minimalist *)inputController didDeleteAt:(NSString *)atText {
     /**
-     * 交给 GroupChatVC 去处理
      * Handle to GroupChatVC
      */
 }
@@ -902,7 +1040,7 @@ static UIView *gCustomTopView;
     }
 }
 
-#pragma mark - 消息菜单操作: 多选 & 转发
+#pragma mark - MessageMenu
 - (void)onSelectMessageMenu:(NSInteger)menuType withData:(TUIMessageCellData *)data {
     if (menuType == 0) {
         [self openMultiChooseBoard:YES];
@@ -1001,7 +1139,7 @@ static UIView *gCustomTopView;
     __weak typeof(self) weakSelf = self;
 
     UIAlertController *tipsVc = [UIAlertController alertControllerWithTitle:nil message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-    // 逐条转发 Forward one-by-one
+    //  Forward one-by-one
     [tipsVc
         tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(TUIKitRelayOneByOneForward)
                                                     style:UIAlertActionStyleDefault
@@ -1026,7 +1164,7 @@ static UIView *gCustomTopView;
                                                                                                   }]];
                                                     [weakSelf presentViewController:vc animated:YES completion:nil];
                                                   }]];
-    // 合并转发 Merge-forward
+    //  Merge-forward
     [tipsVc tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(TUIKitRelayCombineForwad)
                                                         style:UIAlertActionStyleDefault
                                                       handler:^(UIAlertAction *_Nonnull action) {
@@ -1068,7 +1206,6 @@ static UIView *gCustomTopView;
     [self presentViewController:floatVC
                        animated:YES
                      completion:^{
-                       weakSelf.responseKeyboard = NO;
                        [weakSelf openMultiChooseBoard:NO];
                        [weakSelf.messageController enableMultiSelectedMode:NO];
                      }];
@@ -1093,7 +1230,7 @@ static UIView *gCustomTopView;
           appendParams.isOnlineUserOnly = NO;
           appendParams.priority = V2TIM_PRIORITY_NORMAL;
           /**
-           * 发送到当前聊天窗口
+           * 
            * Forward to currernt chat vc
            */
           if ([convCellData.conversationID isEqualToString:self.conversationData.conversationID]) {
@@ -1114,7 +1251,6 @@ static UIView *gCustomTopView;
           }
 
           /**
-           * 发送到其他聊天
            * Forward to other chat user
            */
           for (V2TIMMessage *message in msgs) {
@@ -1125,7 +1261,6 @@ static UIView *gCustomTopView;
                   Progress:nil
                   SuccBlock:^{
                     /**
-                     * 发送到其他聊天的消息需要广播消息发送状态，方便进入对应聊天后刷新消息状态
                      * Messages sent to other chats need to broadcast the message sending status, which is convenient to refresh the message status after
                      * entering the corresponding chat
                      */
@@ -1136,7 +1271,6 @@ static UIView *gCustomTopView;
                   }];
 
               /**
-               * 此处的延时操作是为了在批量逐条转发时，尽可能保证接收端的顺序
                * The delay here is to ensure the order of the receiving end as much as possible when forwarding in batches one by one
                */
               [NSThread sleepForTimeInterval:timeInterval];
@@ -1163,7 +1297,7 @@ static UIView *gCustomTopView;
       TUIReplyPreviewData *replyData = [[TUIReplyPreviewData alloc] init];
       replyData.msgID = data.msgID;
       replyData.msgAbstract = desc;
-      replyData.sender = data.name;
+      replyData.sender = data.senderName;
       replyData.type = (NSInteger)data.innerMessage.elemType;
       replyData.originMessage = data.innerMessage;
 
@@ -1178,7 +1312,6 @@ static UIView *gCustomTopView;
       NSString *messageRootID = [messageParentReply valueForKey:@"messageRootID"];
       if (!IS_NOT_EMPTY_NSSTRING(messageRootID)) {
           /**
-           * 源消息没有 messageRootID， 则需要将当前源消息的 msgID 作为 root
            * If the original message does not have messageRootID, you need to make the msgID of the current original message as the root
            */
           if (IS_NOT_EMPTY_NSSTRING(replyData.originMessage.msgID)) {
@@ -1214,43 +1347,11 @@ static UIView *gCustomTopView;
       TUIReferencePreviewData *referenceData = [[TUIReferencePreviewData alloc] init];
       referenceData.msgID = data.msgID;
       referenceData.msgAbstract = desc;
-      referenceData.sender = data.name;
+      referenceData.sender = data.senderName;
       referenceData.type = (NSInteger)data.innerMessage.elemType;
       referenceData.originMessage = data.innerMessage;
       [self.inputController showReferencePreview:referenceData];
     }];
-}
-
-#pragma mark - Message react
-/*
- "messageReact": {
-     "reacts": [
-         {
-             "emojiId1": ["userId1","userId2"]
-         },
-         {
-             "emojiId2": ["userId3","userId4"]
-         },
-     ],
-     "version": "1",
- }
- */
-- (void)messageController:(TUIBaseMessageController_Minimalist *)controller
-            modifyMessage:(nonnull TUIMessageCellData *)cellData
-               reactEmoji:(NSString *)emojiName {
-    V2TIMMessage *rootMsg = cellData.innerMessage;
-
-    [[TUIChatModifyMessageHelper defaultHelper] modifyMessage:rootMsg reactEmoji:emojiName];
-}
-
-- (void)messageController:(TUIBaseMessageController_Minimalist *)controller
-            modifyMessage:(TUIMessageCellData *)data
-                 faceList:(NSArray<TUITagsModel *> *)listModel {
-    TUIChatMembersReactController *detailController = [[TUIChatMembersReactController alloc] initWithChatConversationModel:self.conversationData];
-    detailController.modalPresentationStyle = UIModalPresentationCustom;
-    detailController.tagsArray = listModel;
-    detailController.originData = data;
-    [self presentViewController:detailController animated:YES completion:nil];
 }
 
 #pragma mark - Translation forward
@@ -1341,11 +1442,15 @@ static UIView *gCustomTopView;
 }
 
 #pragma mark - Media Provider
+- (void)sendPlaceHolderUIMessage:(TUIMessageCellData *)cellData {
+    [self.messageController sendPlaceHolderUIMessage:cellData];
+}
 - (TUIChatMediaDataProvider *)mediaProvider {
     if (_mediaProvider == nil) {
         _mediaProvider = [[TUIChatMediaDataProvider alloc] init];
         _mediaProvider.listener = self;
         _mediaProvider.presentViewController = self;
+        _mediaProvider.conversationID = _conversationData.conversationID;
     }
     return _mediaProvider;
 }
@@ -1393,4 +1498,10 @@ static UIView *gCustomTopView;
     [TUITool makeToast:errorMessage];
 }
 
+- (NSString *)currentConversationID {
+    return self.conversationData.conversationID;
+}
+- (BOOL)isPageAppears {
+    return self.responseKeyboard;
+}
 @end

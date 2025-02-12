@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name         = 'TUIChat'
-  spec.version      = '7.7.5282'
+  spec.version      = '8.4.6667'
   spec.platform     = :ios
   spec.ios.deployment_target = '9.0'
   spec.license      = { :type => 'Proprietary',
@@ -17,21 +17,15 @@ Pod::Spec.new do |spec|
 
   spec.requires_arc = true
 
-  spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/7.7.5282/ios/TUIChat.zip?time=3'}
+  spec.source = { :http => 'https://im.sdk.cloud.tencent.cn/download/tuikit/8.4.6667/ios/chatpatch/v1/TUIChat.zip?time=152'}
 
   spec.default_subspec = 'ALL'
 
-  spec.subspec 'VoiceConvert' do |voiceConvert|
-    voiceConvert.vendored_libraries = '**/TUIChat/VoiceConvert/*.a'
-    voiceConvert.source_files = '**/TUIChat/VoiceConvert/*.{h,m,mm}'
-  end
-
   spec.subspec 'CommonModel' do |commonModel|
     commonModel.source_files = '**/TUIChat/CommonModel/*.{h,m,mm}'
-    commonModel.dependency 'TXIMSDK_Plus_iOS','7.7.5282'
-    commonModel.dependency 'TUICore','7.7.5282'
-    commonModel.dependency 'TIMCommon','7.7.5282'
-    commonModel.dependency "TUIChat/VoiceConvert"
+    commonModel.dependency 'TXIMSDK_Plus_iOS_XCFramework'
+    commonModel.dependency 'TUICore'
+    commonModel.dependency 'TIMCommon','~> 8.4.6667'
     commonModel.dependency 'ReactiveObjC'
     commonModel.dependency 'SDWebImage'
     commonModel.dependency 'Masonry'
@@ -54,10 +48,6 @@ Pod::Spec.new do |spec|
             reply.source_files = '**/TUIChat/BaseCellData/Reply/*.{h,m,mm}'
             reply.dependency "TUIChat/BaseCellData/Custom"
       end
-      baseCellData.subspec 'Emoji' do |emoji|
-          emoji.source_files = '**/TUIChat/BaseCellData/Emoji/*.{h,m,mm}'
-          emoji.dependency "TUIChat/BaseCellData/Custom"
-      end
   end
   
   spec.subspec 'BaseCell' do |baseCell|
@@ -78,10 +68,16 @@ Pod::Spec.new do |spec|
   end
 
   spec.subspec 'CommonUI' do |commonUI|
+    commonUI.subspec 'Album' do |album|
+      album.source_files = '**/TUIChat/CommonUI/Album/*.{h,m,mm}'
+      album.dependency "TUIChat/BaseDataProvider"
+      album.dependency "TUIChat/BaseCell"
+    end
     commonUI.subspec 'Camera' do |camera|
       camera.source_files = '**/TUIChat/CommonUI/Camera/*.{h,m,mm}'
       camera.dependency "TUIChat/BaseDataProvider"
       camera.dependency "TUIChat/BaseCell"
+      camera.dependency "TUIChat/CommonUI/Album"
     end
     commonUI.subspec 'Pendency' do |pendency|
       pendency.source_files = '**/TUIChat/CommonUI/Pendency/*.{h,m,mm}'
@@ -130,6 +126,10 @@ Pod::Spec.new do |spec|
       header.source_files = '**/TUIChat/UI_Classic/Header/*.{h,m,mm}'
       header.dependency "TUIChat/UI_Classic/Service"
     end
+    uiClassic.subspec 'Config' do |config|
+      config.source_files = '**/TUIChat/UI_Classic/Config/*.{h,m,mm}'
+      config.dependency "TUIChat/UI_Classic/Chat"
+    end
     uiClassic.resource = [
       '**/TUIChat/Resources/*.bundle'
     ]
@@ -170,6 +170,10 @@ Pod::Spec.new do |spec|
       header.source_files = '**/TUIChat/UI_Minimalist/Header/*.{h,m,mm}'
       header.dependency "TUIChat/UI_Minimalist/Service"
     end
+    uiMinimalist.subspec 'Config' do |config|
+      config.source_files = '**/TUIChat/UI_Minimalist/Config/*.{h,m,mm}'
+      config.dependency "TUIChat/UI_Minimalist/Chat"
+    end
     uiMinimalist.resource = [
       '**/TUIChat/Resources/*.bundle'
     ]
@@ -180,11 +184,8 @@ Pod::Spec.new do |spec|
     all.dependency "TUIChat/UI_Minimalist"
   end
 
-  spec.pod_target_xcconfig = {
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64'
-  }
-  spec.user_target_xcconfig = { 
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64'
+  spec.resource_bundle = {
+    "#{spec.module_name}_Privacy" => '**/TUIChat/Resources/PrivacyInfo.xcprivacy'
   }
 end
 

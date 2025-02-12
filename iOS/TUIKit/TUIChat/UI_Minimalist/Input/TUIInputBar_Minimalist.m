@@ -3,7 +3,7 @@
 //  UIKit
 //
 //  Created by kennethmiao on 2018/9/18.
-//  Copyright © 2018年 Tencent. All rights reserved.
+//  Copyright © 2018 Tencent. All rights reserved.
 //
 
 #import "TUIInputBar_Minimalist.h"
@@ -17,6 +17,7 @@
 #import <TUICore/UIView+TUILayout.h>
 #import "ReactiveObjC/ReactiveObjC.h"
 #import "TUIAudioRecorder.h"
+#import "TUIChatConfig.h"
 
 @interface TUIInputBar_Minimalist () <UITextViewDelegate, TUIAudioRecorderDelegate>
 
@@ -213,9 +214,10 @@
     _moreButton.frame = CGRectMake(kScale390(16), kScale390(13), iconSize, iconSize);
     _cameraButton.frame = CGRectMake(Screen_Width - kScale390(16) - iconSize, 13, iconSize, iconSize);
     _micButton.frame = CGRectMake(Screen_Width - kScale390(56) - iconSize, 13, iconSize, iconSize);
-
+    
     CGFloat faceSize = 19;
     _faceButton.frame = CGRectMake(_micButton.mm_x - kScale390(50), 15, faceSize, faceSize);
+    
     _keyboardButton.frame = _faceButton.frame;
     _inputTextView.frame = CGRectMake(kScale390(56), 7, Screen_Width - kScale390(152), 36);
 
@@ -365,7 +367,7 @@
                                                                          strongSelf.allowSendTypingStatusByChangeWord = YES;
                                                                        }];
 
-    if (self.isFocusOn && [textView.textStorage getPlainString].length > 0) {
+    if (self.isFocusOn && [textView.textStorage tui_getPlainString].length > 0) {
         if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldBeginTyping:)]) {
             [_delegate inputTextViewShouldBeginTyping:textView];
         }
@@ -380,17 +382,20 @@
 }
 
 - (void)textViewDidChange:(UITextView *)textView {
-    if (self.allowSendTypingStatusByChangeWord && self.isFocusOn && [textView.textStorage getPlainString].length > 0) {
+    if (self.allowSendTypingStatusByChangeWord && self.isFocusOn && [textView.textStorage tui_getPlainString].length > 0) {
         if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldBeginTyping:)]) {
             self.allowSendTypingStatusByChangeWord = NO;
             [_delegate inputTextViewShouldBeginTyping:textView];
         }
     }
 
-    if (self.isFocusOn && [textView.textStorage getPlainString].length == 0) {
+    if (self.isFocusOn && [textView.textStorage tui_getPlainString].length == 0) {
         if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldEndTyping:)]) {
             [_delegate inputTextViewShouldEndTyping:textView];
         }
+    }
+    if (self.inputBarTextChanged) {
+        self.inputBarTextChanged(_inputTextView);
     }
     CGSize size = [_inputTextView sizeThatFits:CGSizeMake(_inputTextView.frame.size.width, TTextView_TextView_Height_Max)];
     CGFloat oldHeight = _inputTextView.frame.size.height;
@@ -417,7 +422,7 @@
 }
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
-    if ([text containsString:@"["] && [text containsString:@"]"]) {
+    if ([text tui_containsString:@"["] && [text tui_containsString:@"]"]) {
         NSRange selectedRange = textView.selectedRange;
         if (selectedRange.length > 0) {
             [textView.textStorage deleteCharactersInRange:selectedRange];
@@ -435,7 +440,7 @@
 
     if ([text isEqualToString:@"\n"]) {
         if (_delegate && [_delegate respondsToSelector:@selector(inputBar:didSendText:)]) {
-            NSString *sp = [[textView.textStorage getPlainString] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            NSString *sp = [[textView.textStorage tui_getPlainString] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
             if (sp.length == 0) {
                 UIAlertController *ac = [UIAlertController alertControllerWithTitle:TIMCommonLocalizableString(TUIKitInputBlankMessageTitle)
                                                                             message:nil
@@ -443,37 +448,34 @@
                 [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(Confirm) style:UIAlertActionStyleDefault handler:nil]];
                 [self.mm_viewController presentViewController:ac animated:YES completion:nil];
             } else {
-                [_delegate inputBar:self didSendText:[textView.textStorage getPlainString]];
+                [_delegate inputBar:self didSendText:[textView.textStorage tui_getPlainString]];
                 [self clearInput];
             }
         }
         return NO;
     } else if ([text isEqualToString:@""]) {
         if (textView.textStorage.length > range.location) {
-            // 一次性删除 @xxx 这种 @ 消息
             // Delete the @ message like @xxx at one time
             NSAttributedString *lastAttributedStr = [textView.textStorage attributedSubstringFromRange:NSMakeRange(range.location, 1)];
-            NSString *lastStr = [lastAttributedStr getPlainString];
+            NSString *lastStr = [lastAttributedStr tui_getPlainString];
             if (lastStr && lastStr.length > 0 && [lastStr characterAtIndex:0] == ' ') {
                 NSUInteger location = range.location;
                 NSUInteger length = range.length;
 
-                // '@' 对应的ascii码 '@'
                 // corresponds to ascii code
                 int at = 64;
-                // 空格(space) 对应的ascii码
+                // (space) ascii
                 // Space (space) corresponding ascii code
                 int space = 32;
 
                 while (location != 0) {
                     location--;
                     length++;
-                    // 将字符转成ascii码，复制给int,避免越界
                     // Convert characters to ascii code, copy to int, avoid out of bounds
-                    int c = (int)[[[textView.textStorage attributedSubstringFromRange:NSMakeRange(location, 1)] getPlainString] characterAtIndex:0];
+                    int c = (int)[[[textView.textStorage attributedSubstringFromRange:NSMakeRange(location, 1)] tui_getPlainString] characterAtIndex:0];
 
                     if (c == at) {
-                        NSString *atText = [[textView.textStorage attributedSubstringFromRange:NSMakeRange(location, length)] getPlainString];
+                        NSString *atText = [[textView.textStorage attributedSubstringFromRange:NSMakeRange(location, length)] tui_getPlainString];
                         UIFont *textFont = kTUIInputNoramlFont;
                         NSAttributedString *spaceString = [[NSAttributedString alloc] initWithString:@"" attributes:@{NSFontAttributeName : textFont}];
                         [textView.textStorage replaceCharactersInRange:NSMakeRange(location, length) withAttributedString:spaceString];
@@ -482,7 +484,6 @@
                         }
                         return NO;
                     } else if (c == space) {
-                        // 避免出现 "@昵称 你好，很高兴认识 你(space)  "" 在空格后按del 过度删除到@
                         // Avoid "@nickname Hello, nice to meet you (space) "" Press del after a space to over-delete to @
                         break;
                     }
@@ -490,7 +491,6 @@
             }
         }
     }
-    // 监听 @ 字符的输入，包含全角/半角
     // Monitor the input of @ character, including full-width/half-width
     else if ([text isEqualToString:@"@"] || [text isEqualToString:@"＠"]) {
         if (self.delegate && [self.delegate respondsToSelector:@selector(inputBarDidInputAt:)]) {
@@ -513,7 +513,7 @@
 }
 
 - (NSString *)getInput {
-    return [_inputTextView.textStorage getPlainString];
+    return [_inputTextView.textStorage tui_getPlainString];
 }
 
 - (void)addEmoji:(TUIFaceCellData *)emoji {
@@ -526,7 +526,7 @@
     emojiTextAttachment.image = [[TUIImageCache sharedInstance] getFaceFromCache:emoji.path];
 
     // Set emoji size
-    emojiTextAttachment.emojiSize = kChatDefaultEmojiSize;
+    emojiTextAttachment.emojiSize = kTIMDefaultEmojiSize;
     NSAttributedString *str = [NSAttributedString attributedStringWithAttachment:emojiTextAttachment];
 
     NSRange selectedRange = _inputTextView.selectedRange;
@@ -633,17 +633,19 @@
 }
 
 - (void)audioRecorder:(TUIAudioRecorder *)recorder didRecordTimeChanged:(NSTimeInterval)time {
-    _recordTimeLabel.text = [NSString stringWithFormat:@"%d:%.2d", (int)time / 60, (int)time % 60];
+    float maxDuration = MIN(59.7, [TUIChatConfig defaultConfig].maxAudioRecordDuration);
+    NSInteger seconds = maxDuration - time;
+    _recordTimeLabel.text = [NSString stringWithFormat:@"%d:%.2d", (int)time / 60, (int)time % 60 + 1];
+
     CGFloat width = _recordAnimateCoverViewFrame.size.width;
     int interval_ms = (int)(time * 1000);
     int runloop_ms = 5 * 1000;
     CGFloat offset_x = width * (interval_ms % runloop_ms) / runloop_ms;
     _recordAnimateCoverView.frame = CGRectMake(_recordAnimateCoverViewFrame.origin.x + offset_x, _recordAnimateCoverViewFrame.origin.y, width - offset_x,
                                                _recordAnimateCoverViewFrame.size.height);
-
-    if (time >= 60) {
-        [self setRecordStatus:TUIRecordStatus_Cancel];
+    if (time > maxDuration) {
         [self.recorder stop];
+        [self setRecordStatus:TUIRecordStatus_Cancel];
         NSString *path = self.recorder.recordedFilePath;
         if (path) {
             if (_delegate && [_delegate respondsToSelector:@selector(inputBar:didSendVoice:)]) {

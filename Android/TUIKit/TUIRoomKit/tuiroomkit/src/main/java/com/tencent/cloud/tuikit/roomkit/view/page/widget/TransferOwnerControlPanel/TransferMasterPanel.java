@@ -1,6 +1,6 @@
 package com.tencent.cloud.tuikit.roomkit.view.page.widget.TransferOwnerControlPanel;
 
-import static com.tencent.cloud.tuikit.roomkit.model.RoomEventCenter.RoomKitUIEvent.DISMISS_OWNER_EXIT_ROOM_PANEL;
+import static com.tencent.cloud.tuikit.roomkit.model.ConferenceEventCenter.RoomKitUIEvent.DISMISS_OWNER_EXIT_ROOM_PANEL;
 
 import android.content.Context;
 import android.text.Editable;
@@ -17,13 +17,19 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.tencent.cloud.tuikit.engine.common.TUICommonDefine;
+import com.tencent.cloud.tuikit.engine.room.TUIRoomDefine;
 import com.tencent.cloud.tuikit.roomkit.R;
-import com.tencent.cloud.tuikit.roomkit.model.RoomEventCenter;
-import com.tencent.cloud.tuikit.roomkit.model.manager.RoomEngineManager;
+import com.tencent.cloud.tuikit.roomkit.model.ConferenceEventCenter;
+import com.tencent.cloud.tuikit.roomkit.model.data.UserState;
+import com.tencent.cloud.tuikit.roomkit.model.manager.ConferenceController;
 import com.tencent.cloud.tuikit.roomkit.view.component.BaseBottomDialog;
 import com.tencent.cloud.tuikit.roomkit.viewmodel.TransferMasterViewModel;
+import com.trtc.tuikit.common.livedata.LiveListObserver;
 
 public class TransferMasterPanel extends BaseBottomDialog implements View.OnClickListener {
+    private static final float PORTRAIT_HEIGHT_OF_SCREEN = 0.9f;
+
     private Context                 mContext;
     private Button                  mButtonConfirmLeave;
     private Toolbar                 mToolBar;
@@ -31,6 +37,15 @@ public class TransferMasterPanel extends BaseBottomDialog implements View.OnClic
     private RecyclerView            mRecyclerUserList;
     private TransferOwnerAdapter    mAdapter;
     private TransferMasterViewModel mViewModel;
+
+    private LiveListObserver<UserState.UserInfo> mAllUserObserver = new LiveListObserver<UserState.UserInfo>() {
+        @Override
+        public void onItemChanged(int position, UserState.UserInfo item) {
+                if (mAdapter != null) {
+                    mAdapter.notifyDataSetChanged();
+                }
+        }
+    };
 
     public TransferMasterPanel(Context context) {
         super(context);
@@ -41,7 +56,7 @@ public class TransferMasterPanel extends BaseBottomDialog implements View.OnClic
     @Override
     public void dismiss() {
         super.dismiss();
-        RoomEventCenter.getInstance().notifyUIEvent(DISMISS_OWNER_EXIT_ROOM_PANEL, null);
+        ConferenceEventCenter.getInstance().notifyUIEvent(DISMISS_OWNER_EXIT_ROOM_PANEL, null);
         mViewModel.destroy();
     }
 
@@ -59,7 +74,7 @@ public class TransferMasterPanel extends BaseBottomDialog implements View.OnClic
 
         mRecyclerUserList.setLayoutManager(new LinearLayoutManager(mContext, LinearLayoutManager.VERTICAL, false));
         mAdapter = new TransferOwnerAdapter(mContext);
-        mAdapter.setDataList(RoomEngineManager.sharedInstance().getRoomStore().allUserList);
+        mAdapter.setDataList(ConferenceController.sharedInstance().getConferenceState().allUserList);
         mRecyclerUserList.setAdapter(mAdapter);
         mRecyclerUserList.setHasFixedSize(true);
 
@@ -75,7 +90,7 @@ public class TransferMasterPanel extends BaseBottomDialog implements View.OnClic
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 String userName = mEditSearch.getText().toString();
                 if (TextUtils.isEmpty(userName)) {
-                    mAdapter.setDataList(RoomEngineManager.sharedInstance().getRoomStore().allUserList);
+                    mAdapter.setDataList(ConferenceController.sharedInstance().getConferenceState().allUserList);
                 }
             }
 
@@ -94,12 +109,20 @@ public class TransferMasterPanel extends BaseBottomDialog implements View.OnClic
                 return false;
             }
         });
+        View view = findViewById(R.id.tuiroomkit_cl_transfer_master);
+        setPortraitHeightPercentOfScreen(view, PORTRAIT_HEIGHT_OF_SCREEN);
     }
 
     @Override
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
-        updateHeightToMatchParent();
+        ConferenceController.sharedInstance().getUserState().allUsers.observe(mAllUserObserver);
+    }
+
+    @Override
+    public void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        ConferenceController.sharedInstance().getUserState().allUsers.removeObserver(mAllUserObserver);
     }
 
     public void onNotifyUserEnter(int position) {
@@ -119,7 +142,17 @@ public class TransferMasterPanel extends BaseBottomDialog implements View.OnClic
         if (view.getId() == R.id.toolbar) {
             dismiss();
         } else if (view.getId() == R.id.btn_specify_and_leave) {
-            mViewModel.transferMaster(mAdapter.getSelectedUserId());
+            mViewModel.transferMasterAndExit(mAdapter.getSelectedUserId(), new TUIRoomDefine.ActionCallback() {
+                @Override
+                public void onSuccess() {
+                    dismiss();
+                }
+
+                @Override
+                public void onError(TUICommonDefine.Error error, String message) {
+                    dismiss();
+                }
+            });
         }
     }
 }

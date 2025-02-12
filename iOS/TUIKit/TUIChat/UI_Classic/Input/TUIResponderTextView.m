@@ -3,7 +3,7 @@
 //  TUIKit
 //
 //  Created by kennethmiao on 2018/10/25.
-//  Copyright © 2018年 Tencent. All rights reserved.
+//  Copyright © 2018 Tencent. All rights reserved.
 //
 
 #import "TUIResponderTextView.h"
@@ -52,12 +52,12 @@
 
 - (void)copy:(__unused id)sender {
     UIPasteboard *pasteboard = [UIPasteboard generalPasteboard];
-    pasteboard.string = [[self.textStorage attributedSubstringFromRange:self.selectedRange] getPlainString];
+    pasteboard.string = [[self.textStorage attributedSubstringFromRange:self.selectedRange] tui_getPlainString];
 }
 
 - (void)cut:(nullable id)sender {
     UIPasteboard *pasteboard = [UIPasteboard generalPasteboard];
-    pasteboard.string = [[self.textStorage attributedSubstringFromRange:self.selectedRange] getPlainString];
+    pasteboard.string = [[self.textStorage attributedSubstringFromRange:self.selectedRange] tui_getPlainString];
     UIFont *textFont = [UIFont systemFontOfSize:16.0];
     NSAttributedString *spaceString = [[NSAttributedString alloc] initWithString:@"" attributes:@{NSFontAttributeName : textFont}];
     [self.textStorage replaceCharactersInRange:self.selectedRange withAttributedString:spaceString];

@@ -2,6 +2,7 @@ plugins {
     id 'com.android.library'
 }
 
+
 android {
     compileSdkVersion 30
     buildToolsVersion "30.0.3"
@@ -11,6 +12,8 @@ android {
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
+
+        consumerProguardFiles "consumer-rules.pro"
     }
     buildFeatures {
         buildConfig = false
@@ -25,7 +28,6 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    // 主题资源文件夹
     sourceSets {
         main {
             res.srcDirs += "src/main/res-light"
@@ -46,7 +48,7 @@ dependencies {
     if (projects.contains("imsdk-plus")) {
         api project(':imsdk-plus')
     } else {
-        api rootProject.getProperties().containsKey("imSdk") ? rootProject.ext.imSdk : "com.tencent.imsdk:imsdk-plus:7.7.5282"
+        api rootProject.getProperties().containsKey("imSdk") ? rootProject.ext.imSdk : "com.tencent.imsdk:imsdk-plus:8.4.6667"
     }
 
 }

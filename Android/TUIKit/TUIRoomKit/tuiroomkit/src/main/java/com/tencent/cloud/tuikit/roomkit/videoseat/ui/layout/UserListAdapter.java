@@ -4,9 +4,7 @@ import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 
 import android.content.Context;
-import android.view.GestureDetector;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -18,10 +16,10 @@ import androidx.annotation.NonNull;
 import androidx.constraintlayout.utils.widget.ImageFilterView;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.tencent.cloud.tuikit.engine.common.TUIVideoView;
 import com.tencent.cloud.tuikit.engine.room.TUIRoomDefine;
 import com.tencent.cloud.tuikit.roomkit.R;
-import com.tencent.cloud.tuikit.roomkit.videoseat.ui.utils.ImageLoader;
+import com.tencent.cloud.tuikit.roomkit.common.utils.ImageLoader;
+import com.tencent.cloud.tuikit.roomkit.videoseat.ui.view.ConferenceVideoView;
 import com.tencent.cloud.tuikit.roomkit.videoseat.ui.view.RoundRelativeLayout;
 import com.tencent.cloud.tuikit.roomkit.videoseat.ui.view.UserVolumePromptView;
 import com.tencent.cloud.tuikit.roomkit.videoseat.viewmodel.UserEntity;
@@ -42,7 +40,12 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     private final int mRoundRadius;
 
-    private View.OnClickListener mClickListener;
+    private OnItemClickListener mItemClickListener;
+
+    public interface OnItemClickListener {
+        void onItemClick(View view, int position);
+        void onItemDoubleClick(View view, int position);
+    }
 
     public UserListAdapter(Context context, List<UserEntity> list) {
         this.mContext = context;
@@ -50,9 +53,8 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         mRoundRadius = (int) context.getResources().getDimension(R.dimen.tuivideoseat_video_view_conor);
     }
 
-    public void setItemClickListener(View.OnClickListener clickListener) {
-        mClickListener = clickListener;
-        notifyDataSetChanged();
+    public void setItemClickListener(OnItemClickListener clickListener) {
+        mItemClickListener = clickListener;
     }
 
     @NonNull
@@ -77,16 +79,14 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             onBindViewHolder(holder, position);
             return;
         }
-        if (PAYLOAD_AUDIO.equals(payloads.get(0))) {
+        if (payloads.contains(PAYLOAD_AUDIO)) {
             UserEntity item = mList.get(position);
             ((ViewHolder) holder).setVolume(item);
             ((ViewHolder) holder).updateVolumeEffect(item.getAudioVolume());
             ((ViewHolder) holder).enableVolumeEffect(item.isAudioAvailable());
-            return;
         }
-        if (PAYLOAD_VIDEO.equals(payloads.get(0))) {
+        if (payloads.contains(PAYLOAD_VIDEO)) {
             ((ViewHolder) holder).updateUserInfoVisibility(mList.get(position));
-            return;
         }
     }
 
@@ -111,12 +111,28 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         private View                 mTalkView;
         private View                 mViewBackground;
         private TextView             mUserNameTv;
-        private ImageView            mIvMaster;
+        private ImageView            mIvRoomManage;
         private UserVolumePromptView mUserMic;
         private ImageFilterView      mUserHeadImg;
         private UserEntity           mMemberEntity;
         private FrameLayout          mVideoContainer;
         private RoundRelativeLayout  mTopLayout;
+
+        private final ConferenceVideoView.ClickListener clickListener = new ConferenceVideoView.ClickListener() {
+            @Override
+            public void onSingleClick(View view) {
+                if (mItemClickListener != null) {
+                    mItemClickListener.onItemClick(view, getBindingAdapterPosition());
+                }
+            }
+
+            @Override
+            public void onDoubleClick(View view) {
+                if (mItemClickListener != null) {
+                    mItemClickListener.onItemDoubleClick(view, getBindingAdapterPosition());
+                }
+            }
+        };
 
         private final Runnable mRunnable = new Runnable() {
             @Override
@@ -134,25 +150,6 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             initView(itemView);
         }
 
-        private final GestureDetector mSimpleOnGestureListener = new GestureDetector(mContext,
-                new GestureDetector.SimpleOnGestureListener() {
-
-                    @Override
-                    public boolean onSingleTapConfirmed(MotionEvent e) {
-                        return true;
-                    }
-
-                    @Override
-                    public boolean onDoubleTap(MotionEvent e) {
-                        return true;
-                    }
-
-                    @Override
-                    public boolean onDown(MotionEvent e) {
-                        return true;
-                    }
-                });
-
         public void updateUserInfoVisibility(UserEntity model) {
             if (model.isSelf()) {
                 mViewBackground.setVisibility(model.isVideoAvailable() ? GONE : VISIBLE);
@@ -161,14 +158,11 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                 mViewBackground.setVisibility(model.isVideoPlaying() ? GONE : VISIBLE);
                 mUserHeadImg.setVisibility(model.isVideoPlaying() ? GONE : VISIBLE);
             }
-            mIvMaster.setVisibility(model.getRole() == TUIRoomDefine.Role.ROOM_OWNER ? VISIBLE : GONE);
-            if (mViewType == TYPE_SELF) {
-                itemView.setOnTouchListener(new View.OnTouchListener() {
-                    @Override
-                    public boolean onTouch(View v, MotionEvent event) {
-                        return mSimpleOnGestureListener.onTouchEvent(event);
-                    }
-                });
+            mIvRoomManage.setVisibility(model.getRole() != TUIRoomDefine.Role.GENERAL_USER ? VISIBLE : GONE);
+            if (model.getRole() == TUIRoomDefine.Role.ROOM_OWNER) {
+                mIvRoomManage.setBackgroundResource(R.drawable.tuiroomkit_icon_video_room_owner);
+            } else if (model.getRole() == TUIRoomDefine.Role.MANAGER) {
+                mIvRoomManage.setBackgroundResource(R.drawable.tuiroomkit_icon_video_room_manager);
             }
         }
 
@@ -206,12 +200,12 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         }
 
         private void addRoomVideoView(UserEntity userEntity) {
-            TUIVideoView videoView = userEntity.getRoomVideoView();
+            ConferenceVideoView videoView = userEntity.getRoomVideoView();
             if (videoView == null) {
                 return;
             }
             ViewParent viewParent = videoView.getParent();
-            if (viewParent != null && (viewParent instanceof ViewGroup)) {
+            if (viewParent instanceof ViewGroup) {
                 if (viewParent == mVideoContainer) {
                     return;
                 }
@@ -219,7 +213,8 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             }
             mVideoContainer.removeAllViews();
             mVideoContainer.addView(videoView);
-            videoView.setOnClickListener(mClickListener);
+            videoView.setClickListener(clickListener);
+            videoView.enableScale(userEntity.isScreenShareAvailable());
         }
 
         private void initView(final View itemView) {
@@ -228,7 +223,7 @@ public class UserListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             mVideoContainer = itemView.findViewById(R.id.fl_container);
             mUserHeadImg = itemView.findViewById(R.id.img_user_head);
             mUserMic = itemView.findViewById(R.id.tuivideoseat_user_mic);
-            mIvMaster = itemView.findViewById(R.id.img_master);
+            mIvRoomManage = itemView.findViewById(R.id.tuiroomkit_iv_room_manage);
             mTalkView = itemView.findViewById(R.id.talk_view);
             mViewBackground = itemView.findViewById(R.id.view_background);
         }

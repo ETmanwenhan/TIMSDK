@@ -38,7 +38,7 @@ Tencent Cloud branch download address: [Download](https://im.sdk.qcloud.com/down
 <td style="text-align:center">Android  </td>
 <td style="text-align:center" ><a href="https://github.com/tencentyun/TIMSDK/tree/master/Android/IMSDK">GitHub (Recommended)</a></td>
 <td style="text-align:left" ><a href="https://www.tencentcloud.com/document/product/1047/50057">[Quick Integration] TUIKit Integration (Android)</a><br><a href="https://www.tencentcloud.com/document/product/1047/34306">[General Integration] SDK Integration (Android)</a></td>
-<td style="text-align:center" rowspan='4'><a href="https://intl.cloud.tencent.com/document/product/1047/34282">Update Log (Native)</a> </td>
+<td style="text-align:center" rowspan='5'><a href="https://intl.cloud.tencent.com/document/product/1047/34282">Update Log (Native)</a> </td>
 </tr>
 <tr>
 <td style="text-align:center">iOS  </td>
@@ -54,6 +54,11 @@ Tencent Cloud branch download address: [Download](https://im.sdk.qcloud.com/down
 <td style="text-align:center">Windows  </td>
 <td style="text-align:center" ><a href="https://github.com/tencentyun/TIMSDK/tree/master/Windows/IMSDK">GitHub (Recommended)</a></td>
 <td style="text-align:left" ><a href="https://www.tencentcloud.com/document/product/1047/34310">[General Integration] SDK Integration (Windows)</a></td>
+</tr>
+<tr>
+<td style="text-align:center">HarmonyOS  </td>
+<td style="text-align:center" ><a href="https://github.com/tencentyun/TIMSDK/tree/master/HarmonyOS/IMSDK">GitHub (Recommended)</a></td>
+<td style="text-align:left" ><a href="https://cloud.tencent.com/document/product/269/103558">[General Integration] SDK Integration (HarmonyOS)</a></td>
 </tr>
 </table>
 
@@ -149,25 +154,7 @@ Tencent Cloud branch download address: [Download](https://im.sdk.qcloud.com/down
 
 [API Upgrade Guidelines](https://docs.qq.com/sheet/DS3lMdHpoRmpWSEFW)
 
-## Latest Enhanced Version 7.7.5282 @2023.12.18
+## Latest Enhanced Version 8.4.6675 @2025.02.11
 ### SDK
-- Added V2TIMCommunityManager and V2TIMCommunityListener to integrate community topic interfaces
-- SDK supports Quic and advanced encryption plugins
-- Optimized conversation filtering logic
-- Topic information added createTime field
-- Live group supports setting administrators and pulling administrator list
-- Local content moderation regular expressions default ignore English case
-- Fixed occasional jni issues
-- Fixed occasional weak network message send callback error
-- Fixed occasional group tips message intValue change issue
-- Fixed Android SDK search English question mark failure problem
+- Fixed the problem of abnormal paging group member list.
 
-### TUIKit & Demo
-- Added ChatBot plugin for intelligent chat, supporting FAQ question-and-answer format and streaming text message display
-- TUIKit adapted to Gradle 8.0
-- Simplified TUIKit component initialization steps and increased component dependency configuration
-- TUIChat supports half screen horizontal display in RoomKit
-- TUIChat supports adding message click and long press event listeners
-- Optimized TIMPush plugin
-- Optimized customer service plugin experience
-- Improved voice message click effect

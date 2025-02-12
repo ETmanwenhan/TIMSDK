@@ -1,25 +1,23 @@
 package com.tencent.qcloud.tuikit.tuicontact.classicui.widget;
 
-import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.tencent.imsdk.v2.V2TIMUserStatus;
 import com.tencent.qcloud.tuicore.TUIThemeManager;
-import com.tencent.qcloud.tuicore.util.ToastUtil;
+import com.tencent.qcloud.tuikit.timcommon.component.gatherimage.ShadeImageView;
 import com.tencent.qcloud.tuikit.timcommon.component.impl.GlideEngine;
-import com.tencent.qcloud.tuikit.timcommon.component.interfaces.IUIKitCallback;
+import com.tencent.qcloud.tuikit.timcommon.util.ScreenUtil;
 import com.tencent.qcloud.tuikit.timcommon.util.TUIUtil;
 import com.tencent.qcloud.tuikit.tuicontact.R;
 import com.tencent.qcloud.tuikit.tuicontact.TUIContactService;
 import com.tencent.qcloud.tuikit.tuicontact.bean.ContactItemBean;
-import com.tencent.qcloud.tuikit.tuicontact.config.TUIContactConfig;
+import com.tencent.qcloud.tuikit.tuicontact.config.classicui.TUIContactConfigClassic;
 import com.tencent.qcloud.tuikit.tuicontact.presenter.ContactPresenter;
 
 import java.util.ArrayList;
@@ -91,42 +89,36 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
         });
         holder.unreadText.setVisibility(View.GONE);
         holder.userStatusView.setVisibility(View.GONE);
-        if (TextUtils.equals(TUIContactService.getAppContext().getResources().getString(R.string.new_friend), contactBean.getId())) {
+
+        int radius = ScreenUtil.dip2px(4.6f);
+        if (TUIContactConfigClassic.getContactAvatarRadius() != TUIContactConfigClassic.UNDEFINED) {
+            radius = TUIContactConfigClassic.getContactAvatarRadius();
+        }
+        holder.avatar.setRadius(radius);
+
+        if (presenter.newContacts == contactBean) {
             holder.avatar.setImageResource(TUIThemeManager.getAttrResId(holder.itemView.getContext(), R.attr.contact_new_friend_icon));
-
-            presenter.getFriendApplicationUnreadCount(new IUIKitCallback<Integer>() {
-                @Override
-                public void onSuccess(Integer data) {
-                    if (data == 0) {
-                        holder.unreadText.setVisibility(View.GONE);
-                    } else {
-                        holder.unreadText.setVisibility(View.VISIBLE);
-                        holder.unreadText.setText("" + data);
-                    }
-                }
-
-                @Override
-                public void onError(String module, int errCode, String errMsg) {
-                    ToastUtil.toastShortMessage("Error code = " + errCode + ", desc = " + errMsg);
-                }
-            });
-
-        } else if (TextUtils.equals(TUIContactService.getAppContext().getResources().getString(R.string.group), contactBean.getId())) {
+            holder.unreadText.setText(contactBean.getUnreadCount() + "");
+            if (contactBean.getUnreadCount() > 0) {
+                holder.unreadText.setVisibility(View.VISIBLE);
+            } else {
+                holder.unreadText.setVisibility(View.GONE);
+            }
+        } else if (presenter.groupChats == contactBean) {
             holder.avatar.setImageResource(TUIThemeManager.getAttrResId(holder.itemView.getContext(), R.attr.contact_group_list_icon));
-        } else if (TextUtils.equals(TUIContactService.getAppContext().getResources().getString(R.string.blacklist), contactBean.getId())) {
+        } else if (presenter.blackList == contactBean) {
             holder.avatar.setImageResource(TUIThemeManager.getAttrResId(holder.itemView.getContext(), R.attr.contact_black_list_icon));
         } else {
             if (contactBean.isTop() && contactBean.getExtensionListener() != null) {
                 holder.avatar.setImageResource(contactBean.getAvatarResID());
             } else {
-                int radius = holder.itemView.getResources().getDimensionPixelSize(R.dimen.contact_profile_face_radius);
                 if (isGroupList) {
                     int defaultIconResId = TUIUtil.getDefaultGroupIconResIDByGroupType(holder.itemView.getContext(), contactBean.getGroupType());
                     GlideEngine.loadUserIcon(holder.avatar, contactBean.getAvatarUrl(), defaultIconResId, radius);
                 } else {
                     GlideEngine.loadUserIcon(holder.avatar, contactBean.getAvatarUrl(), radius);
                 }
-                if (dataSourceType == ContactListView.DataSource.CONTACT_LIST && TUIContactConfig.getInstance().isShowUserStatus()) {
+                if (dataSourceType == ContactListView.DataSource.CONTACT_LIST && TUIContactConfigClassic.isShowUserOnlineStatusIcon()) {
                     holder.userStatusView.setVisibility(View.VISIBLE);
                     if (contactBean.getStatusType() == V2TIMUserStatus.V2TIM_USER_STATUS_ONLINE) {
                         holder.userStatusView.setBackgroundResource(
@@ -181,6 +173,13 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
         notifyDataSetChanged();
     }
 
+    public void onDataChanged(ContactItemBean data) {
+        int index = mData.indexOf(data);
+        if (index != -1) {
+            notifyItemChanged(index);
+        }
+    }
+
     public void setSingleSelectMode(boolean mode) {
         isSingleSelectMode = mode;
     }
@@ -200,7 +199,7 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvName;
         TextView unreadText;
-        ImageView avatar;
+        ShadeImageView avatar;
         CheckBox ccSelect;
         View content;
         View line;

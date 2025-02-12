@@ -1,6 +1,9 @@
 package com.tencent.cloud.tuikit.roomkit.view.page.widget.RaiseHandControlPanel;
 
+import static com.tencent.cloud.tuikit.roomkit.model.ConferenceConstant.USER_NOT_FOUND;
+
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,10 +14,10 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.tencent.cloud.tuikit.roomkit.R;
-import com.tencent.cloud.tuikit.roomkit.model.RoomEventCenter;
-import com.tencent.cloud.tuikit.roomkit.model.RoomEventConstant;
+import com.tencent.cloud.tuikit.roomkit.model.ConferenceEventCenter;
+import com.tencent.cloud.tuikit.roomkit.model.ConferenceEventConstant;
 import com.tencent.cloud.tuikit.roomkit.model.entity.TakeSeatRequestEntity;
-import com.tencent.cloud.tuikit.roomkit.utils.ImageLoader;
+import com.tencent.cloud.tuikit.roomkit.common.utils.ImageLoader;
 
 import java.util.HashMap;
 import java.util.List;
@@ -24,7 +27,7 @@ import de.hdodenhof.circleimageview.CircleImageView;
 
 public class RaiseHandApplicationListAdapter extends RecyclerView.Adapter<RaiseHandApplicationListAdapter.ViewHolder> {
     private List<TakeSeatRequestEntity> mRequestList;
-    private Context mContext;
+    private Context                     mContext;
 
     public RaiseHandApplicationListAdapter(Context context) {
         mContext = context;
@@ -33,6 +36,20 @@ public class RaiseHandApplicationListAdapter extends RecyclerView.Adapter<RaiseH
     public void setDataList(List<TakeSeatRequestEntity> requestList) {
         mRequestList = requestList;
         notifyDataSetChanged();
+    }
+
+    public void updateRequestUserNameCard(String userId, String userName) {
+        int position = USER_NOT_FOUND;
+        for (int i = 0; i < mRequestList.size(); i++) {
+            if (TextUtils.equals(userId, mRequestList.get(i).getUserId())) {
+                mRequestList.get(i).setUserName(userName);
+                position = i;
+                break;
+            }
+        }
+        if (position != USER_NOT_FOUND) {
+            notifyItemChanged(position);
+        }
     }
 
     @NonNull
@@ -53,16 +70,16 @@ public class RaiseHandApplicationListAdapter extends RecyclerView.Adapter<RaiseH
             @Override
             public void onClick(View v) {
                 Map<String, Object> params = new HashMap<>();
-                params.put(RoomEventConstant.KEY_USER_ID, request.getUserId());
-                RoomEventCenter.getInstance().notifyUIEvent(RoomEventCenter.RoomKitUIEvent.AGREE_TAKE_SEAT, params);
+                params.put(ConferenceEventConstant.KEY_USER_ID, request.getUserId());
+                ConferenceEventCenter.getInstance().notifyUIEvent(ConferenceEventCenter.RoomKitUIEvent.AGREE_TAKE_SEAT, params);
             }
         });
         holder.btnDisagree.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Map<String, Object> params = new HashMap<>();
-                params.put(RoomEventConstant.KEY_USER_ID, request.getUserId());
-                RoomEventCenter.getInstance().notifyUIEvent(RoomEventCenter.RoomKitUIEvent.DISAGREE_TAKE_SEAT, params);
+                params.put(ConferenceEventConstant.KEY_USER_ID, request.getUserId());
+                ConferenceEventCenter.getInstance().notifyUIEvent(ConferenceEventCenter.RoomKitUIEvent.DISAGREE_TAKE_SEAT, params);
             }
         });
     }

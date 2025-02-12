@@ -13,17 +13,33 @@
 "TUICallKit.Group.inviteToGroupCall" = "グループ通話に招待します";
 "TUICallKit.Group.waitAccept" = "待機中";
 "TUICallKit.determine" = "もちろん";
+"TUICallKit.lineBusy" = "回線ビジー";
+"TUICallKit.userHangup" = "\%@ 通話終了";
+"TUICallKit.userReject" = "\%@ は通話を拒否しました";
+"TUICallKit.otherPartyHangup" = "相手が切断、通話終了";
+"TUICallKit.otherPartyReject" = "相手による通話拒否";
+"TUICallKit.otherPartyNoResponse" = "呼び出しタイムアウト";
 
+"TUICallKit.switchCamera" = "切り替え";
+"TUICallKit.blurBackground" = "背景をぼかす";
 "TUICallKit.hangup" = "通話終了";
 "TUICallKit.decline" = "拒否";
 "TUICallKit.switchToAudio" = "音声通話に切り替えます";
 "TUICallKit.answer" = "応答";
-"TUICallKit.calleeTip" = "参加者：";
+"TUICallKit.calleeTip" = "通話に参加している人物";
 "TUICallKit.FloatingWindow.waitAccept" = "応答を待っています...";
 
 "TUICallKit.User.Exceed.Limit" = "一時的に最大9人の通話をサポートします。多人数の会議が必要な場合は、TUIRoomを使用してください";
 "TUICallKit.UnableToRestartTheCall" = "通話中のため、再度発信できません";
+
+"TUICallKit.purchased" = "TUICallKit パッケージを購入していません。コンソールで無料トライアル版をアクティブ化するか、正式版を購入してください。";
+"TUICallKit.support" = "購入したTUICallKitパッケージはこの機能をサポートしていません。パッケージタイプをアップグレードすることをお勧めします。";
 "TUICallKit.ErrorInPeerBlacklist" = "通話の開始に失敗しました。ユーザーがブラックリストに登録されているため、発信が禁止されています！";
+"TUICallKit.ErrorInvalidLogin" = "ログイン失敗しました。もう一度ログインしてください";
+"TUICallKit.ErrorParameterInvalid" = "パラメータエラー";
+"TUICallKit.ErrorRequestRefused" = "現在の状態では、この機能の呼び出しはサポートされていません";
+"TUICallKit.ErrorRequestRepeated" = "現在実行中のメソッドを呼び出すことはできません";
+"TUICallKit.ErrorSceneNotSupport" = "現在の通話シーンでは、この機能はサポートしていません";
 
 "TUICallKit.FailedToGetCameraPermission.Title" = "カメラの権限が開かれていません";
 "TUICallKit.FailedToGetCameraPermission.Tips" = "ビデオ通話機能が使用できません。\"開く\"をクリックしてカメラの権限を開きます";
@@ -35,8 +51,6 @@
 "TUICallKit.FailedToGetMicrophonePermission.Later" = "後で言う";
 "TUICallKit.FailedToGetMicrophonePermission.Enable" = "開く";
 
-"TUICallKit.package.not.purchased" = "TUICallKit パッケージを購入していません。コンソールで無料トライアル版をアクティブ化するか、正式版を購入してください。";
-"TUICallKit.package.not.support" = "購入したTUICallKitパッケージはこの機能をサポートしていません。パッケージタイプをアップグレードすることをお勧めします。";
 "TUICallKit.have.new.invitation" = "新しい通話があります";
 
 "TUICallKit.Recents.all" = "すべて";
@@ -57,3 +71,11 @@
 "TUICallKit.earpiece" = "スピーカーオフ";
 "TUICallKit.cameraOn" = "カメラオン";
 "TUICallKit.cameraOff" = "カメラオフ";
+
+"TUICallKit.JoinGroupView.title" = "%d人が%@中です";
+"TUICallKit.JoinGroupView.join" = "参加する";
+"TUICallKit.JoinGroupView.audioCall" = "音声通話";
+"TUICallKit.JoinGroupView.videoCall" = "ビデオ通話";
+
+"TUICallKit.OtherParty.NetworkLowQuality" = "相手のネットワークが悪い";
+"TUICallKit.Self.NetworkLowQuality" = "あなたのネットワークが悪い";

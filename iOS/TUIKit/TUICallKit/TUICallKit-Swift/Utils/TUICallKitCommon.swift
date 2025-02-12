@@ -9,12 +9,14 @@ import Foundation
 import TUICallEngine
 import AVFoundation
 
-enum AuthorizationDeniedType {
+@objc
+public enum AuthorizationDeniedType: Int {
     case audio
     case video
 }
 
-class TUICallKitCommon {
+@objc
+public class TUICallKitCommon: NSObject {
     
     static func createRoomId() -> UInt32 {
         return  1 + arc4random() % (UINT32_MAX / 2  - 1)
@@ -29,15 +31,8 @@ class TUICallKitCommon {
         return UIImage(named: name, in: self.getTUICallKitBundle(), compatibleWith: nil)
     }
     
-    static func getKeyWindow() -> UIWindow? {
-        if #available(iOS 13.0, *) {
-            return UIApplication.shared.windows.filter({ $0.isKeyWindow }).last
-        } else {
-            return UIApplication.shared.keyWindow
-        }
-    }
-    
-    static func checkAuthorizationStatusIsDenied(mediaType: TUICallMediaType) -> Bool {
+    @objc
+    public static func checkAuthorizationStatusIsDenied(mediaType: TUICallMediaType) -> Bool {
         let statusAudio: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
         let statusVideo: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
         
@@ -52,9 +47,10 @@ class TUICallKitCommon {
         return false
     }
     
-    static func showAuthorizationAlert(deniedType: AuthorizationDeniedType,
-                                       openSettingHandler: @escaping () -> Void,
-                                       cancelHandler: @escaping () -> Void) {
+    @objc
+    public static func showAuthorizationAlert(deniedType: AuthorizationDeniedType,
+                                              openSettingHandler: @escaping () -> Void,
+                                              cancelHandler: @escaping () -> Void) {
         var title: String
         var message: String
         var laterMessage: String
@@ -84,12 +80,17 @@ class TUICallKitCommon {
             let app = UIApplication.shared
             guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
             if app.canOpenURL(url) {
-                app.openURL(url)
+                if #available(iOS 10.0, *) {
+                    app.open(url)
+                } else {
+                    app.openURL(url)
+                }
             }
         }))
         
         DispatchQueue.main.async {
-            UIApplication.shared.keyWindow?.rootViewController?.present(alertController, animated: true)
+            UIWindow.getKeyWindow()?.rootViewController?.present(alertController, animated: true)
         }
     }
+    
 }

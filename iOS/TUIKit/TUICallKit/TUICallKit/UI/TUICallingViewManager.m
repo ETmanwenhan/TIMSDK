@@ -397,7 +397,12 @@
 
 - (void)makeCallingCalleeViewConstraints {
     [self.callingCalleeView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.center.equalTo(self.containerView);
+        make.centerX.equalTo(self.containerView);
+        if (Screen_Width <= 375) {
+            make.top.equalTo(self.callingUserView.mas_bottom).offset(30);
+        } else {
+            make.centerY.equalTo(self.containerView);
+        }
         make.height.equalTo(@(68));
         make.width.equalTo(self.containerView.mas_width);
     }];
@@ -664,6 +669,12 @@
     }
     if (self.backgroundView && [self.backgroundView respondsToSelector:@selector(updateCameraOpenStatus:)]) {
         [self.backgroundView updateCameraOpenStatus:![TUICallingStatusManager shareInstance].isCloseCamera];
+    }
+    CallingUserModel *userModel = [TUICallingUserManager getUser:[TUICallingUserManager getSelfUserId]];
+    if (userModel) {
+        userModel.isVideoAvailable = ![TUICallingStatusManager shareInstance].isCloseCamera;
+        [TUICallingUserManager cacheUser:userModel];
+        [self.backgroundView updateUserInfo:userModel];
     }
 }
 

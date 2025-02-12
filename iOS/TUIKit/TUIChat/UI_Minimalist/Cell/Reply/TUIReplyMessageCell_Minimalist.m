@@ -29,10 +29,7 @@
 #import "TUIVideoReplyQuoteView_Minimalist.h"
 #import "TUIVoiceReplyQuoteView_Minimalist.h"
 
-#define kReplyQuoteViewMaxWidth 175
-#define kReplyQuoteViewMarginWidth 35
-
-@interface TUIReplyMessageCell_Minimalist ()
+@interface TUIReplyMessageCell_Minimalist ()<UITextViewDelegate,TUITextViewDelegate>
 
 @property(nonatomic, strong) TUIReplyQuoteView_Minimalist *currentOriginView;
 
@@ -54,7 +51,7 @@
     [self.quoteView addSubview:self.quoteBorderLine];
 
     [self.bubbleView addSubview:self.quoteView];
-    [self.bubbleView addSubview:self.contentLabel];
+    [self.bubbleView addSubview:self.textView];
 
     self.bottomContainer = [[UIView alloc] init];
     [self.contentView addSubview:self.bottomContainer];
@@ -69,18 +66,17 @@
 - (void)fillWithData:(TUIReplyMessageCellData *)data {
     [super fillWithData:data];
     self.replyData = data;
-
     self.senderLabel.text = [NSString stringWithFormat:@"%@:", data.sender];
     if (data.direction == MsgDirectionIncoming) {
-        self.contentLabel.textColor = TUIChatDynamicColor(@"chat_reply_message_content_recv_text_color", @"#000000");
+        self.textView.textColor = TUIChatDynamicColor(@"chat_reply_message_content_recv_text_color", @"#000000");
         self.senderLabel.textColor = TUIChatDynamicColor(@"chat_reply_message_quoteView_recv_text_color", @"#888888");
         self.quoteView.backgroundColor = TUIChatDynamicColor(@"chat_reply_message_quoteView_bg_color", @"#4444440c");
     } else {
-        self.contentLabel.textColor = TUIChatDynamicColor(@"chat_reply_message_content_text_color", @"#000000");
+        self.textView.textColor = TUIChatDynamicColor(@"chat_reply_message_content_text_color", @"#000000");
         self.senderLabel.textColor = TUIChatDynamicColor(@"chat_reply_message_quoteView_text_color", @"#888888");
         self.quoteView.backgroundColor = [UIColor colorWithRed:68 / 255.0 green:68 / 255.0 blue:68 / 255.0 alpha:0.05];
     }
-    self.contentLabel.attributedText = [data.content getFormatEmojiStringWithFont:self.contentLabel.font emojiLocations:nil];
+    self.textView.attributedText = [data.content getFormatEmojiStringWithFont:self.textView.font emojiLocations:self.replyData.emojiLocations];
 
     self.bottomContainer.hidden = CGSizeEqualToSize(data.bottomContainerSize, CGSizeZero);
 
@@ -125,6 +121,8 @@
     [self hiddenAllCustomOriginViews:YES];
     self.currentOriginView.hidden = NO;
 
+    replyData.quoteData.supportForReply = YES;
+    replyData.quoteData.showRevokedOriginMessage = replyData.showRevokedOriginMessage;
     [self.currentOriginView fillWithData:replyData.quoteData];
 
     [self.quoteView mas_remakeConstraints:^(MASConstraintMaker *make) {
@@ -142,21 +140,34 @@
         make.bottom.mas_equalTo(self.quoteView);
     }];
 
-    [self.contentLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
+    [self.textView mas_remakeConstraints:^(MASConstraintMaker *make) {
         make.leading.mas_equalTo(self.quoteView).mas_offset(4);
         make.top.mas_equalTo(self.quoteView.mas_bottom).mas_offset(12);
-        make.trailing.mas_lessThanOrEqualTo(self.quoteView);
+        make.trailing.mas_lessThanOrEqualTo(self.quoteView).mas_offset(-4);;
+        make.bottom.mas_equalTo(self.bubbleView).mas_offset(-4);
     }];
 
     [self.senderLabel mas_remakeConstraints:^(MASConstraintMaker *make) {
-        make.leading.mas_equalTo(self.contentLabel);
+        make.leading.mas_equalTo(self.textView);
         make.top.mas_equalTo(3);
         make.size.mas_equalTo(self.replyData.senderSize);
     }];
+
+    BOOL hideSenderLabel = (replyData.originCellData.innerMessage.status == V2TIM_MSG_STATUS_LOCAL_REVOKED) &&
+                            !replyData.showRevokedOriginMessage;
+    if (hideSenderLabel) {
+        self.senderLabel.hidden = YES;
+    } else {
+        self.senderLabel.hidden = NO;
+    }
     
     [self.currentOriginView mas_remakeConstraints:^(MASConstraintMaker *make) {
         make.leading.mas_equalTo(self.senderLabel);
-        make.top.mas_equalTo(self.senderLabel.mas_bottom).mas_offset(4);
+        if (hideSenderLabel) {
+            make.centerY.mas_equalTo(self.quoteView);
+        } else {
+            make.top.mas_equalTo(self.senderLabel.mas_bottom).mas_offset(4);
+        }
 //        make.width.mas_greaterThanOrEqualTo(self.replyData.quotePlaceholderSize);
         make.trailing.mas_lessThanOrEqualTo(self.quoteView.mas_trailing);
         make.height.mas_equalTo(self.replyData.quotePlaceholderSize);
@@ -174,10 +185,9 @@
     }
 
     if (view == nil) {
-        //FIXME: celldata应该区分不同的Cell
         Class class = [originCellData getReplyQuoteViewClass];
         NSString *clsStr = NSStringFromClass(class);
-        if (![clsStr containsString:@"_Minimalist"]) {
+        if (![clsStr tui_containsString:@"_Minimalist"]) {
             clsStr = [clsStr stringByAppendingString:@"_Minimalist"];
             class =  NSClassFromString(clsStr);
         }
@@ -201,10 +211,9 @@
     } else if ([view isKindOfClass:[TUIMergeReplyQuoteView_Minimalist class]]) {
         TUIMergeReplyQuoteView_Minimalist *quoteView = (TUIMergeReplyQuoteView_Minimalist *)view;
         if (self.replyData.direction == MsgDirectionIncoming) {
-            quoteView.titleLabel.textColor = quoteView.subTitleLabel.textColor =
-                TUIChatDynamicColor(@"chat_reply_message_quoteView_recv_text_color", @"#888888");
+            quoteView.titleLabel.textColor = TUIChatDynamicColor(@"chat_reply_message_quoteView_recv_text_color", @"#888888");
         } else {
-            quoteView.titleLabel.textColor = quoteView.subTitleLabel.textColor = TUIChatDynamicColor(@"chat_reply_message_quoteView_text_color", @"#888888");
+            quoteView.titleLabel.textColor = TUIChatDynamicColor(@"chat_reply_message_quoteView_text_color", @"#888888");
         }
     }
 
@@ -238,15 +247,13 @@
     }
 
     CGSize size = self.replyData.bottomContainerSize;
-    UIView *view = self.replyEmojiView.hidden ? self.bubbleView : self.replyEmojiView;
-    CGFloat topMargin = view.mm_maxY + self.nameLabel.mm_h + 6;
     [self.bottomContainer mas_remakeConstraints:^(MASConstraintMaker *make) {
         if (self.replyData.direction == MsgDirectionIncoming) {
             make.leading.mas_equalTo(self.container.mas_leading);
         } else {
             make.trailing.mas_equalTo(self.container.mas_trailing);
         }
-        make.top.mas_equalTo(view.mas_bottom).mas_offset(6);
+        make.top.mas_equalTo(self.bubbleView.mas_bottom).mas_offset(self.messageData.messageContainerAppendSize.height + 6);
         make.size.mas_equalTo(size);
     }];
 
@@ -290,15 +297,27 @@
     return _quoteBorderLine;
 }
 
-- (UILabel *)contentLabel {
-    if (_contentLabel == nil) {
-        _contentLabel = [[UILabel alloc] init];
-        _contentLabel.font = [UIFont systemFontOfSize:16.0];
-        _contentLabel.textColor = TUIChatDynamicColor(@"chat_reply_message_content_text_color", @"#000000");
-        _contentLabel.textAlignment = isRTL()?NSTextAlignmentRight:NSTextAlignmentLeft;
-        _contentLabel.numberOfLines = 0;
+- (TUITextView *)textView {
+    if (_textView == nil) {
+        _textView = [[TUITextView alloc] init];
+        _textView.font = [UIFont systemFontOfSize:16.0];
+        _textView.textColor = TUIChatDynamicColor(@"chat_reply_message_content_text_color", @"#000000");
+        _textView.backgroundColor = [UIColor clearColor];
+        _textView.textContainerInset = UIEdgeInsetsMake(0, 0, 0, 0);
+        _textView.textContainer.lineFragmentPadding = 0;
+        _textView.scrollEnabled = NO;
+        _textView.editable = NO;
+        _textView.delegate = self;
+        _textView.tuiTextViewDelegate = self;
+        _textView.textAlignment = isRTL()?NSTextAlignmentRight:NSTextAlignmentLeft;
     }
-    return _contentLabel;
+    return _textView;
+}
+
+- (void)onLongPressTextViewMessage:(UITextView *)textView {
+    if (self.delegate && [self.delegate respondsToSelector:@selector(onLongPressMessage:)]) {
+        [self.delegate onLongPressMessage:self];
+    }
 }
 
 - (NSMutableDictionary *)customOriginViewsCache {
@@ -331,22 +350,30 @@
     CGFloat quoteWidth = 0;
 
     CGFloat quoteMinWidth = 100;
-    CGFloat quoteMaxWidth = kReplyQuoteViewMaxWidth;
+    CGFloat quoteMaxWidth = TReplyQuoteView_Max_Width;
     CGFloat quotePlaceHolderMarginWidth = 12;
-
-    // 动态计算发送者的尺寸
+    
     // Calculate the size of label which displays the sender's displyname
     CGSize senderSize = [@"0" sizeWithAttributes:@{NSFontAttributeName : [UIFont boldSystemFontOfSize:12.0]}];
     CGRect senderRect = [replyCellData.sender boundingRectWithSize:CGSizeMake(quoteMaxWidth, senderSize.height)
                                                   options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                                                attributes:@{NSFontAttributeName : [UIFont boldSystemFontOfSize:12.0]}
                                                   context:nil];
+    
+    CGRect messageRevokeRect = CGRectZero;
+    BOOL showRevokeStr = (replyCellData.originCellData.innerMessage.status == V2TIM_MSG_STATUS_LOCAL_REVOKED) &&
+                            !replyCellData.showRevokedOriginMessage;
+    if (showRevokeStr) {
+        NSString *msgRevokeStr = TIMCommonLocalizableString(TUIKitRepliesOriginMessageRevoke);
+        messageRevokeRect = [msgRevokeStr boundingRectWithSize:CGSizeMake(quoteMaxWidth, senderSize.height)
+                                                                   options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+                                                                attributes:@{NSFontAttributeName : [UIFont boldSystemFontOfSize:12.0]}
+                                                                   context:nil];
+    }
 
-    // 动态计算自定义引用占位视图的尺寸
     // Calculate the size of customize quote placeholder view
     CGSize placeholderSize = [replyCellData quotePlaceholderSizeWithType:replyCellData.originMsgType data:replyCellData.quoteData];
 
-    // 动态计算回复内容的尺寸
     // Calculate the size of label which displays the content of replying the original message
     UIFont *font = [UIFont systemFontOfSize:16.0];
     NSAttributedString *attributeString = [replyCellData.content getFormatEmojiStringWithFont:font emojiLocations:nil];
@@ -354,7 +381,6 @@
                                                             options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                                                             context:nil];
 
-    // 根据内容计算引用视图整体的大小
     // Calculate the size of quote view base the content
     quoteWidth = senderRect.size.width;
     if (quoteWidth < placeholderSize.width) {
@@ -370,14 +396,19 @@
     if (quoteWidth < quoteMinWidth) {
         quoteWidth = quoteMinWidth;
     }
+
     quoteHeight = 3 + senderRect.size.height + 4 + placeholderSize.height + 6;
 
+    if (showRevokeStr) {
+        quoteWidth = MAX(quoteWidth, messageRevokeRect.size.width);
+        quoteHeight = 3  + 4 + messageRevokeRect.size.height + 6;
+    }
+    
     replyCellData.senderSize = CGSizeMake(quoteWidth, senderRect.size.height);
     replyCellData.quotePlaceholderSize = placeholderSize;
     replyCellData.replyContentSize = CGSizeMake(replyContentRect.size.width, replyContentRect.size.height);
     replyCellData.quoteSize = CGSizeMake(quoteWidth, quoteHeight);
 
-    // 计算 cell 的高度
     // Calculate the height of cell
     height = 12 + quoteHeight + 12 + replyCellData.replyContentSize.height + 12;
 
@@ -385,13 +416,13 @@
                                                              options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
                                                              context:nil];
 
-    // 判断下最后一行的宽度是否超过了消息状态的位置，如果超过，消息状态换行
+    // Determine whether the width of the last line exceeds the position of the message status. If it exceeds, the message status will be wrapped.
     if ((int)replyContentRect2.size.width % (int)quoteWidth == 0 ||
         (int)replyContentRect2.size.width % (int)quoteWidth + replyCellData.msgStatusSize.width > quoteWidth) {
         height += replyCellData.msgStatusSize.height;
     }
 
-    return CGSizeMake(quoteWidth + kReplyQuoteViewMarginWidth, height);
+    return CGSizeMake(quoteWidth + TReplyQuoteView_Margin_Width, height);
 }
 
 @end

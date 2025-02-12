@@ -28,13 +28,17 @@ class TUICallState: NSObject {
     let audioDevice: Observable<TUIAudioPlaybackDevice> = Observable(TUIAudioPlaybackDevice.earpiece)
     let isShowFullScreen: Observable<Bool> = Observable(false)
     let showLargeViewUserId: Observable<String> = Observable("")
+    let enableBlurBackground: Observable<Bool> = Observable(false)
+    let networkQualityReminder: Observable<NetworkQualityHint> = Observable(NetworkQualityHint.None)
     
     var enableMuteMode: Bool = {
         let enable = UserDefaults.standard.bool(forKey: ENABLE_MUTEMODE_USERDEFAULT)
         return enable
     }()
     
-    var enableFloatWindow: Bool = false
+    var enableFloatWindow: Bool = true
+    var showVirtualBackgroundButton = false
+    var enableIncomingBanner = false
     
     private var timerName: String = ""
 }
@@ -47,7 +51,6 @@ extension TUICallState: TUICallObserver {
         param[EVENT_KEY_MESSAGE] = message
         let callEvent = TUICallEvent(eventType: .ERROR, event: .ERROR_COMMON, param: param)
         TUICallState.instance.event.value = callEvent
-        
     }
     
     func onCallReceived(callerId: String, calleeIdList: [String], groupId: String?, callMediaType: TUICallMediaType) {
@@ -103,22 +106,27 @@ extension TUICallState: TUICallObserver {
         TUICallState.instance.mediaType.value = callMediaType
         
         TUICallState.instance.selfUser.value.callRole.value = TUICallRole.called
-        TUICallState.instance.selfUser.value.callStatus.value = TUICallStatus.waiting
         
-        if callMediaType == .audio {
-            TUICallState.instance.audioDevice.value = TUIAudioPlaybackDevice.earpiece
-            TUICallState.instance.isCameraOpen.value = false
-        } else if callMediaType == .video {
-            TUICallState.instance.audioDevice.value = TUIAudioPlaybackDevice.speakerphone
-            TUICallState.instance.isCameraOpen.value = true
+        DispatchQueue.main.async {
+            TUICallState.instance.selfUser.value.callStatus.value = TUICallStatus.waiting
+            
+            if callMediaType == .audio {
+                TUICallState.instance.audioDevice.value = TUIAudioPlaybackDevice.earpiece
+                TUICallState.instance.isCameraOpen.value = false
+            } else if callMediaType == .video {
+                TUICallState.instance.audioDevice.value = TUIAudioPlaybackDevice.speakerphone
+                TUICallState.instance.isCameraOpen.value = true
+            }
         }
         
-        CallingBellFeature.instance.startPlayMusic(type: .CallingBellTypeCalled)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            CallEngineManager.instance.updateVoIPInfo(callerId: callerId, calleeList: calleeIdList, groupId: groupId ?? "")
+        }
     }
     
     func onCallCancelled(callerId: String) {
-        CallingBellFeature.instance.stopPlayMusic()
         cleanState()
+        CallEngineManager.instance.closeVoIP()
     }
     
     func onKickedOffline() {
@@ -159,6 +167,12 @@ extension TUICallState: TUICallObserver {
             break
         }
         
+        if TUICallState.instance.scene.value == .single {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                UIWindow.getTopFullscreenWindow()?.makeToast(TUICallKitLocalize(key: "TUICallKit.otherPartyHangup"), duration: 0.6)
+            }
+        }
+        
         if TUICallState.instance.remoteUserList.value.isEmpty {
             cleanState()
         }
@@ -172,6 +186,12 @@ extension TUICallState: TUICallObserver {
         where TUICallState.instance.remoteUserList.value[index].id.value == userId {
             TUICallState.instance.remoteUserList.value.remove(at: index)
             break
+        }
+        
+        if TUICallState.instance.scene.value == .single {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                UIWindow.getTopFullscreenWindow()?.makeToast(TUICallKitLocalize(key: "TUICallKit.otherPartyReject"), duration: 0.6)
+            }
         }
         
         if TUICallState.instance.remoteUserList.value.isEmpty {
@@ -195,6 +215,10 @@ extension TUICallState: TUICallObserver {
         
         let callEvent = TUICallEvent(eventType: .TIP, event: .USER_LINE_BUSY, param: [EVENT_KEY_USER_ID: userId])
         TUICallState.instance.event.value = callEvent
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            UIWindow.getTopFullscreenWindow()?.makeToast(TUICallKitLocalize(key: "TUICallKit.lineBusy"), duration: 0.6)
+        }
     }
     
     func onUserNoResponse(userId: String) {
@@ -202,6 +226,12 @@ extension TUICallState: TUICallObserver {
         where TUICallState.instance.remoteUserList.value[index].id.value == userId {
             TUICallState.instance.remoteUserList.value.remove(at: index)
             break
+        }
+        
+        if TUICallState.instance.scene.value == .single {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                UIWindow.getTopFullscreenWindow()?.makeToast(TUICallKitLocalize(key: "TUICallKit.otherPartyNoResponse"), duration: 0.6)
+            }
         }
         
         let callEvent = TUICallEvent(eventType: .TIP, event: .USER_NO_RESPONSE, param: [EVENT_KEY_USER_ID: userId])
@@ -221,7 +251,59 @@ extension TUICallState: TUICallObserver {
     }
     
     func onUserNetworkQualityChanged(networkQualityList: [TUINetworkQualityInfo]) {
+        if networkQualityList.isEmpty {
+            return
+        }
         
+        if TUICallState.instance.scene.value == .single {
+            singleSceneNetworkQualityChanged(networkQualityList: networkQualityList)
+        } else {
+            groupSceneNetworkQualityChanged(networkQualityList: networkQualityList)
+        }
+    }
+    
+    func singleSceneNetworkQualityChanged(networkQualityList: [TUINetworkQualityInfo]) {
+        var localQuality: TUINetworkQuality = .unknown
+        var remoteQuality: TUINetworkQuality = .unknown
+        
+        for networkQualityInfo in networkQualityList {
+            if networkQualityInfo.userId == TUICallState.instance.selfUser.value.id.value {
+                localQuality = networkQualityInfo.quality
+            }
+            remoteQuality = networkQualityInfo.quality
+        }
+        
+        let localIsBadNetwork = checkIsBadNetwork(quality: localQuality)
+        let remoteIsBadNetwork = checkIsBadNetwork(quality: remoteQuality)
+        var networkQualityHint: NetworkQualityHint
+        
+        if localIsBadNetwork {
+            networkQualityHint = .Local
+        } else if !localIsBadNetwork && remoteIsBadNetwork {
+            networkQualityHint = .Remote
+        } else {
+            networkQualityHint = .None
+        }
+        
+        TUICallState.instance.networkQualityReminder.value = networkQualityHint
+    }
+    
+    func groupSceneNetworkQualityChanged(networkQualityList: [TUINetworkQualityInfo]) {
+        for networkQualityInfo in networkQualityList {
+            let isBadNetwork = checkIsBadNetwork(quality: networkQualityInfo.quality)
+            
+            for user in TUICallState.instance.remoteUserList.value where user.id.value == networkQualityInfo.userId {
+                user.networkQualityReminder.value = isBadNetwork
+            }
+            
+            if networkQualityInfo.userId == TUICallState.instance.selfUser.value.id.value {
+                TUICallState.instance.selfUser.value.networkQualityReminder.value = isBadNetwork
+            }
+        }
+    }
+    
+    func checkIsBadNetwork(quality: TUINetworkQuality) -> Bool {
+        return quality == .bad || quality == .vbad || quality == .down
     }
     
     func onUserAudioAvailable(userId: String, isAudioAvailable: Bool) {
@@ -245,18 +327,20 @@ extension TUICallState: TUICallObserver {
             TUICallState.instance.timeCount.value += 1
         }
         
-        CallingBellFeature.instance.stopPlayMusic()
         CallEngineManager.instance.setAudioPlaybackDevice(device: TUICallState.instance.audioDevice.value)
         if TUICallState.instance.isMicMute.value == false {
             CallEngineManager.instance.openMicrophone()
         } else {
             CallEngineManager.instance.closeMicrophone()
         }
+
+        showAntiFraudReminder()
+        CallEngineManager.instance.callBegin()
     }
     
     func onCallEnd(roomId: TUIRoomId, callMediaType: TUICallMediaType, callRole: TUICallRole, totalTime: Float) {
-        CallingBellFeature.instance.stopPlayMusic()
         cleanState()
+        CallEngineManager.instance.closeVoIP()
     }
     
     func onCallMediaTypeChanged(oldCallMediaType: TUICallMediaType, newCallMediaType: TUICallMediaType) {
@@ -266,7 +350,10 @@ extension TUICallState: TUICallObserver {
 
 // MARK: private method
 extension TUICallState {
-    private func cleanState() {
+    func cleanState() {
+        TUICallState.instance.isCameraOpen.value = false
+        TUICallState.instance.isMicMute.value = false
+        
         TUICallState.instance.remoteUserList.value.removeAll()
         
         TUICallState.instance.mediaType.value = .unknown
@@ -277,12 +364,12 @@ extension TUICallState {
         TUICallState.instance.selfUser.value.callStatus.value = TUICallStatus.none
         
         TUICallState.instance.timeCount.value = 0
-        TUICallState.instance.isMicMute.value = false
         TUICallState.instance.isFrontCamera.value = .front
         TUICallState.instance.audioDevice.value = .earpiece
-        TUICallState.instance.isCameraOpen.value = false
         TUICallState.instance.isShowFullScreen.value = false
         TUICallState.instance.showLargeViewUserId.value = ""
+        TUICallState.instance.enableBlurBackground.value = false
+        TUICallState.instance.networkQualityReminder.value = .None
         
         GCDTimer.cancel(timerName: timerName) { return }
         
@@ -311,4 +398,11 @@ extension TUICallState {
             CallEngineManager.instance.hangup()
         }
     }
+    
+    func showAntiFraudReminder() {
+        if (TUICore.getService(TUICore_PrivacyService) != nil) {
+            TUICore.callService(TUICore_PrivacyService, method: TUICore_PrivacyService_CallKitAntifraudReminderMethod, param: nil)
+        }
+    }
+    
 }

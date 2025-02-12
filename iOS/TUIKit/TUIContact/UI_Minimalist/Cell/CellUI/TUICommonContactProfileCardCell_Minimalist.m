@@ -3,7 +3,7 @@
 //  UIKit
 //
 //  Created by annidy on 2019/5/27.
-//  Copyright © 2019年 Tencent. All rights reserved.
+//  Copyright © 2019 Tencent. All rights reserved.
 //
 
 #import "TUICommonContactProfileCardCell_Minimalist.h"
@@ -18,9 +18,9 @@
         _avatarImage = DefaultAvatarImage;
 
         if ([_genderString isEqualToString:TIMCommonLocalizableString(Male)]) {
-            _genderIconImage = TUIGroupCommonBundleImage(@"male");
+            _genderIconImage = TUIContactCommonBundleImage(@"male");
         } else if ([_genderString isEqualToString:TIMCommonLocalizableString(Female)]) {
-            _genderIconImage = TUIGroupCommonBundleImage(@"female");
+            _genderIconImage = TUIContactCommonBundleImage(@"female");
         } else {
             _genderIconImage = nil;
         }
@@ -104,9 +104,9 @@
     [[RACObserve(data, genderString) takeUntil:self.rac_prepareForReuseSignal] subscribeNext:^(NSString *x) {
       @strongify(self);
       if ([x isEqualToString:TIMCommonLocalizableString(Male)]) {
-          self.genderIcon.image = TUIGroupCommonBundleImage(@"male");
+          self.genderIcon.image = TUIContactCommonBundleImage(@"male");
       } else if ([x isEqualToString:TIMCommonLocalizableString(Female)]) {
-          self.genderIcon.image = TUIGroupCommonBundleImage(@"female");
+          self.genderIcon.image = TUIContactCommonBundleImage(@"female");
       } else {
           self.genderIcon.image = nil;
       }

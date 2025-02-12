@@ -3,7 +3,6 @@ package com.tencent.qcloud.tim.demo.config;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
-import android.content.res.Resources;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -20,14 +19,11 @@ import com.tencent.qcloud.tim.demo.utils.DemoLog;
 import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuicore.TUICore;
 import com.tencent.qcloud.tuicore.TUIThemeManager;
-import com.tencent.qcloud.tuicore.interfaces.ITUIObjectFactory;
 import com.tencent.qcloud.tuicore.util.ErrorMessageConverter;
 import com.tencent.qcloud.tuicore.util.PermissionRequester;
 import com.tencent.qcloud.tuikit.tuichat.TUIChatConstants;
-import com.tencent.qcloud.tuikit.tuichat.TUIChatService;
 import com.tencent.qcloud.tuikit.tuichat.config.TUIChatConfigs;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -50,7 +46,8 @@ public class InitSetting {
         TUIThemeManager.addLivelyTheme(R.style.DemoLivelyTheme);
         TUIThemeManager.addSeriousTheme(R.style.DemoSeriousTheme);
         setPermissionRequestContent();
-        TUIChatConfigs.getConfigs().getGeneralConfig().setEnableMultiDeviceForCall(true);
+        TUIChatConfigs.getGeneralConfig().setEnableMultiDeviceForCall(true);
+        TUIChatConfigs.getGeneralConfig().setEnableVirtualBackgroundForCall(true);
         CustomConfigHelper.initCustom(mContext);
         initOfflinePushConfigs();
         initDemoStyle();
@@ -58,7 +55,7 @@ public class InitSetting {
 
     private void initDemoStyle() {
         final SharedPreferences sharedPreferences = mContext.getSharedPreferences("TUIKIT_DEMO_SETTINGS", mContext.MODE_PRIVATE);
-        AppConfig.DEMO_UI_STYLE = sharedPreferences.getInt("tuikit_demo_style", 0);
+        AppConfig.DEMO_UI_STYLE = sharedPreferences.getInt("tuikit_demo_style", AppConfig.DEMO_UI_STYLE_CLASSIC);
     }
 
     public void setPermissionRequestContent() {
@@ -93,19 +90,10 @@ public class InitSetting {
 
     private void initOfflinePushConfigs() {
         final SharedPreferences sharedPreferences = mContext.getSharedPreferences("TUIKIT_DEMO_SETTINGS", mContext.MODE_PRIVATE);
-        int registerMode = sharedPreferences.getInt("test_OfflinePushRegisterMode_v2", 0);
         int callbackMode = sharedPreferences.getInt("test_OfflinePushCallbackMode_v2", 1);
-        Log.i(TAG, "initOfflinePushConfigs registerMode = " + registerMode);
         Log.i(TAG, "initOfflinePushConfigs callbackMode = " + callbackMode);
 
-        OfflinePushConfigs.getOfflinePushConfigs().setRegisterPushMode(registerMode);
         OfflinePushConfigs.getOfflinePushConfigs().setClickNotificationCallbackMode(callbackMode);
-
-        // auto register
-        boolean auto = registerMode == 0 ? false : true;
-        Map<String, Object> autoParam = new HashMap<>();
-        autoParam.put(TUIConstants.TIMPush.DISABLE_AUTO_REGISTER_PUSH_KEY, auto);
-        TUICore.callService(TUIConstants.TIMPush.SERVICE_NAME, TUIConstants.TIMPush.METHOD_DISABLE_AUTO_REGISTER_PUSH, autoParam);
 
         // ring
         boolean enablePrivateRing = sharedPreferences.getBoolean("test_enable_private_ring", false);
@@ -119,11 +107,6 @@ public class InitSetting {
 
     // call after login success
     public void registerPushManually() {
-        int registerMode = OfflinePushConfigs.getOfflinePushConfigs().getRegisterPushMode();
-        DemoLog.d(TAG, "OfflinePush register mode:" + registerMode);
-        if (registerMode == OfflinePushConfigs.REGISTER_PUSH_MODE_AUTO) {
-            return;
-        }
         if (offlinePushAPIDemo == null) {
             offlinePushAPIDemo = new OfflinePushAPIDemo();
         }
@@ -176,7 +159,7 @@ public class InitSetting {
             buildInfoJson.put("buildModel", BrandUtil.getBuildModel());
             buildInfoJson.put("buildVersionRelease", BrandUtil.getBuildVersionRelease());
             buildInfoJson.put("buildVersionSDKInt", BrandUtil.getBuildVersionSDKInt());
-            // 工信部要求 app 在运行期间只能获取一次设备信息。因此 app 获取设备信息设置给 SDK 后，SDK 使用该值并且不再调用系统接口。
+            
             // The Ministry of Industry and Information Technology requires the app to obtain device information only once
             // during its operation. Therefore, after the app obtains the device information and sets it to the SDK, the SDK
             // uses this value and no longer calls the system interface.

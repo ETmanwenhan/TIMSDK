@@ -168,7 +168,6 @@ static NSString *const Id = @"con";
 #pragma mark - Action
 - (void)doCancel {
     if (self.enableMuliple) {
-        // 退出多选
         self.enableMuliple = NO;
 
         for (TUIConversationCellData *cellData in self.dataProvider.dataList) {
@@ -225,7 +224,6 @@ static NSString *const Id = @"con";
     }
     if (self.enableMuliple) {
         /**
-         * 多选: 从通讯录中选择 -> 为每个联系人创建会话 -> pickerView 显示每个联系人
          * Multiple selection: Select from address book -> Create conversation for each contact -> Every contact will be displayed in pickerView
          */
         for (TUICommonContactSelectCellData *contact in selectArray) {
@@ -251,7 +249,6 @@ static NSString *const Id = @"con";
         [self.navigationController popViewControllerAnimated:YES];
     } else {
         /**
-         * 单选: 创建新聊天(多人就是群聊) -> 为所选联系人创建群聊 -> 直接转发
          * Single Choice: Create a new chat (or a group chat if there are multiple people) -> Create a group chat for the selected contact -> Forward directly
          */
         if (selectArray.count <= 1) {
@@ -373,12 +370,12 @@ static NSString *const Id = @"con";
       }
     };
     NSDictionary *param = @{
-        TUICore_TUIGroupService_CreateGroupMethod_GroupTypeKey : GroupType_Meeting,
-        TUICore_TUIGroupService_CreateGroupMethod_OptionKey : @(V2TIM_GROUP_ADD_ANY),
-        TUICore_TUIGroupService_CreateGroupMethod_ContactsKey : contacts,
-        TUICore_TUIGroupService_CreateGroupMethod_CompletionKey : createGroupCompletion
+        TUICore_TUIContactService_CreateGroupMethod_GroupTypeKey : GroupType_Meeting,
+        TUICore_TUIContactService_CreateGroupMethod_OptionKey : @(V2TIM_GROUP_ADD_ANY),
+        TUICore_TUIContactService_CreateGroupMethod_ContactsKey : contacts,
+        TUICore_TUIContactService_CreateGroupMethod_CompletionKey : createGroupCompletion
     };
-    [TUICore callService:TUICore_TUIGroupService method:TUICore_TUIGroupService_CreateGroupMethod param:param];
+    [TUICore callService:TUICore_TUIContactService method:TUICore_TUIContactService_CreateGroupMethod param:param];
 }
 
 #pragma mark - UITableViewDelegate, UITableViewDataSource

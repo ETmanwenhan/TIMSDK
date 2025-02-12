@@ -19,11 +19,12 @@ import androidx.constraintlayout.utils.widget.ImageFilterView;
 import com.tencent.cloud.tuikit.engine.common.TUIVideoView;
 import com.tencent.cloud.tuikit.engine.room.TUIRoomDefine;
 import com.tencent.cloud.tuikit.roomkit.R;
-import com.tencent.cloud.tuikit.roomkit.videoseat.ui.utils.ImageLoader;
+import com.tencent.cloud.tuikit.roomkit.common.utils.ImageLoader;
+import com.tencent.cloud.tuikit.roomkit.model.data.UserState;
+import com.tencent.cloud.tuikit.roomkit.model.manager.ConferenceController;
 import com.tencent.cloud.tuikit.roomkit.videoseat.viewmodel.UserEntity;
 import com.tencent.qcloud.tuicore.util.ScreenUtil;
-
-import de.hdodenhof.circleimageview.CircleImageView;
+import com.trtc.tuikit.common.livedata.LiveListObserver;
 
 public class UserDisplayView extends FrameLayout {
     public static final int MARGIN_PX = ScreenUtil.dip2px(5);
@@ -34,7 +35,7 @@ public class UserDisplayView extends FrameLayout {
     private View                 mTalkView;
     private View                 mViewBackground;
     private TextView             mUserNameTv;
-    private ImageView            mIvMaster;
+    private ImageView            mIvRoomManage;
     private UserVolumePromptView mUserMic;
     private ImageFilterView      mUserHeadImg;
     private UserEntity           mMemberEntity;
@@ -45,13 +46,20 @@ public class UserDisplayView extends FrameLayout {
     private int mWidth;
     private int mHeight;
 
-    private float mTouchDownPointX;
-    private float mTouchDownPointY;
-    private int   mLeftWhenTouchDown;
-    private int   mTopWhenTouchDown;
+    private float   mTouchDownPointX;
+    private float   mTouchDownPointY;
+    private int     mLeftWhenTouchDown;
+    private int     mTopWhenTouchDown;
     private boolean mIsActionDrag;
 
     private OnClickListener mOnClickListener;
+
+    private LiveListObserver<UserState.UserInfo> mAllUserObserver = new LiveListObserver<UserState.UserInfo>() {
+        @Override
+        public void onItemChanged(int position, UserState.UserInfo item) {
+            onUserNameCardChanged(item.userId, item.userName);
+        }
+    };
 
     public UserDisplayView(Context context) {
         this(context, null);
@@ -83,7 +91,7 @@ public class UserDisplayView extends FrameLayout {
         mUserNameTv.setText(model.getUserName());
         enableVolumeEffect(model.isAudioAvailable());
         updateVolumeEffect(model.getAudioVolume());
-        mIvMaster.setVisibility(model.getRole() == TUIRoomDefine.Role.ROOM_OWNER ? VISIBLE : GONE);
+        updateRoomManageFlag(model);
 
         mTopLayout.setRadius(mRoundRadius);
         int backGroundId = R.drawable.tuivideoseat_talk_bg_round;
@@ -92,6 +100,15 @@ public class UserDisplayView extends FrameLayout {
 
         mMemberEntity = model;
         updateVideoEnableEffect();
+    }
+
+    private void updateRoomManageFlag(UserEntity user) {
+        mIvRoomManage.setVisibility(user.getRole() != TUIRoomDefine.Role.GENERAL_USER ? VISIBLE : GONE);
+        if (user.getRole() == TUIRoomDefine.Role.ROOM_OWNER) {
+            mIvRoomManage.setBackgroundResource(R.drawable.tuiroomkit_icon_video_room_owner);
+        } else if (user.getRole() == TUIRoomDefine.Role.MANAGER) {
+            mIvRoomManage.setBackgroundResource(R.drawable.tuiroomkit_icon_video_room_manager);
+        }
     }
 
     private void updateUserAvatarIfNeeded(UserEntity oldUser, UserEntity newUser) {
@@ -114,21 +131,16 @@ public class UserDisplayView extends FrameLayout {
         if (videoView == null) {
             return;
         }
-        // addView 需要在 ViewGroup 测量、布局之后才能执行；
-        post(new Runnable() {
-            @Override
-            public void run() {
-                ViewParent viewParent = videoView.getParent();
-                if (viewParent != null && (viewParent instanceof ViewGroup)) {
-                    if (viewParent == mVideoContainer) {
-                        return;
-                    }
-                    ((ViewGroup) viewParent).removeView(videoView);
-                }
-                mVideoContainer.removeAllViews();
-                mVideoContainer.addView(videoView);
+
+        ViewParent viewParent = videoView.getParent();
+        if (viewParent != null && (viewParent instanceof ViewGroup)) {
+            if (viewParent == mVideoContainer) {
+                return;
             }
-        });
+            ((ViewGroup) viewParent).removeView(videoView);
+        }
+        mVideoContainer.removeAllViews();
+        mVideoContainer.addView(videoView);
     }
 
     public void clearUserEntity() {
@@ -170,7 +182,7 @@ public class UserDisplayView extends FrameLayout {
         mVideoContainer = parent.findViewById(R.id.fl_container);
         mUserHeadImg = parent.findViewById(R.id.img_user_head);
         mUserMic = parent.findViewById(R.id.tuivideoseat_user_mic);
-        mIvMaster = parent.findViewById(R.id.img_master);
+        mIvRoomManage = parent.findViewById(R.id.tuiroomkit_iv_room_manage);
         mTalkView = parent.findViewById(R.id.talk_view);
         mViewBackground = parent.findViewById(R.id.view_background);
     }
@@ -308,5 +320,26 @@ public class UserDisplayView extends FrameLayout {
             left = MARGIN_PX;
         }
         relayoutInRelativeLayout(left, getTop());
+    }
+
+    public void onUserNameCardChanged(String userId, String nameCard) {
+        if (mMemberEntity == null) {
+            return;
+        }
+        if (TextUtils.equals(userId, mMemberEntity.getUserId())) {
+            mUserNameTv.setText(nameCard);
+        }
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        ConferenceController.sharedInstance().getUserState().allUsers.observe(mAllUserObserver);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        ConferenceController.sharedInstance().getUserState().allUsers.removeObserver(mAllUserObserver);
     }
 }

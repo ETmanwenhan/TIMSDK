@@ -9,6 +9,7 @@
 #import "TUIMergeMessageListController.h"
 #import <TIMCommon/TIMDefine.h>
 #import <TIMCommon/TUISystemMessageCell.h>
+#import <TUICore/TUICore.h>
 #import <TUICore/TUIDarkModel.h>
 #import <TUICore/TUIGlobalization.h>
 #import <TUICore/TUIThemeManager.h>
@@ -34,7 +35,7 @@
 
 #define STR(x) @ #x
 
-@interface TUIMergeMessageListController () <TUIMessageCellDelegate, TUIMessageBaseDataProviderDataSource>
+@interface TUIMergeMessageListController () <TUIMessageCellDelegate, TUIMessageBaseDataProviderDataSource,TUINotificationProtocol>
 @property(nonatomic, strong) NSArray<V2TIMMessage *> *imMsgs;
 @property(nonatomic, strong) NSMutableArray<TUIMessageCellData *> *uiMsgs;
 @property(nonatomic, strong) NSMutableDictionary *stylesCache;
@@ -45,6 +46,16 @@
 @end
 
 @implementation TUIMergeMessageListController
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        [TUICore registerEvent:TUICore_TUIPluginNotify
+                        subKey:TUICore_TUIPluginNotify_DidChangePluginViewSubKey
+                        object:self];
+    }
+    return self;
+}
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -129,37 +140,34 @@
         V2TIMMessage *msg = msgs[k];
         if ([self.delegate respondsToSelector:@selector(messageController:onNewMessage:)]) {
             TUIMessageCellData *data = [self.delegate messageController:nil onNewMessage:msg];
-            TUIMessageCellLayout *layout = TUIMessageCellLayout.incommingMessageLayout;
-            if ([data isKindOfClass:TUITextMessageCellData.class] || [data isKindOfClass:TUIReferenceMessageCellData.class]) {
-                layout = TUIMessageCellLayout.incommingTextMessageLayout;
-            } else if ([data isKindOfClass:TUIVoiceMessageCellData.class]) {
-                layout = TUIMessageCellLayout.incommingVoiceMessageLayout;
-            }
-            data.cellLayout = layout;
             if (data) {
-                data.direction = MsgDirectionIncoming;
-                data.showName = YES;
-                data.name = data.identifier;
-                if (msg.nameCard.length > 0) {
-                    data.name = msg.nameCard;
-                } else if (msg.nickName.length > 0) {
-                    data.name = msg.nickName;
+                TUIMessageCellLayout *layout = TUIMessageCellLayout.incommingMessageLayout;
+                if ([data isKindOfClass:TUITextMessageCellData.class] || [data isKindOfClass:TUIReferenceMessageCellData.class]) {
+                    layout = TUIMessageCellLayout.incommingTextMessageLayout;
+                } else if ([data isKindOfClass:TUIVoiceMessageCellData.class]) {
+                    layout = TUIMessageCellLayout.incommingVoiceMessageLayout;
                 }
-                data.avatarUrl = [NSURL URLWithString:msg.faceURL];
+                data.cellLayout = layout;
+                data.direction = MsgDirectionIncoming;
+                data.innerMessage = msg;
+                data.showName = YES;
                 [uiMsgs addObject:data];
                 continue;
             }
         }
-        TUIMessageCellData *data = [TUIMessageDataProvider getCellData:msg];
-        TUIMessageCellLayout *layout = TUIMessageCellLayout.incommingMessageLayout;
 
+        TUIMessageCellData *data = [TUIMessageDataProvider getCellData:msg];
+        if (!data) {
+            continue;
+        }
+        TUIMessageCellLayout *layout = TUIMessageCellLayout.incommingMessageLayout;
         if ([data isKindOfClass:TUITextMessageCellData.class]) {
             layout = TUIMessageCellLayout.incommingTextMessageLayout;
         } else if ([data isKindOfClass:TUIReplyMessageCellData.class] || [data isKindOfClass:TUIReferenceMessageCellData.class]) {
             layout = TUIMessageCellLayout.incommingTextMessageLayout;
             TUIReferenceMessageCellData *textData = (TUIReferenceMessageCellData *)data;
             textData.textColor = TUIChatDynamicColor(@"chat_text_message_receive_text_color", @"#000000");
-
+            textData.showRevokedOriginMessage = YES;
         } else if ([data isKindOfClass:TUIVoiceMessageCellData.class]) {
             TUIVoiceMessageCellData *voiceData = (TUIVoiceMessageCellData *)data;
             voiceData.cellLayout = [TUIMessageCellLayout incommingVoiceMessageLayout];
@@ -174,20 +182,9 @@
         }
         data.cellLayout = layout;
         data.direction = MsgDirectionIncoming;
+        data.innerMessage = msg;
         data.showName = YES;
-        if (data) {
-            data.innerMessage = msg;
-            data.msgID = msg.msgID;
-            data.identifier = msg.sender;
-            data.name = data.identifier;
-            if (msg.nameCard.length > 0) {
-                data.name = msg.nameCard;
-            } else if (msg.nickName.length > 0) {
-                data.name = msg.nickName;
-            }
-            data.avatarUrl = [NSURL URLWithString:msg.faceURL];
-            [uiMsgs addObject:data];
-        }
+        [uiMsgs addObject:data];
     }
     return uiMsgs;
 }
@@ -262,10 +259,10 @@
         [self showFileMessage:(TUIFileMessageCell *)cell];
     }
     if ([cell isKindOfClass:[TUIMergeMessageCell class]]) {
-        TUIMergeMessageListController *relayVc = [[TUIMergeMessageListController alloc] init];
-        relayVc.mergerElem = [(TUIMergeMessageCell *)cell relayData].mergerElem;
-        relayVc.delegate = self.delegate;
-        [self.navigationController pushViewController:relayVc animated:YES];
+        TUIMergeMessageListController *mergeVc = [[TUIMergeMessageListController alloc] init];
+        mergeVc.mergerElem = [(TUIMergeMessageCell *)cell mergeData].mergerElem;
+        mergeVc.delegate = self.delegate;
+        [self.navigationController pushViewController:mergeVc animated:YES];
     }
     if ([cell isKindOfClass:[TUILinkCell class]]) {
         [self showLinkMessage:(TUILinkCell *)cell];
@@ -282,6 +279,20 @@
     }
 }
 
+
+- (BOOL)checkIfMessageExistsInLocal:(V2TIMMessage *)locateMessage {
+    NSInteger index = 0;
+    for (TUIMessageCellData *uiMsg in self.uiMsgs) {
+        if ([uiMsg.innerMessage.msgID isEqualToString:locateMessage.msgID]) {
+            return YES;
+        }
+        index++;
+    }
+    if (index == self.uiMsgs.count) {
+        return NO;
+    }
+    return NO;
+}
 - (void)scrollToLocateMessage:(V2TIMMessage *)locateMessage matchKeyword:(NSString *)msgAbstract {
     CGFloat offsetY = 0;
     NSInteger index = 0;
@@ -362,30 +373,50 @@
         msgAbstract = cellData.msgAbstract;
     }
 
-    [(TUIMessageSearchDataProvider *)self.msgDataProvider
-        findMessages:@[ originMsgID ?: @"" ]
-            callback:^(BOOL success, NSString *_Nonnull desc, NSArray<V2TIMMessage *> *_Nonnull msgs) {
-              if (!success) {
-                  [TUITool makeToast:TIMCommonLocalizableString(TUIKitReplyMessageNotFoundOriginMessage)];
-                  return;
-              }
-              V2TIMMessage *message = msgs.firstObject;
-              if (message == nil) {
-                  [TUITool makeToast:TIMCommonLocalizableString(TUIKitReplyMessageNotFoundOriginMessage)];
-                  return;
-              }
+    
+    TUIMessageCellData *originMemoryMessageData = nil;
+    for (TUIMessageCellData *uiMsg in self.uiMsgs) {
+        if ([uiMsg.innerMessage.msgID isEqualToString:originMsgID]) {
+            originMemoryMessageData = uiMsg;
+            break;
+        }
+    }
+    
+    if (originMemoryMessageData && [cell isKindOfClass:TUIReplyMessageCell.class]) {
+        [self onJumpToRepliesDetailPage:originMemoryMessageData];
+    }
+    else {
+        [(TUIMessageSearchDataProvider *)self.msgDataProvider
+            findMessages:@[ originMsgID ?: @"" ]
+                callback:^(BOOL success, NSString *_Nonnull desc, NSArray<V2TIMMessage *> *_Nonnull msgs) {
+                  if (!success) {
+                      [TUITool makeToast:TIMCommonLocalizableString(TUIKitReplyMessageNotFoundOriginMessage)];
+                      return;
+                  }
+                  V2TIMMessage *message = msgs.firstObject;
+                  if (message == nil) {
+                      [TUITool makeToast:TIMCommonLocalizableString(TUIKitReplyMessageNotFoundOriginMessage)];
+                      return;
+                  }
 
-              if (message.status == V2TIM_MSG_STATUS_HAS_DELETED || message.status == V2TIM_MSG_STATUS_LOCAL_REVOKED) {
-                  [TUITool makeToast:TIMCommonLocalizableString(TUIKitReplyMessageNotFoundOriginMessage)];
-                  return;
-              }
+                  if (message.status == V2TIM_MSG_STATUS_HAS_DELETED || message.status == V2TIM_MSG_STATUS_LOCAL_REVOKED) {
+                      [TUITool makeToast:TIMCommonLocalizableString(TUIKitReplyMessageNotFoundOriginMessage)];
+                      return;
+                  }
 
-              if ([cell isKindOfClass:TUIReplyMessageCell.class]) {
-                  [self jumpDetailPageByMessage:message];
-              } else if ([cell isKindOfClass:TUIReferenceMessageCell.class]) {
-                  [self scrollToLocateMessage:message matchKeyword:msgAbstract];
-              }
-            }];
+                  if ([cell isKindOfClass:TUIReplyMessageCell.class]) {
+                      [self jumpDetailPageByMessage:message];
+                  } else if ([cell isKindOfClass:TUIReferenceMessageCell.class]) {                      
+                      BOOL existInLocal = [self checkIfMessageExistsInLocal:message];
+                      if (!existInLocal) {
+                          [TUITool makeToast:TIMCommonLocalizableString(TUIKitReplyMessageNotFoundOriginMessage)];
+                          return;
+                      }
+                      [self scrollToLocateMessage:message matchKeyword:msgAbstract];
+                  }
+                }];
+    }
+
 }
 
 - (void)jumpDetailPageByMessage:(V2TIMMessage *)message {
@@ -511,4 +542,58 @@
     }
 }
 
+#pragma mark - TUINotificationProtocol
+- (void)onNotifyEvent:(NSString *)key subKey:(NSString *)subKey object:(id)anObject param:(NSDictionary *)param {
+    if ([key isEqualToString:TUICore_TUIPluginNotify] && [subKey isEqualToString:TUICore_TUIPluginNotify_DidChangePluginViewSubKey]) {
+        TUIMessageCellData *data = param[TUICore_TUIPluginNotify_DidChangePluginViewSubKey_Data];
+        [self.messageCellConfig removeHeightCacheOfMessageCellData:data];
+        [self reloadAndScrollToBottomOfMessage:data.innerMessage.msgID section:0];
+    }
+}
+
+- (void)reloadAndScrollToBottomOfMessage:(NSString *)messageID section:(NSInteger)section {
+    // Dispatch the task to RunLoop to ensure that they are executed after the UITableView refresh is complete.
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self reloadCellOfMessage:messageID section:section];
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [self scrollCellToBottomOfMessage:messageID section:section];
+      });
+    });
+}
+
+- (void)reloadCellOfMessage:(NSString *)messageID section:(NSInteger)section {
+    NSIndexPath *indexPath = [self indexPathOfMessage:messageID section:section];
+
+    // Disable animation when loading to avoid cell jumping.
+    if (indexPath == nil) {
+        return;
+    }
+    [UIView performWithoutAnimation:^{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.tableView reloadRowsAtIndexPaths:@[ indexPath ] withRowAnimation:UITableViewRowAnimationNone];
+        });
+    }];
+}
+
+- (void)scrollCellToBottomOfMessage:(NSString *)messageID section:(NSInteger)section {
+    NSIndexPath *indexPath = [self indexPathOfMessage:messageID section:section];
+
+    // Scroll the tableView only if the bottom of the cell is invisible.
+    CGRect cellRect = [self.tableView rectForRowAtIndexPath:indexPath];
+    CGRect tableViewRect = self.tableView.bounds;
+    BOOL isBottomInvisible = cellRect.origin.y < CGRectGetMaxY(tableViewRect) && CGRectGetMaxY(cellRect) > CGRectGetMaxY(tableViewRect);
+    if (isBottomInvisible) {
+        [self.tableView scrollToRowAtIndexPath:indexPath atScrollPosition:UITableViewScrollPositionBottom animated:YES];
+    }
+}
+
+- (NSIndexPath *)indexPathOfMessage:(NSString *)messageID section:(NSInteger)section {
+    for (int i = 0; i < self.uiMsgs.count; i++) {
+        TUIMessageCellData *data = self.uiMsgs[i];
+        if ([data.innerMessage.msgID isEqualToString:messageID]) {
+            return [NSIndexPath indexPathForRow:i inSection:section];
+        }
+    }
+    return nil;
+}
 @end

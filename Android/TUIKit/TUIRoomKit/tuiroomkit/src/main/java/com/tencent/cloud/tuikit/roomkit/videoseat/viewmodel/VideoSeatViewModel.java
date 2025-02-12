@@ -1,6 +1,6 @@
 package com.tencent.cloud.tuikit.roomkit.videoseat.viewmodel;
 
-import static com.tencent.cloud.tuikit.engine.room.TUIRoomDefine.SpeechMode.SPEAK_AFTER_TAKING_SEAT;
+import static com.tencent.cloud.tuikit.roomkit.model.ConferenceEventCenter.RoomEngineEvent.LOCAL_USER_ENTER_ROOM;
 import static com.tencent.cloud.tuikit.roomkit.videoseat.Constants.ONE_PAGE_MEMBER_COUNT;
 import static com.tencent.cloud.tuikit.roomkit.videoseat.Constants.VOLUME_CAN_HEARD_MIN_LIMIT;
 
@@ -13,12 +13,13 @@ import com.tencent.cloud.tuikit.engine.common.TUIVideoView;
 import com.tencent.cloud.tuikit.engine.room.TUIRoomDefine;
 import com.tencent.cloud.tuikit.engine.room.TUIRoomEngine;
 import com.tencent.cloud.tuikit.engine.room.TUIRoomObserver;
-import com.tencent.cloud.tuikit.roomkit.model.manager.RoomEngineManager;
-import com.tencent.cloud.tuikit.roomkit.videoseat.ui.TUIVideoSeatView;
-import com.tencent.cloud.tuikit.roomkit.videoseat.ui.utils.UserListSorter;
-import com.tencent.cloud.tuikit.roomkit.videoseat.ui.view.ScaleVideoView;
+import com.tencent.cloud.tuikit.roomkit.model.ConferenceEventCenter;
+import com.tencent.cloud.tuikit.roomkit.model.manager.ConferenceController;
 import com.tencent.cloud.tuikit.roomkit.videoseat.Constants;
+import com.tencent.cloud.tuikit.roomkit.videoseat.ui.TUIVideoSeatView;
+import com.tencent.cloud.tuikit.roomkit.videoseat.ui.view.ConferenceVideoView;
 import com.tencent.qcloud.tuicore.TUICore;
+import com.tencent.qcloud.tuicore.TUILogin;
 import com.tencent.qcloud.tuicore.interfaces.ITUINotification;
 
 import java.util.ArrayList;
@@ -27,8 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatViewModel, ITUINotification {
+public class VideoSeatViewModel extends TUIRoomObserver
+        implements IVideoSeatViewModel, ITUINotification, ConferenceEventCenter.RoomEngineEventResponder {
     private static final String TAG = "VideoSeatViewModel";
+    private static final String ROOM_KIT_EVENT = "ROOM_KIT_EVENT";
 
     private static final int SMALL_STREAM_CONDITION_USERS_NUM = 5;
 
@@ -48,46 +51,86 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
 
     private boolean mIsTwoPersonVideoMeeting = false;
 
-    private TUIRoomEngine            mRoomEngine;
-    private TUIRoomDefine.SpeechMode mSpeechMode;
+    private TUIRoomEngine mRoomEngine;
+    private boolean       mIsSeatEnabled = true;
 
     private TUIRoomDefine.VideoStreamType mRemoteCameraStreamType = TUIRoomDefine.VideoStreamType.CAMERA_STREAM;
 
     public VideoSeatViewModel(Context context, TUIVideoSeatView videoSeatView) {
+        Log.d(TAG, "new : " + this);
         mContext = context;
         mVideoSeatView = videoSeatView;
-        mRoomEngine = RoomEngineManager.sharedInstance().getRoomEngine();
-        mSelfUserId = TUIRoomEngine.getSelfInfo().userId;
+        mRoomEngine = ConferenceController.sharedInstance().getRoomEngine();
+        mSelfUserId = TUILogin.getUserId();
 
         mRoomEngine.addObserver(this);
         mVideoSeatView.setMemberEntityList(mUserEntityList);
         fetchUserList();
-        TUICore.registerEvent("RoomKitEvent", "ENTER_FLOAT_WINDOW", this);
-    }
-
-    @Override
-    public void setLocalVideoView(UserEntity selfEntity) {
-        if (selfEntity == null || selfEntity.getRoomVideoView() == mLocalPreview
-                || selfEntity.isScreenShareAvailable()) {
-            return;
-        }
-        mLocalPreview = selfEntity.getRoomVideoView();
-        Log.d(TAG, "setLocalVideoView userName=" + selfEntity.getUserName() + " mLocalPreview=" + mLocalPreview);
-        mRoomEngine.setLocalVideoView(TUIRoomDefine.VideoStreamType.CAMERA_STREAM, mLocalPreview);
+        TUICore.registerEvent(ROOM_KIT_EVENT, "ENTER_FLOAT_WINDOW", this);
+        ConferenceEventCenter.getInstance().subscribeEngine(LOCAL_USER_ENTER_ROOM, this);
     }
 
     @Override
     public void destroy() {
-        TUICore.unRegisterEvent("RoomKitEvent", "ENTER_FLOAT_WINDOW", this);
+        Log.d(TAG, "destroy : " + this);
+        TUICore.unRegisterEvent(ROOM_KIT_EVENT, "ENTER_FLOAT_WINDOW", this);
         mRoomEngine.removeObserver(this);
         mUserEntityList.clear();
         mUserEntityMap.clear();
+        ConferenceEventCenter.getInstance().unsubscribeEngine(LOCAL_USER_ENTER_ROOM, this);
+    }
+
+    @Override
+    public void onEngineEvent(ConferenceEventCenter.RoomEngineEvent event, Map<String, Object> params) {
+        if (event == LOCAL_USER_ENTER_ROOM) {
+            fetchUserList();
+        }
+    }
+
+    @Override
+    public void setLocalVideoView(UserEntity selfEntity) {
+        if (selfEntity == null) {
+            return;
+        }
+        Log.d(TAG, "setLocalVideoView userId=" + selfEntity.getUserId() + " isCameraAvailable=" + selfEntity.isCameraAvailable());
+        mRoomEngine.setLocalVideoView(selfEntity.isCameraAvailable() ? selfEntity.getRoomVideoView() : null);
+        notifyUserVideoVisibilityStageChanged(selfEntity.getUserId());
+    }
+
+    @Override
+    public void toggleScreenSizeOnDoubleClick(int position) {
+        Log.d(TAG, "toggleScreenSizeOnDoubleClick position=" + position);
+        UserEntity firstUser = mUserEntityList.get(0);
+        if (position == 0) {
+            if (firstUser.isSelected()) {
+                handleUserSelectStateChanged(firstUser);
+            } else {
+                firstUser.setSelected(true);
+            }
+            notifyUiForUserListChanged();
+            return;
+        }
+
+        UserEntity curUser = mUserEntityList.get(position);
+        if (firstUser.isSelected()) {
+            handleUserSelectStateChanged(firstUser);
+        }
+        handleUserSelectStateChanged(curUser);
+        notifyUiForUserListChanged();
+        mVideoSeatView.enableSpeakerMode(true);
+    }
+
+    private void handleUserSelectStateChanged(UserEntity user) {
+        user.setSelected(!user.isSelected());
+        int fromIndex = mUserListSorter.removeUser(mUserEntityList, user);
+        int toIndex = mUserListSorter.insertUser(mUserEntityList, user);
+        mVideoSeatView.notifyItemMoved(fromIndex, toIndex);
     }
 
     @Override
     public void startPlayVideo(String userId, TUIVideoView videoView, boolean isSharingScreen) {
         UserEntity entity = mUserEntityMap.get(userId);
-        if (entity == null) {
+        if (entity == null || entity.isVideoPlaying()) {
             return;
         }
         TUIRoomDefine.VideoStreamType videoStreamType =
@@ -98,21 +141,7 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         mRoomEngine.setRemoteVideoView(realUserId, videoStreamType, videoView);
         Log.d(TAG, "startPlayRemoteVideo userId=" + userId + " videoStreamType=" + videoStreamType + " userName="
                 + entity.getUserName());
-        mRoomEngine.startPlayRemoteVideo(realUserId, videoStreamType, new TUIRoomDefine.PlayCallback() {
-            @Override
-            public void onPlaying(String s) {
-                Log.d(TAG, "startPlayRemoteVideo onPlaying userId=" + userId + " videoStreamType=" + videoStreamType);
-            }
-
-            @Override
-            public void onLoading(String s) {
-            }
-
-            @Override
-            public void onPlayError(String s, TUICommonDefine.Error error, String s1) {
-                Log.e(TAG, "on play error s=" + s + " error=" + error + " s1=" + s1);
-            }
-        });
+        mRoomEngine.startPlayRemoteVideo(realUserId, videoStreamType, null);
         entity.setVideoPlaying(true);
         notifyUserVideoVisibilityStageChanged(userId);
     }
@@ -120,7 +149,7 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
     @Override
     public void stopPlayVideo(String userId, boolean isSharingScreen, boolean isStreamStop) {
         UserEntity entity = mUserEntityMap.get(userId);
-        if (entity == null) {
+        if (entity == null || !entity.isVideoPlaying()) {
             return;
         }
         TUIRoomDefine.VideoStreamType videoStreamType = entity.getVideoStreamType();
@@ -139,7 +168,7 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
             Log.w(TAG, "notifyUserVideoStageChanged entity is null");
             return;
         }
-        mVideoSeatView.notifyItemVideoVisibilityStageChanged(mUserEntityList.indexOf(entity));
+        mVideoSeatView.notifyItemVideoVisibilityStageChanged(entity);
     }
 
     @Override
@@ -168,17 +197,37 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         notifyUiForUserListChanged();
     }
 
+    @Override
+    public void onUserInfoChanged(TUIRoomDefine.UserInfo userInfo, List<TUIRoomDefine.UserInfoModifyFlag> modifyFlag) {
+        Log.d(TAG, "onUserInfoChanged userId=" + userInfo.userId);
+        UserEntity userEntity = mUserEntityMap.get(userInfo.userId);
+        if (userEntity == null) {
+            Log.w(TAG, "onUserInfoChanged userId is not record.");
+            return;
+        }
+        if (modifyFlag.contains(TUIRoomDefine.UserInfoModifyFlag.NAME_CARD)) {
+            userEntity.setUserName(userInfo.nameCard);
+            mVideoSeatView.notifyDataSetChanged();
+        }
+        if (modifyFlag.contains(TUIRoomDefine.UserInfoModifyFlag.USER_ROLE)) {
+            userEntity.setRole(userInfo.userRole);
+            notifyUiForUserListChanged();
+            mVideoSeatView.notifyDataSetChanged();
+        }
+    }
+
     private void handleUserScreenSharingChanged(String userId, boolean available) {
         UserEntity entity = mUserEntityMap.get(userId);
         if (entity == null) {
             return;
         }
         if (available) {
-            if (mLatestSpeakerMode != Constants.SPEAKER_MODE_NONE) {
+            if (mLatestSpeakerMode == Constants.SPEAKER_MODE_SCREEN_SHARING) {
                 Log.w(TAG, "Screen sharing is started");
                 return;
             }
-            separateScreenShareUser(entity);
+            UserEntity shareUser = separateScreenShareUser(entity);
+            startPlayVideo(shareUser.getUserId(), shareUser.getRoomVideoView(), true);
             return;
         }
 
@@ -193,8 +242,13 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         entity.setCameraAvailable(available);
         entity.setVideoAvailable(available);
         updateRemoteVideoStreamType();
-        int position = mUserEntityList.indexOf(entity);
-        mVideoSeatView.notifyItemVideoSwitchStageChanged(position);
+        int fromPosition = mUserEntityList.indexOf(entity);
+        mVideoSeatView.notifyItemVideoSwitchStageChanged(fromPosition);
+        mUserListSorter.sortList(mUserEntityList);
+        int toPosition = mUserEntityList.indexOf(entity);
+        if (fromPosition != toPosition) {
+            mVideoSeatView.notifySortMove(fromPosition, toPosition);
+        }
         mUserListSorter.sortForCameraStateChangedIfNeeded(mUserEntityList, entity);
     }
 
@@ -219,7 +273,13 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
             return;
         }
         entity.setAudioAvailable(hasAudio);
-        mVideoSeatView.notifyItemAudioStateChanged(mUserEntityList.indexOf(entity));
+        int fromPosition = mUserEntityList.indexOf(entity);
+        mVideoSeatView.notifyItemAudioStateChanged(fromPosition);
+        mUserListSorter.sortList(mUserEntityList);
+        int toPosition = mUserEntityList.indexOf(entity);
+        if (fromPosition != toPosition) {
+            mVideoSeatView.notifySortMove(fromPosition, toPosition);
+        }
     }
 
     @Override
@@ -249,12 +309,12 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
                                   List<TUIRoomDefine.SeatInfo> userLeftList) {
         Log.d(TAG, "onSeatListChanged");
         removeLeftUsers(userLeftList);
-        addNewUsers(userSeatedList);
+        addNewUsers(userSeatedList, false);
     }
 
     @Override
     public void onRemoteUserEnterRoom(String roomId, TUIRoomDefine.UserInfo userInfo) {
-        if (isSpeakAfterTakingSeat()) {
+        if (isSeatEnable()) {
             return;
         }
         Log.d(TAG, "onRemoteUserEnterRoom userId=" + userInfo.userId + " userName=" + userInfo.userName + " videoOn="
@@ -266,7 +326,7 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
 
     @Override
     public void onRemoteUserLeaveRoom(String roomId, TUIRoomDefine.UserInfo userInfo) {
-        if (isSpeakAfterTakingSeat()) {
+        if (isSeatEnable()) {
             return;
         }
         Log.d(TAG, "onRemoteUserLeaveRoom userId=" + userInfo.userId + " userName=" + userInfo.userName + " videoOn="
@@ -276,20 +336,10 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         notifyUiForUserListChanged();
     }
 
-    @Override
-    public void onUserRoleChanged(String userId, TUIRoomDefine.Role userRole) {
-        Log.d(TAG, "onUserRoleChanged userId=" + userId + " userRole=" + userRole);
-        UserEntity userEntity = mUserEntityMap.get(userId);
-        if (userEntity == null) {
-            Log.w(TAG, "onUserRoleChanged userId is not record.");
+    private void fetchUserList() {
+        if (TextUtils.isEmpty(ConferenceController.sharedInstance().getConferenceState().roomInfo.roomId)) {
             return;
         }
-        userEntity.setRole(userRole);
-        notifyUiForUserListChanged();
-        mVideoSeatView.notifyDataSetChanged();
-    }
-
-    private void fetchUserList() {
         Log.d(TAG, "fetchRoomInfo");
         mRoomEngine.fetchRoomInfo(new TUIRoomDefine.GetRoomInfoCallback() {
             @Override
@@ -298,9 +348,9 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
                     Log.e(TAG, "fetchRoomInfo onSuccess roomInfo is null");
                     return;
                 }
-                mSpeechMode = roomInfo.speechMode;
-                Log.d(TAG, "fetchRoomInfo onSuccess speechMode=" + roomInfo.speechMode);
-                if (isSpeakAfterTakingSeat()) {
+                mIsSeatEnabled = roomInfo.isSeatEnabled;
+                Log.d(TAG, "fetchRoomInfo onSuccess isSeatEnabled=" + roomInfo.isSeatEnabled);
+                if (isSeatEnable()) {
                     getSeatList();
                 } else {
                     getUserList();
@@ -312,11 +362,10 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
                 Log.e(TAG, "fetchRoomInfo error=" + error + "  s=" + s);
             }
         });
-
     }
 
-    private boolean isSpeakAfterTakingSeat() {
-        return mSpeechMode == SPEAK_AFTER_TAKING_SEAT;
+    private boolean isSeatEnable() {
+        return mIsSeatEnabled;
     }
 
     private void getSeatList() {
@@ -325,7 +374,7 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
             @Override
             public void onSuccess(List<TUIRoomDefine.SeatInfo> list) {
                 Log.d(TAG, "getSeatList onSuccess size=" + list.size());
-                addNewUsers(list);
+                addNewUsers(list, true);
             }
 
             @Override
@@ -346,8 +395,8 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
                 if (mNextSequence != 0) {
                     getUserList();
                 } else {
-                    startPlayVideoAfterEnterRoomCompleted();
                     notifyUiForUserListChanged();
+                    startPlayVideoAfterEnterRoomCompleted();
                 }
             }
 
@@ -358,18 +407,18 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         });
     }
 
-    private void separateScreenShareUser(UserEntity entity) {
+    private UserEntity separateScreenShareUser(UserEntity entity) {
         entity.setScreenShareAvailable(false);
         entity.setVideoAvailable(entity.isCameraAvailable());
         UserEntity shareUserEntity = entity.copy();
-        final ScaleVideoView roomVideoView = new ScaleVideoView(mContext);
-        roomVideoView.enableScale(true);
+        final ConferenceVideoView roomVideoView = new ConferenceVideoView(mContext);
         shareUserEntity.setRoomVideoView(roomVideoView);
         shareUserEntity.setCameraAvailable(false);
         shareUserEntity.setScreenShareAvailable(true);
         shareUserEntity.setVideoAvailable(true);
         shareUserEntity.setUserId(entity.getUserId() + "-sub");
         addMemberEntity(shareUserEntity);
+        return shareUserEntity;
     }
 
     private void addNewFreeUsers(List<TUIRoomDefine.UserInfo> addList) {
@@ -385,15 +434,13 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
     private UserEntity getNewFreeUser(TUIRoomDefine.UserInfo userInfo) {
         UserEntity entity = new UserEntity();
         entity.setUserId(userInfo.userId);
-        final TUIVideoView roomVideoView = new TUIVideoView(mContext);
+        final ConferenceVideoView roomVideoView = new ConferenceVideoView(mContext);
         roomVideoView.setUserId(userInfo.userId);
         entity.setRoomVideoView(roomVideoView);
         if (userInfo.userId.equals(mSelfUserId)) {
             entity.setSelf(true);
-            // 刚进房时，sdk 可能不回调自己视频已打开的信息
-            setLocalVideoView(entity);
         }
-        entity.setUserName(userInfo.userName);
+        entity.setUserName(TextUtils.isEmpty(userInfo.nameCard) ? userInfo.userName : userInfo.nameCard);
         entity.setUserAvatar(userInfo.avatarUrl);
         entity.setRole(userInfo.userRole);
         entity.setAudioAvailable(userInfo.hasAudioStream);
@@ -414,7 +461,7 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         }
     }
 
-    private void addNewUsers(List<TUIRoomDefine.SeatInfo> addList) {
+    private void addNewUsers(List<TUIRoomDefine.SeatInfo> addList, boolean needStartPlayVideo) {
         if (addList.isEmpty()) {
             return;
         }
@@ -423,6 +470,10 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         for (TUIRoomDefine.SeatInfo info : addList) {
             final UserEntity entity = createUserEntity(info);
             Log.d(TAG, "addNewUsers getUserInfo info.userId=" + info.userId);
+            if (TextUtils.isEmpty(info.userId)) {
+                notifyUiUpdateIfCompleteUserInfoFetch(resultCount, totalCount, needStartPlayVideo);
+                continue;
+            }
             mRoomEngine.getUserInfo(info.userId, new TUIRoomDefine.GetUserInfoCallback() {
                 @Override
                 public void onSuccess(TUIRoomDefine.UserInfo userInfo) {
@@ -433,13 +484,13 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
                         separateScreenShareUser(entity);
                     }
                     addMemberEntity(entity);
-                    notifyUiUpdateIfCompleteUserInfoFetch(resultCount, totalCount);
+                    notifyUiUpdateIfCompleteUserInfoFetch(resultCount, totalCount, needStartPlayVideo);
                 }
 
                 @Override
                 public void onError(TUICommonDefine.Error error, String s) {
                     Log.e(TAG, "addNewUsers onError info.userId=" + info.userId + " error=" + error + " s=" + s);
-                    notifyUiUpdateIfCompleteUserInfoFetch(resultCount, totalCount);
+                    notifyUiUpdateIfCompleteUserInfoFetch(resultCount, totalCount, needStartPlayVideo);
                 }
             });
         }
@@ -448,19 +499,17 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
     private UserEntity createUserEntity(TUIRoomDefine.SeatInfo info) {
         UserEntity entity = new UserEntity();
         entity.setUserId(info.userId);
-        final TUIVideoView roomVideoView = new TUIVideoView(mContext);
+        final ConferenceVideoView roomVideoView = new ConferenceVideoView(mContext);
         roomVideoView.setUserId(info.userId);
         entity.setRoomVideoView(roomVideoView);
         if (info.userId.equals(mSelfUserId)) {
             entity.setSelf(true);
-            // 刚进房时，sdk 可能不回调自己视频已打开的信息
-            setLocalVideoView(entity);
         }
         return entity;
     }
 
     private void updateUserEntity(UserEntity entity, TUIRoomDefine.UserInfo userInfo) {
-        entity.setUserName(userInfo.userName);
+        entity.setUserName(TextUtils.isEmpty(userInfo.nameCard) ? userInfo.userName : userInfo.nameCard);
         entity.setUserAvatar(userInfo.avatarUrl);
         entity.setRole(userInfo.userRole);
         entity.setAudioAvailable(userInfo.hasAudioStream);
@@ -469,34 +518,27 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         entity.setVideoAvailable(entity.isScreenShareAvailable() || entity.isCameraAvailable());
     }
 
-    private void notifyUiUpdateIfCompleteUserInfoFetch(AtomicInteger resultCount, int totalCount) {
+    private void notifyUiUpdateIfCompleteUserInfoFetch(AtomicInteger resultCount, int totalCount,
+                                                       boolean needStartPlayVideo) {
         resultCount.addAndGet(1);
         if (resultCount.get() < totalCount) {
             return;
         }
         notifyUiForUserListChanged();
-        startPlayVideoAfterEnterRoomCompleted();
+        if (needStartPlayVideo) {
+            startPlayVideoAfterEnterRoomCompleted();
+        }
     }
 
     private void startPlayVideoAfterEnterRoomCompleted() {
         if (mUserEntityList.isEmpty()) {
             return;
         }
+        updateRemoteVideoStreamType();
         int minVisibleUserIndex = 0;
-        int maxVisibleUserIndex = Math.min(mUserEntityList.size(), ONE_PAGE_MEMBER_COUNT);
+        int maxVisibleUserIndex = Math.min(mUserEntityList.size() - 1, ONE_PAGE_MEMBER_COUNT - 1);
         maxVisibleUserIndex = mLatestSpeakerMode == Constants.SPEAKER_MODE_NONE ? maxVisibleUserIndex : 0;
-        for (int i = minVisibleUserIndex; i < maxVisibleUserIndex; i++) {
-            UserEntity userEntity = mUserEntityList.get(i);
-            if (userEntity == null || !userEntity.isVideoAvailable()) {
-                continue;
-            }
-            if (userEntity.isSelf()) {
-                setLocalVideoView(userEntity);
-            } else {
-                startPlayVideo(userEntity.getUserId(), userEntity.getRoomVideoView(),
-                        userEntity.isScreenShareAvailable());
-            }
-        }
+        mVideoSeatView.processVideoPlay(minVisibleUserIndex, maxVisibleUserIndex);
     }
 
     private void notifyUiForUserListChanged() {
@@ -526,9 +568,9 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
     }
 
     /**
-     * newSpeakerMode 和 oldSpeakerMode 有 SPEAKER_MODE_NONE，SPEAKER_MODE_NONE，SPEAKER_MODE_PERSONAL_SPEECH 三种，分别值 0， 1，2.
-     * new 和 old 可以凑成 9 种组合，多对一映射到演讲者模式的三种操作：保持现状(keep)、关闭(off)、打开(on)；
-     * 当从屏幕分享切到个人演讲时，也需要重新打开演讲者模式，目的是刷新屏幕，从 Adapter 读取新的数据。
+     * newSpeakerMode and oldSpeakerMode have three types: SPEAKER_MODE_NONE, SPEAKER_MODE_NONE and SPEAKER_MODE_PERSONAL_SPEECH, with values 0, 1 and 2 respectively.
+     * New and old can be combined into 9 combinations, many-to-one mapping to the three operations of speaker mode: keep, close, and open;
+     * When switching from screen sharing to personal speech, the speaker mode also needs to be re-opened in order to refresh the screen and read new data from the Adapter.
      *
      * o\n  0     1     2
      * 0    keep  on    on
@@ -545,11 +587,14 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
     }
 
     private @Constants.SpeakerMode int getSpeakerModeFromData() {
-        if (mUserListSorter.isSpeakerOfScreenSharing(mUserEntityList)) {
-            return Constants.SPEAKER_MODE_SCREEN_SHARING;
-        }
         if (mUserEntityList.size() < Constants.SPEAKER_MODE_MEMBER_MIN_LIMIT) {
             return Constants.SPEAKER_MODE_NONE;
+        }
+        if (mUserListSorter.isSpeakerOfSelected(mUserEntityList)) {
+            return Constants.SPEAKER_MODE_SELECTED;
+        }
+        if (mUserListSorter.isSpeakerOfScreenSharing(mUserEntityList)) {
+            return Constants.SPEAKER_MODE_SCREEN_SHARING;
         }
         if (mUserListSorter.isSpeakerOfPersonalVideoShow(mUserEntityList)) {
             return Constants.SPEAKER_MODE_PERSONAL_VIDEO_SHOW;
@@ -580,16 +625,14 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
         if (!mUserEntityList.get(0).isVideoAvailable() && !mUserEntityList.get(1).isVideoAvailable()) {
             return false;
         }
-        if (mUserEntityList.get(0).isScreenShareAvailable() || mUserEntityList.get(1).isScreenShareAvailable()) {
-            return false;
-        }
         return true;
     }
 
     @Override
     public void onNotifyEvent(String key, String subKey, Map<String, Object> param) {
         Log.d(TAG, "onNotifyEvent key=" + key + " subKey=" + subKey);
-        if (TextUtils.equals("RoomKitEvent", key) && TextUtils.equals("ENTER_FLOAT_WINDOW", subKey)) {
+        if (TextUtils.equals(ROOM_KIT_EVENT, key) && TextUtils.equals("ENTER_FLOAT_WINDOW", subKey)) {
+            ConferenceController.sharedInstance().setLocalVideoView(null);
             stopAllRemoteVideo();
             return;
         }
@@ -598,6 +641,7 @@ public class VideoSeatViewModel extends TUIRoomObserver implements IVideoSeatVie
     private void stopAllRemoteVideo() {
         for (UserEntity item : mUserEntityList) {
             if (item.isVideoPlaying() && !item.isSelf()) {
+                ConferenceController.sharedInstance().setRemoteVideoView(item.getUserId(), item.getVideoStreamType(), null);
                 stopPlayVideo(item.getUserId(), false, false);
             }
         }

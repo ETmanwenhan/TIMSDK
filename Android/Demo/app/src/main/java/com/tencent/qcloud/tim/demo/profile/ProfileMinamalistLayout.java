@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -33,10 +32,11 @@ import com.tencent.qcloud.tim.demo.main.MainActivity;
 import com.tencent.qcloud.tim.demo.main.MainMinimalistActivity;
 import com.tencent.qcloud.tim.demo.utils.Constants;
 import com.tencent.qcloud.tim.demo.utils.DemoLog;
-import com.tencent.qcloud.tim.demo.utils.TUIKitConstants;
+import com.tencent.qcloud.tim.demo.utils.ProfileUtil;
 import com.tencent.qcloud.tuicore.TUIConfig;
 import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuicore.TUICore;
+import com.tencent.qcloud.tuicore.TUILogin;
 import com.tencent.qcloud.tuicore.TUIThemeManager;
 import com.tencent.qcloud.tuicore.interfaces.TUIExtensionInfo;
 import com.tencent.qcloud.tuicore.util.ErrorMessageConverter;
@@ -50,9 +50,11 @@ import com.tencent.qcloud.tuikit.timcommon.util.ScreenUtil;
 import com.tencent.qcloud.tuikit.tuichat.config.TUIChatConfigs;
 import com.tencent.qcloud.tuikit.tuicontact.TUIContactService;
 import com.tencent.qcloud.tuikit.tuicontact.config.TUIContactConfig;
+import com.tencent.qcloud.tuikit.tuicontact.config.minimalistui.TUIContactConfigMinimalist;
 import com.tencent.qcloud.tuikit.tuicontact.interfaces.ContactEventListener;
 import com.tencent.qcloud.tuikit.tuiconversation.TUIConversationService;
 import com.tencent.qcloud.tuikit.tuiconversation.config.TUIConversationConfig;
+import com.tencent.qcloud.tuikit.tuiconversation.config.minimalistui.TUIConversationConfigMinimalist;
 import com.tencent.qcloud.tuikit.tuiconversation.interfaces.ConversationEventListener;
 
 import java.util.ArrayList;
@@ -93,8 +95,6 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
     private String mSignature;
     private String mNickName;
 
-    private int count = 0;
-    private long lastClickTime = 0;
     private V2TIMSDKListener v2TIMSDKListener = null;
 
     private ImageView homeView;
@@ -192,14 +192,14 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
         showRecentCalls.setCheckListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                SPUtils.getInstance(Constants.DEMO_SETTING_SP_NAME).put(TUIKitConstants.MINIMALIST_RECENT_CALLS_ENABLE, isChecked, true);
+                SPUtils.getInstance(Constants.DEMO_SETTING_SP_NAME).put(Constants.MINIMALIST_RECENT_CALLS_ENABLE, isChecked, true);
                 Intent intent = new Intent();
-                intent.setAction(TUIKitConstants.RECENT_CALLS_ENABLE_ACTION);
-                intent.putExtra(TUIKitConstants.MINIMALIST_RECENT_CALLS_ENABLE, isChecked);
+                intent.setAction(Constants.RECENT_CALLS_ENABLE_ACTION);
+                intent.putExtra(Constants.MINIMALIST_RECENT_CALLS_ENABLE, isChecked);
                 LocalBroadcastManager.getInstance(getContext()).sendBroadcast(intent);
             }
         });
-        boolean isEnableRecentCalls = SPUtils.getInstance(Constants.DEMO_SETTING_SP_NAME).getBoolean(TUIKitConstants.MINIMALIST_RECENT_CALLS_ENABLE, true);
+        boolean isEnableRecentCalls = SPUtils.getInstance(Constants.DEMO_SETTING_SP_NAME).getBoolean(Constants.MINIMALIST_RECENT_CALLS_ENABLE, true);
         showRecentCalls.setChecked(isEnableRecentCalls);
 
         changeStyleView = selectStyleView.findViewById(R.id.select_style);
@@ -237,10 +237,10 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
 
         userStatusSwitch = statusView.findViewById(R.id.user_status_switch);
         userStatusSubTitle = statusView.findViewById(R.id.user_status_subtitle);
-        boolean userStatus = mSharedPreferences.getBoolean(Constants.DEMO_SP_KEY_USER_STATUS, false);
+        boolean userStatus = mSharedPreferences.getBoolean(Constants.DEMO_SP_KEY_USER_STATUS, TUIConversationConfigMinimalist.isShowUserOnlineStatusIcon());
         userStatusSwitch.setChecked(userStatus);
-        TUIConversationConfig.getInstance().setShowUserStatus(userStatus);
-        TUIContactConfig.getInstance().setShowUserStatus(userStatus);
+        TUIConversationConfigMinimalist.setShowUserOnlineStatusIcon(userStatus);
+        TUIContactConfigMinimalist.setShowUserOnlineStatusIcon(userStatus);
         userStatusSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -251,32 +251,41 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
                     userStatusSubTitle.setText(getResources().getString(R.string.demo_user_status_switch_off_text));
                 }
 
-                TUIConversationConfig.getInstance().setShowUserStatus(isChecked);
-                TUIContactConfig.getInstance().setShowUserStatus(isChecked);
+                TUIConversationConfigMinimalist.setShowUserOnlineStatusIcon(isChecked);
+                TUIContactConfigMinimalist.setShowUserOnlineStatusIcon(isChecked);
                 mSharedPreferences.edit().putBoolean(Constants.DEMO_SP_KEY_USER_STATUS, isChecked).commit();
                 refreshFragmentUI();
             }
         });
 
-        String selfUserID = V2TIMManager.getInstance().getLoginUser();
+        String selfUserID = TUILogin.getLoginUser();
 
         accountView.setText(selfUserID);
-        List<String> selfIdList = new ArrayList<>();
-        selfIdList.add(selfUserID);
-        V2TIMManager.getInstance().getUsersInfo(selfIdList, new V2TIMValueCallback<List<V2TIMUserFullInfo>>() {
-            @Override
-            public void onSuccess(List<V2TIMUserFullInfo> v2TIMUserFullInfos) {
-                setUserInfo(v2TIMUserFullInfos.get(0));
-            }
-
-            @Override
-            public void onError(int code, String desc) {}
-        });
+        loadSelfInfo();
         setUserInfoListener();
 
         homeView = findViewById(com.tencent.qcloud.tuikit.tuicontact.R.id.home_rtcube);
         titleView = findViewById(com.tencent.qcloud.tuikit.tuicontact.R.id.title);
         rtCubeTitleView = findViewById(com.tencent.qcloud.tuikit.tuicontact.R.id.title_rtcube);
+    }
+
+    public void loadSelfInfo() {
+        String selfUserID = TUILogin.getLoginUser();
+        List<String> selfIdList = new ArrayList<>();
+        selfIdList.add(selfUserID);
+        V2TIMManager.getInstance().getUsersInfo(selfIdList, new V2TIMValueCallback<List<V2TIMUserFullInfo>>() {
+            @Override
+            public void onSuccess(List<V2TIMUserFullInfo> v2TIMUserFullInfos) {
+                if (v2TIMUserFullInfos != null && !v2TIMUserFullInfos.isEmpty()) {
+                    setUserInfo(v2TIMUserFullInfos.get(0));
+                }
+            }
+
+            @Override
+            public void onError(int code, String desc) {
+                DemoLog.e(TAG, "getUsersInfo failed, code = " + code + ", desc = " + desc);
+            }
+        });
     }
 
     private List<ProfileSetting> getExtensionMoreSettings() {
@@ -301,6 +310,7 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
         mClickListener = listener;
     }
 
+
     public void initUI() {
         if (TUIConfig.getTUIHostType() != TUIConfig.TUI_HOST_TYPE_RTCUBE) {
             homeView.setVisibility(GONE);
@@ -310,13 +320,11 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
             selfDetailArea.setVisibility(VISIBLE);
             aboutIM.setVisibility(VISIBLE);
             logoutButton.setVisibility(VISIBLE);
-            changeThemeView.setVisibility(GONE);
-            changeStyleView.setVisibility(GONE);
         } else {
             homeView.setVisibility(VISIBLE);
             titleView.setVisibility(GONE);
             rtCubeTitleView.setVisibility(VISIBLE);
-            homeView.setBackgroundResource(R.drawable.title_bar_left_icon);
+            homeView.setBackgroundResource(com.tencent.qcloud.tuikit.timcommon.R.drawable.common_title_bar_home_icon);
             homeView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
@@ -329,11 +337,13 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
                 }
             });
 
+            if (AppConfig.RT_CUBE_PACKAGE_NAME.equals(getContext().getPackageName())) {
+                changeStyleView.setVisibility(VISIBLE);
+            }
+
             selfDetailArea.setVisibility(GONE);
             aboutIM.setVisibility(GONE);
             logoutButton.setVisibility(GONE);
-            changeThemeView.setVisibility(GONE);
-            changeStyleView.setVisibility(VISIBLE);
 
             int theme = TUIThemeManager.getInstance().getCurrentTheme();
             if (theme == TUIThemeManager.THEME_LIGHT) {
@@ -346,7 +356,7 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
                 changeThemeView.setContent("");
             }
 
-            if (AppConfig.DEMO_UI_STYLE == 1) {
+            if (AppConfig.DEMO_UI_STYLE == AppConfig.DEMO_UI_STYLE_MINIMALIST) {
                 changeStyleView.setContent(getResources().getString(R.string.style_minimalist));
             } else {
                 changeStyleView.setContent(getResources().getString(R.string.style_classic));
@@ -368,18 +378,10 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
         }
     }
 
-    private void openWebUrl(String url) {
-        Intent intent = new Intent();
-        intent.setAction(Intent.ACTION_VIEW);
-        Uri contentUrl = Uri.parse(url);
-        intent.setData(contentUrl);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(intent);
-    }
-
     private void initMessageReadStatus() {
-        SharedPreferences sharedPreferences = getContext().getSharedPreferences(Constants.DEMO_SETTING_SP_NAME, Context.MODE_PRIVATE );
-        boolean messageReadStatus = sharedPreferences.getBoolean(Constants.DEMO_SP_KEY_MESSAGE_READ_STATUS, false);
+        SharedPreferences sharedPreferences = getContext().getSharedPreferences(Constants.DEMO_SETTING_SP_NAME, Context.MODE_PRIVATE);
+        boolean messageReadStatus = sharedPreferences.getBoolean(Constants.DEMO_SP_KEY_MESSAGE_READ_STATUS,
+                ProfileUtil.DEFAULT_IS_OPEN_MESSAGE_READ_RECEIPT);
         setMessageReadStatus(messageReadStatus, false);
         messageReadStatusSwitch.setChecked(messageReadStatus);
     }
@@ -453,9 +455,9 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
         }
         if (v.getId() == R.id.modify_allow_type) {
             Bundle bundle = new Bundle();
-            bundle.putString(TUIKitConstants.Selection.TITLE, getResources().getString(R.string.add_rule));
-            bundle.putStringArrayList(TUIKitConstants.Selection.LIST, joinTypeTextList);
-            bundle.putInt(TUIKitConstants.Selection.DEFAULT_SELECT_ITEM_INDEX, mJoinTypeIndex);
+            bundle.putString(Constants.Selection.TITLE, getResources().getString(R.string.add_rule));
+            bundle.putStringArrayList(Constants.Selection.LIST, joinTypeTextList);
+            bundle.putInt(Constants.Selection.DEFAULT_SELECT_ITEM_INDEX, mJoinTypeIndex);
             SelectionMinimalistActivity.startListSelection((Activity) getContext(), bundle, new SelectionMinimalistActivity.OnResultReturnListener() {
                 @Override
                 public void onReturn(Object text) {
@@ -492,12 +494,10 @@ public class ProfileMinamalistLayout extends FrameLayout implements View.OnClick
         Intent intent;
         MainActivity.finishMainActivity();
         MainMinimalistActivity.finishMainActivity();
-        if (style == 0) {
+        if (style == AppConfig.DEMO_UI_STYLE_CLASSIC) {
             intent = new Intent(getContext(), MainActivity.class);
-            //            intent.putExtra(Constants.IM_MAIN_ITEM_SELECTED, MainMinimalistActivity.ITEM_TYPE_PROFILE);
         } else {
             intent = new Intent(getContext(), MainMinimalistActivity.class);
-            //            intent.putExtra(Constants.IM_MAIN_ITEM_SELECTED, MainMinimalistActivity.ITEM_TYPE_PROFILE);
         }
 
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

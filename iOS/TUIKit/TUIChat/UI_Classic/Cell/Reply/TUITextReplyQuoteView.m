@@ -37,13 +37,25 @@
         make.edges.mas_equalTo(self);
     }];
 }
+
 - (void)fillWithData:(TUIReplyQuoteViewData *)data {
     [super fillWithData:data];
     if (![data isKindOfClass:TUITextReplyQuoteViewData.class]) {
         return;
     }
     TUITextReplyQuoteViewData *myData = (TUITextReplyQuoteViewData *)data;
-    self.textLabel.attributedText = [myData.text getFormatEmojiStringWithFont:self.textLabel.font emojiLocations:nil];
+    BOOL showRevokeStr = data.originCellData.innerMessage.status == V2TIM_MSG_STATUS_LOCAL_REVOKED &&
+                            !data.showRevokedOriginMessage;
+    if (showRevokeStr) {
+        NSString* revokeStr = data.supportForReply ?
+        TIMCommonLocalizableString(TUIKitRepliesOriginMessageRevoke) :
+        TIMCommonLocalizableString(TUIKitReferenceOriginMessageRevoke);
+        self.textLabel.attributedText = [revokeStr getFormatEmojiStringWithFont:self.textLabel.font emojiLocations:nil];
+    }
+    else {
+        self.textLabel.attributedText = [myData.text getFormatEmojiStringWithFont:self.textLabel.font emojiLocations:nil];
+    }
+
     // tell constraints they need updating
     [self setNeedsUpdateConstraints];
 
@@ -51,7 +63,6 @@
     [self updateConstraintsIfNeeded];
 
     [self layoutIfNeeded];
-
 }
 
 - (void)reset {

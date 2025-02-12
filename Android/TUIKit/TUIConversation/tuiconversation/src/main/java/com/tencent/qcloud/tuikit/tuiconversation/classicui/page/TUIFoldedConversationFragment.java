@@ -13,6 +13,8 @@ import android.widget.ListView;
 import android.widget.PopupWindow;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+
 import com.tencent.qcloud.tuicore.TUIConstants;
 import com.tencent.qcloud.tuicore.TUICore;
 import com.tencent.qcloud.tuicore.interfaces.TUIExtensionEventListener;
@@ -21,7 +23,6 @@ import com.tencent.qcloud.tuikit.timcommon.component.TitleBarLayout;
 import com.tencent.qcloud.tuikit.timcommon.component.action.PopActionClickListener;
 import com.tencent.qcloud.tuikit.timcommon.component.action.PopDialogAdapter;
 import com.tencent.qcloud.tuikit.timcommon.component.action.PopMenuAction;
-import com.tencent.qcloud.tuikit.timcommon.component.fragments.BaseFragment;
 import com.tencent.qcloud.tuikit.timcommon.component.interfaces.ITitleBarLayout;
 import com.tencent.qcloud.tuikit.timcommon.util.ScreenUtil;
 import com.tencent.qcloud.tuikit.tuiconversation.R;
@@ -38,7 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TUIFoldedConversationFragment extends BaseFragment {
+public class TUIFoldedConversationFragment extends Fragment {
     private View mBaseView;
     private TitleBarLayout mTitleBarLayout;
     private FoldedConversationLayout mFoldedLayout;
@@ -53,7 +54,7 @@ public class TUIFoldedConversationFragment extends BaseFragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        mBaseView = inflater.inflate(R.layout.folded_fragment, container, false);
+        mBaseView = inflater.inflate(R.layout.conversation_folded_fragment, container, false);
         initView();
         return mBaseView;
     }
@@ -108,7 +109,7 @@ public class TUIFoldedConversationFragment extends BaseFragment {
     }
 
     private void initPopMenuAction() {
-        // 设置长按conversation显示PopAction
+        
         PopMenuAction action = new PopMenuAction();
         action.setActionName(getResources().getString(R.string.not_display));
         action.setWeight(800);

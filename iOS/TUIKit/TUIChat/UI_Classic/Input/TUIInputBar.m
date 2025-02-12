@@ -3,7 +3,7 @@
 //  UIKit
 //
 //  Created by kennethmiao on 2018/9/18.
-//  Copyright © 2018年 Tencent. All rights reserved.
+//  Copyright © 2018 Tencent. All rights reserved.
 //
 
 #import "TUIInputBar.h"
@@ -19,6 +19,7 @@
 #import <TUICore/UIView+TUILayout.h>
 #import "ReactiveObjC/ReactiveObjC.h"
 #import "TUIAudioRecorder.h"
+#import "TUIChatConfig.h"
 
 @interface TUIInputBar () <UITextViewDelegate, TUIAudioRecorderDelegate>
 @property(nonatomic, strong) TUIRecordView *recordView;
@@ -149,7 +150,7 @@
     }];
 
     [_moreButton mas_remakeConstraints:^(MASConstraintMaker *make) {
-        make.trailing.mas_equalTo(self.mas_trailing).mas_offset(- TTextView_Margin);
+        make.trailing.mas_equalTo(self.mas_trailing).mas_offset(0);
         make.size.mas_equalTo(buttonSize);
         make.centerY.mas_equalTo(self);
     }];
@@ -159,8 +160,8 @@
         make.centerY.mas_equalTo(self);
     }];
     [_recordButton mas_remakeConstraints:^(MASConstraintMaker *make) {
-        make.leading.mas_equalTo(_micButton.mas_trailing);
-        make.trailing.mas_equalTo(_faceButton.mas_leading);
+        make.leading.mas_equalTo(_micButton.mas_trailing).mas_offset(10);
+        make.trailing.mas_equalTo(_faceButton.mas_leading).mas_offset(-10);;
         make.height.mas_equalTo(TTextView_TextView_Height_Min);
         make.centerY.mas_equalTo(self);
     }];
@@ -277,7 +278,7 @@
           [self.recordView removeFromSuperview];
           self.recordView = nil;
         });
-    } else if (interval > 60) {
+    } else if (interval > MIN(59, [TUIChatConfig defaultConfig].maxAudioRecordDuration)) {
         [self.recordView setStatus:Record_Status_TooLong];
         [self.recorder cancel];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -354,7 +355,7 @@
                                                                          strongSelf.allowSendTypingStatusByChangeWord = YES;
                                                                        }];
 
-    if (self.isFocusOn && [textView.textStorage getPlainString].length > 0) {
+    if (self.isFocusOn && [textView.textStorage tui_getPlainString].length > 0) {
         if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldBeginTyping:)]) {
             [_delegate inputTextViewShouldBeginTyping:textView];
         }
@@ -369,17 +370,20 @@
 }
 
 - (void)textViewDidChange:(UITextView *)textView {
-    if (self.allowSendTypingStatusByChangeWord && self.isFocusOn && [textView.textStorage getPlainString].length > 0) {
+    if (self.allowSendTypingStatusByChangeWord && self.isFocusOn && [textView.textStorage tui_getPlainString].length > 0) {
         if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldBeginTyping:)]) {
             self.allowSendTypingStatusByChangeWord = NO;
             [_delegate inputTextViewShouldBeginTyping:textView];
         }
     }
 
-    if (self.isFocusOn && [textView.textStorage getPlainString].length == 0) {
+    if (self.isFocusOn && [textView.textStorage tui_getPlainString].length == 0) {
         if (_delegate && [_delegate respondsToSelector:@selector(inputTextViewShouldEndTyping:)]) {
             [_delegate inputTextViewShouldEndTyping:textView];
         }
+    }
+    if (self.inputBarTextChanged) {
+        self.inputBarTextChanged(_inputTextView);
     }
     CGSize size = [_inputTextView sizeThatFits:CGSizeMake(_inputTextView.frame.size.width, TTextView_TextView_Height_Max)];
     CGFloat oldHeight = _inputTextView.frame.size.height;
@@ -399,16 +403,17 @@
     [UIView animateWithDuration:0.3
                      animations:^{
                        [ws.inputTextView mas_remakeConstraints:^(MASConstraintMaker *make) {
-                         make.leading.mas_equalTo(ws.micButton.mas_trailing);
-                         make.trailing.mas_equalTo(ws.faceButton.mas_leading);
+                         make.leading.mas_equalTo(ws.micButton.mas_trailing).mas_offset(10);
+                         make.trailing.mas_equalTo(ws.faceButton.mas_leading).mas_offset(-10);
                          make.height.mas_equalTo(newHeight);
+                         make.centerY.mas_equalTo(self);
                        }];
                        [ws layoutButton:newHeight + 2 * TTextView_Margin];
                      }];
 }
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
-    if ([text containsString:@"["] && [text containsString:@"]"]) {
+    if ([text tui_containsString:@"["] && [text tui_containsString:@"]"]) {
         NSRange selectedRange = textView.selectedRange;
         if (selectedRange.length > 0) {
             [textView.textStorage deleteCharactersInRange:selectedRange];
@@ -426,7 +431,7 @@
 
     if ([text isEqualToString:@"\n"]) {
         if (_delegate && [_delegate respondsToSelector:@selector(inputBar:didSendText:)]) {
-            NSString *sp = [[textView.textStorage getPlainString] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            NSString *sp = [[textView.textStorage tui_getPlainString] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
             if (sp.length == 0) {
                 UIAlertController *ac = [UIAlertController alertControllerWithTitle:TIMCommonLocalizableString(TUIKitInputBlankMessageTitle)
                                                                             message:nil
@@ -434,37 +439,34 @@
                 [ac tuitheme_addAction:[UIAlertAction actionWithTitle:TIMCommonLocalizableString(Confirm) style:UIAlertActionStyleDefault handler:nil]];
                 [self.mm_viewController presentViewController:ac animated:YES completion:nil];
             } else {
-                [_delegate inputBar:self didSendText:[textView.textStorage getPlainString]];
+                [_delegate inputBar:self didSendText:[textView.textStorage tui_getPlainString]];
                 [self clearInput];
             }
         }
         return NO;
     } else if ([text isEqualToString:@""]) {
         if (textView.textStorage.length > range.location) {
-            // 一次性删除 @xxx 这种 @ 消息
             // Delete the @ message like @xxx at one time
             NSAttributedString *lastAttributedStr = [textView.textStorage attributedSubstringFromRange:NSMakeRange(range.location, 1)];
-            NSString *lastStr = [lastAttributedStr getPlainString];
+            NSString *lastStr = [lastAttributedStr tui_getPlainString];
             if (lastStr && lastStr.length > 0 && [lastStr characterAtIndex:0] == ' ') {
                 NSUInteger location = range.location;
                 NSUInteger length = range.length;
 
-                // '@' 对应的ascii码 '@'
                 // corresponds to ascii code
                 int at = 64;
-                // 空格(space) 对应的ascii码
+                // (space) ascii
                 // Space (space) corresponding ascii code
                 int space = 32;
 
                 while (location != 0) {
                     location--;
                     length++;
-                    // 将字符转成ascii码，复制给int,避免越界
                     // Convert characters to ascii code, copy to int, avoid out of bounds
-                    int c = (int)[[[textView.textStorage attributedSubstringFromRange:NSMakeRange(location, 1)] getPlainString] characterAtIndex:0];
+                    int c = (int)[[[textView.textStorage attributedSubstringFromRange:NSMakeRange(location, 1)] tui_getPlainString] characterAtIndex:0];
 
                     if (c == at) {
-                        NSString *atText = [[textView.textStorage attributedSubstringFromRange:NSMakeRange(location, length)] getPlainString];
+                        NSString *atText = [[textView.textStorage attributedSubstringFromRange:NSMakeRange(location, length)] tui_getPlainString];
                         UIFont *textFont = kTUIInputNoramlFont;
                         NSAttributedString *spaceString = [[NSAttributedString alloc] initWithString:@"" attributes:@{NSFontAttributeName : textFont}];
                         [textView.textStorage replaceCharactersInRange:NSMakeRange(location, length) withAttributedString:spaceString];
@@ -473,7 +475,6 @@
                         }
                         return NO;
                     } else if (c == space) {
-                        // 避免出现 "@昵称 你好，很高兴认识 你(space)  "" 在空格后按del 过度删除到@
                         // Avoid "@nickname Hello, nice to meet you (space) "" Press del after a space to over-delete to @
                         break;
                     }
@@ -481,7 +482,6 @@
             }
         }
     }
-    // 监听 @ 字符的输入，包含全角/半角
     // Monitor the input of @ character, including full-width/half-width
     else if ([text isEqualToString:@"@"] || [text isEqualToString:@"＠"]) {
         if (self.delegate && [self.delegate respondsToSelector:@selector(inputBarDidInputAt:)]) {
@@ -504,7 +504,7 @@
 }
 
 - (NSString *)getInput {
-    return [_inputTextView.textStorage getPlainString];
+    return [_inputTextView.textStorage tui_getPlainString];
 }
 
 - (void)addEmoji:(TUIFaceCellData *)emoji {
@@ -517,9 +517,9 @@
     // Set tag and image
     emojiTextAttachment.emojiTag = localizableFaceName;
     emojiTextAttachment.image = [[TUIImageCache sharedInstance] getFaceFromCache:emoji.path];
-
+    
     // Set emoji size
-    emojiTextAttachment.emojiSize = kChatDefaultEmojiSize;
+    emojiTextAttachment.emojiSize = kTIMDefaultEmojiSize;
     NSAttributedString *str = [NSAttributedString attributedStringWithAttachment:emojiTextAttachment];
 
     NSRange selectedRange = _inputTextView.selectedRange;
@@ -644,20 +644,18 @@
 }
 
 - (void)audioRecorder:(TUIAudioRecorder *)recorder didRecordTimeChanged:(NSTimeInterval)time {
-    float maxDuration = 59;
-    NSInteger seconds = maxDuration - time;
+    float uiMaxDuration = MIN(59, [TUIChatConfig defaultConfig].maxAudioRecordDuration);
+    float realMaxDuration = uiMaxDuration + 0.7;
+    NSInteger seconds = uiMaxDuration - time;
     self.recordView.timeLabel.text = [[NSString alloc] initWithFormat:@"%ld\"", (long)seconds + 1];
-    if (time >= 55 && time <= maxDuration) {
-        NSInteger seconds = maxDuration - time;
+    if (time >= (uiMaxDuration - 4) && time <= uiMaxDuration) {
+        NSInteger seconds = uiMaxDuration - time;
         /**
-         * 此处强转了 long 型，是为了消除编译器警告。
-         * 此处 +1 是为了向上取整，优化时间逻辑。
-         *
          * The long type is cast here to eliminate compiler warnings.
          * Here +1 is to round up and optimize the time logic.
          */
         self.recordView.title.text = [NSString stringWithFormat:TIMCommonLocalizableString(TUIKitInputWillFinishRecordInSeconds), (long)seconds + 1];
-    } else if (time > maxDuration) {
+    } else if (time > realMaxDuration) {
         [self.recorder stop];
         NSString *path = self.recorder.recordedFilePath;
         [self.recordView setStatus:Record_Status_TooLong];

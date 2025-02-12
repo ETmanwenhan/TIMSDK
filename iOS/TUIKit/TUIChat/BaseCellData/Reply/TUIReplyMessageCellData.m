@@ -7,14 +7,13 @@
 //
 
 /**
-    消息的自定义字段 cloudMessageData 的协议格式
     The protocol format of the custom field cloudMessageData of the message
 
      {
      "messageReply":{
          "messageID": "xxxx0xxx=xx",
-         "messageAbstract":"原始消息摘要..."
-         "messageSender":"小哥哥/99618",
+         "messageAbstract":"origin message abstract..."
+         "messageSender":"NickName/99618",
          "messageType": "1/2/..",
          "version":"1",
        }
@@ -39,10 +38,21 @@
 #import "TUIVideoReplyQuoteViewData.h"
 #import "TUIVoiceReplyQuoteViewData.h"
 
-#define kReplyQuoteViewMaxWidth 175
-#define kReplyQuoteViewMarginWidth 35
-
 @implementation TUIReplyMessageCellData
+{
+    NSString *_sender;
+}
+
+- (void)setSender:(NSString *)sender {
+    _sender = sender;
+}
+
+- (NSString *__nullable)sender {
+    if (self.originMessage) {
+        return self.originMessage.nameCard ? : (self.originMessage.friendRemark ? : (self.originMessage.nickName ? : self.originMessage.sender));
+    }
+    return _sender;
+}
 
 + (TUIMessageCellData *)getCellData:(V2TIMMessage *)message {
     if (message.cloudCustomData == nil) {
@@ -87,18 +97,17 @@
 
 - (CGSize)quotePlaceholderSizeWithType:(V2TIMElemType)type data:(TUIReplyQuoteViewData *)data {
     if (data == nil) {
-        return CGSizeMake(kReplyQuoteViewMaxWidth - 12, 60);
+        return CGSizeMake(20, 20);
     }
 
-    return [data contentSize:kReplyQuoteViewMaxWidth - 12];
+    return [data contentSize:TReplyQuoteView_Max_Width - 12];
 }
 
 - (TUIReplyQuoteViewData *)getQuoteData:(TUIMessageCellData *)originCellData {
     TUIReplyQuoteViewData *quoteData = nil;
     Class class = [originCellData getReplyQuoteViewDataClass];
-
     BOOL hasRiskContent = originCellData.innerMessage.hasRiskContent;
-    if (hasRiskContent){
+    if (hasRiskContent && [TIMConfig isClassicEntrance]){
         // Return text reply data in default
         TUITextReplyQuoteViewData *myData = [[TUITextReplyQuoteViewData alloc] init];
         myData.text = [TUIReplyPreviewData displayAbstract:self.originMsgType abstract:self.msgAbstract withFileName:NO isRisk:hasRiskContent];
@@ -111,7 +120,7 @@
 
     }
     if (quoteData == nil) {
-        // 默认创建文本类型
+        // 
         // Return text reply data in default
         TUITextReplyQuoteViewData *myData = [[TUITextReplyQuoteViewData alloc] init];
         myData.text = [TUIReplyPreviewData displayAbstract:self.originMsgType abstract:self.msgAbstract withFileName:NO isRisk:hasRiskContent];
@@ -145,7 +154,6 @@
                                                   if (obj && [obj isKindOfClass:NSDictionary.class]) {
                                                       NSDictionary *reply = (NSDictionary *)obj;
                                                       if ([reply isKindOfClass:NSDictionary.class]) {
-                                                          // 该消息是「引用消息」
                                                           // This message is 「quote message」which indicating the original message
                                                           replyData = [[TUIReferenceMessageCellData alloc]
                                                               initWithDirection:(message.isSelf ? MsgDirectionOutgoing : MsgDirectionIncoming)];
@@ -154,7 +162,7 @@
                                                           replyData.msgAbstract = reply[@"messageAbstract"];
                                                           replyData.sender = reply[@"messageSender"];
                                                           replyData.originMsgType = (V2TIMElemType)[reply[@"messageType"] integerValue];
-                                                          replyData.content = message.textElem.text;  // 目前只支持文本回复
+                                                          replyData.content = message.textElem.text;  // text only
                                                       }
                                                   }
                                               }

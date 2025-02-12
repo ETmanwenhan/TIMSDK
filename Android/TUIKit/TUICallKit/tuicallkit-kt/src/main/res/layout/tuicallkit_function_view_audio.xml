@@ -3,8 +3,11 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_centerHorizontal="true"
     android:layout_marginTop="20dp"
-    android:layout_marginBottom="74dp">
+    android:layout_marginBottom="74dp"
+    android:adjustViewBounds="true"
+    android:maxWidth="480dp">
 
     <LinearLayout
         android:id="@+id/ll_mute"
@@ -87,7 +90,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:gravity="center"
-            android:text="@string/tuicallkit_toast_use_handset"
+            android:text="@string/tuicallkit_toast_use_earpiece"
             android:textColor="@color/tuicallkit_color_white"
             android:textSize="@dimen/tuicallkit_text_size_hint" />
     </LinearLayout>
