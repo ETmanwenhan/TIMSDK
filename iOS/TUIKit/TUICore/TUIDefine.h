@@ -448,7 +448,7 @@ static inline NSBundle *getTUIGetLocalizable(NSString *bundleName) {
 #define TRichTextMessageCell_Height_Default (100)
 
 // text view
-#define TTextView_Height (52)
+#define TTextView_Height (40)
 #define TTextView_Button_Size CGSizeMake(30, 30)
 #define TTextView_Margin 6
 #define TTextView_TextView_Height_Min (TTextView_Height - 2 * TTextView_Margin)

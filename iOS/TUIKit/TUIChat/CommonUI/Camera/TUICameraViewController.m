@@ -98,6 +98,8 @@
     if (!parent) {
         self.navigationController.navigationBarHidden = self.lastPageBarHidden;
     }
+    self.lastPageBarHidden = self.navigationController.navigationBarHidden;
+    self.navigationController.navigationBarHidden = YES;
 }
 
 #pragma mark - - Input Device
@@ -187,7 +189,11 @@
 #pragma mark - - Session Control
 - (void)startCaptureSession {
     if (!_session.isRunning) {
-        [_session startRunning];
+        //[_session startRunning];
+        dispatch_async(dispatch_get_global_queue(DISPATCH_TARGET_QUEUE_DEFAULT, 0), ^{
+            [_session startRunning];
+        });
+
     }
 }
 
@@ -280,7 +286,8 @@
                                                   UIGraphicsEndImageContext();
                                                   NSData *data = UIImageJPEGRepresentation(convertToUpImage, 0.75);
                                                   [strongSelf.delegate cameraViewController:strongSelf didFinishPickingMediaWithImageData:data];
-                                                  [strongSelf popViewControllerAnimated:YES];
+                                                  //[strongSelf popViewControllerAnimated:YES];
+                                                  [strongSelf dismissViewControllerAnimated:YES completion:nil];
                                                 };
                                                 vc.cancelBlock = ^{
                                                   __strong __typeof(weakSelf) strongSelf = weakSelf;
@@ -292,7 +299,8 @@
 - (void)cancelAction:(TUICameraView *)cameraView {
     [self.delegate cameraViewControllerDidCancel:self];
 
-    [self popViewControllerAnimated:YES];
+    //[self popViewControllerAnimated:YES];
+    [self dismissViewControllerAnimated:YES completion:nil];
 }
 
 - (void)pictureLibAction:(TUICameraView *)cameraView {
@@ -300,7 +308,8 @@
     [self.delegate cameraViewControllerDidPictureLib:self
                                       finishCallback:^{
                                         @strongify(self);
-                                        [self popViewControllerAnimated:NO];
+                                        //[self popViewControllerAnimated:NO];
+                                        [self dismissViewControllerAnimated:NO completion:nil];
                                       }];
 }
 
