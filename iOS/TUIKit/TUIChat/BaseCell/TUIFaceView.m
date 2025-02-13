@@ -64,7 +64,7 @@
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    [self defaultLayout];
+    //[self defaultLayout];
 }
 
 - (void)defaultLayout {
