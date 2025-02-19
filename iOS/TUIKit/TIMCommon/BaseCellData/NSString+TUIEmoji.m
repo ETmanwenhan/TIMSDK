@@ -13,7 +13,7 @@
 
 + (NSString *)getRegex_emoji {
     
-    NSString *regex_emoji = @"\\[[a-zA-Z0-9_\\u4e00-\\u9fa5]+\\]";  // match emoji
+    NSString *regex_emoji = @"\\[[a-zA-Z0-9_\\s\\u4e00-\\u9fa5]+\\]";  // match emoji
 
     return regex_emoji;
 }
